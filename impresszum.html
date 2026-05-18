@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">AMISEARCH - Impresszum</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Poppins', sans-serif; }
+</style>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const lang = localStorage.getItem('lang') || 'hu';
+    if (lang === 'en') {
+      document.documentElement.lang = "en";
+      document.title = "AMISEARCH - Impressum";
+      document.querySelectorAll('[data-hu]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-en');
+      });
+    }
+  });
+</script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-4xl mx-auto px-4 py-20">
+    <a href="/" class="text-[#6C5CE7] hover:underline mb-8 inline-block" data-hu="&larr; Vissza a főoldalra" data-en="&larr; Back to Home">&larr; Vissza a főoldalra</a>
+    <h1 class="text-4xl font-extrabold mb-8" data-hu="Impresszum" data-en="Impressum">Impresszum</h1>
+    <div class="bg-white rounded-2xl p-8 shadow-sm space-y-6">
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="A szolgáltató neve:" data-en="Name of service provider:">A szolgáltató neve:</h2>
+        <p>AMISEARCH</p>
+      </section>
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Üzemeltető:" data-en="Operator:">Üzemeltető:</h2>
+        <p data-hu="magánszemély / egyéni vállalkozó" data-en="private individual / sole proprietor">magánszemély / egyéni vállalkozó</p>
+      </section>
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Székhely:" data-en="Headquarters:">Székhely:</h2>
+        <p data-hu="Magyarország" data-en="Hungary">Magyarország</p>
+      </section>
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Elérhetőségek:" data-en="Contact:">Elérhetőségek:</h2>
+        <p><span data-hu="E-mail:" data-en="Email:">E-mail:</span> <a href="mailto:info@amisearch.org" class="text-[#6C5CE7] hover:underline">info@amisearch.org</a></p>
+        <p><span data-hu="Weboldal:" data-en="Website:">Weboldal:</span> <a href="https://amisearch.org" class="text-[#6C5CE7] hover:underline">https://amisearch.org</a></p>
+      </section>
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="A weboldal célja:" data-en="Purpose of the website:">A weboldal célja:</h2>
+        <p data-hu="AI‑alapú tanulási platform, amely jegyzetfeltöltést, keresést, összefoglalást és oktatási funkciókat biztosít diákok és oktatók számára." data-en="AI-based learning platform providing note upload, search, summarization and educational functions for students and teachers.">AI‑alapú tanulási platform, amely jegyzetfeltöltést, keresést, összefoglalást és oktatási funkciókat biztosít diákok és oktatók számára.</p>
+      </section>
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Felelős tartalomért:" data-en="Responsible for content:">Felelős tartalomért:</h2>
+        <p data-hu="Az üzemeltető mindent megtesz a pontos és naprakész információkért, de a weboldalon található tartalom tájékoztató jellegű." data-en="The operator makes every effort for accurate and up-to-date information, but the content on the website is for informational purposes only.">Az üzemeltető mindent megtesz a pontos és naprakész információkért, de a weboldalon található tartalom tájékoztató jellegű.</p>
+      </section>
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Szerzői jog:" data-en="Copyright:">Szerzői jog:</h2>
+        <p data-hu="A weboldalon található minden tartalom (szöveg, grafika, logó, funkcióleírás) az AMISEARCH tulajdona.<br>A felhasználók által feltöltött jegyzetek szerzői joga a feltöltőt illeti." data-en="All content on the website (text, graphics, logos, feature descriptions) is the property of AMISEARCH.<br>The copyright of notes uploaded by users belongs to the uploader.">A weboldalon található minden tartalom (szöveg, grafika, logó, funkcióleírás) az AMISEARCH tulajdona.<br>A felhasználók által feltöltött jegyzetek szerzői joga a feltöltőt illeti.</p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

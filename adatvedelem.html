@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">AMISEARCH - Adatvédelem</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Poppins', sans-serif; }
+</style>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const lang = localStorage.getItem('lang') || 'hu';
+    if (lang === 'en') {
+      document.documentElement.lang = "en";
+      document.title = "AMISEARCH - Privacy Policy";
+      document.querySelectorAll('[data-hu]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-en');
+      });
+    }
+  });
+</script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-4xl mx-auto px-4 py-20">
+    <a href="/" class="text-[#6C5CE7] hover:underline mb-8 inline-block" data-hu="&larr; Vissza a főoldalra" data-en="&larr; Back to Home">&larr; Vissza a főoldalra</a>
+    <h1 class="text-4xl font-extrabold mb-8" data-hu="Adatvédelmi tájékoztató" data-en="Privacy Policy">Adatvédelmi tájékoztató</h1>
+    <div class="bg-white rounded-2xl p-8 shadow-sm space-y-6">
+      <p class="text-gray-600 italic" data-hu="Hatályos: 2026. január 1." data-en="Effective from: January 1, 2026">Hatályos: 2026. január 1.</p>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Adatkezelő" data-en="Data Controller">Adatkezelő</h2>
+        <p data-hu="AMISEARCH – magánszemély üzemeltető<br>E-mail:" data-en="AMISEARCH – private operator<br>Email:">AMISEARCH – magánszemély üzemeltető<br>E-mail:</p>
+        <p><a href="mailto:info@amisearch.org" class="text-[#6C5CE7] hover:underline">info@amisearch.org</a></p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Kezelt adatok köre" data-en="Scope of processed data">Kezelt adatok köre</h2>
+        <ul class="list-disc pl-5 space-y-1">
+          <li data-hu="név" data-en="name">név</li>
+          <li data-hu="e-mail cím" data-en="email address">e-mail cím</li>
+          <li data-hu="feltöltött dokumentumok" data-en="uploaded documents">feltöltött dokumentumok</li>
+          <li data-hu="rendszerhasználati adatok (analitika)" data-en="system usage data (analytics)">rendszerhasználati adatok (analitika)</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Adatkezelés célja" data-en="Purpose of data processing">Adatkezelés célja</h2>
+        <ul class="list-disc pl-5 space-y-1">
+          <li data-hu="felhasználói fiók létrehozása" data-en="creating user account">felhasználói fiók létrehozása</li>
+          <li data-hu="szolgáltatás működtetése" data-en="operating the service">szolgáltatás működtetése</li>
+          <li data-hu="AI‑funkciók biztosítása" data-en="providing AI functions">AI‑funkciók biztosítása</li>
+          <li data-hu="hibajavítás, fejlesztés" data-en="bug fixing, development">hibajavítás, fejlesztés</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Adatmegőrzés" data-en="Data Retention">Adatmegőrzés</h2>
+        <p data-hu="A felhasználói adatok a fiók törléséig kerülnek megőrzésre." data-en="User data is retained until account deletion.">A felhasználói adatok a fiók törléséig kerülnek megőrzésre.</p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Adattovábbítás" data-en="Data Transfer">Adattovábbítás</h2>
+        <p data-hu="A szolgáltatás Supabase és Netlify infrastruktúrát használ.<br>Az adatok harmadik félnek nem kerülnek átadásra marketing célra." data-en="The service uses Supabase and Netlify infrastructure.<br>Data is not transferred to third parties for marketing purposes.">A szolgáltatás Supabase és Netlify infrastruktúrát használ.<br>Az adatok harmadik félnek nem kerülnek átadásra marketing célra.</p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Felhasználói jogok" data-en="User Rights">Felhasználói jogok</h2>
+        <ul class="list-disc pl-5 space-y-1">
+          <li data-hu="hozzáférés" data-en="access">hozzáférés</li>
+          <li data-hu="törlés" data-en="deletion">törlés</li>
+          <li data-hu="módosítás" data-en="modification">módosítás</li>
+          <li data-hu="tiltakozás" data-en="objection">tiltakozás</li>
+          <li data-hu="adathordozhatóság" data-en="data portability">adathordozhatóság</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Kapcsolat" data-en="Contact">Kapcsolat</h2>
+        <p><a href="mailto:info@amisearch.org" class="text-[#6C5CE7] hover:underline">info@amisearch.org</a></p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">AMISEARCH - Cookie tájékoztató</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Poppins', sans-serif; }
+</style>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const lang = localStorage.getItem('lang') || 'hu';
+    if (lang === 'en') {
+      document.documentElement.lang = "en";
+      document.title = "AMISEARCH - Cookie Policy";
+      document.querySelectorAll('[data-hu]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-en');
+      });
+    }
+  });
+</script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-4xl mx-auto px-4 py-20">
+    <a href="/" class="text-[#6C5CE7] hover:underline mb-8 inline-block" data-hu="&larr; Vissza a főoldalra" data-en="&larr; Back to Home">&larr; Vissza a főoldalra</a>
+    <h1 class="text-4xl font-extrabold mb-8" data-hu="Cookie (Süti) tájékoztató" data-en="Cookie Policy">Cookie (Süti) tájékoztató</h1>
+    <div class="bg-white rounded-2xl p-8 shadow-sm space-y-6">
+      <p class="text-gray-600 italic" data-hu="Hatályos: 2026. január 1." data-en="Effective from: January 1, 2026">Hatályos: 2026. január 1.</p>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Mik azok a cookie‑k?" data-en="What are cookies?">Mik azok a cookie‑k?</h2>
+        <p data-hu="Kis adatfájlok, amelyeket a böngésző tárol a felhasználó eszközén." data-en="Small data files that the browser stores on the user's device.">Kis adatfájlok, amelyeket a böngésző tárol a felhasználó eszközén.</p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Milyen cookie‑kat használunk?" data-en="What cookies do we use?">Milyen cookie‑kat használunk?</h2>
+        <ul class="list-disc pl-5 space-y-1">
+          <li data-hu="<strong>Működéshez szükséges cookie‑k</strong>" data-en="<strong>Strictly necessary cookies</strong>"><strong>Működéshez szükséges cookie‑k</strong></li>
+          <li data-hu="<strong>Analitikai cookie‑k</strong> (pl. látogatottság mérése)" data-en="<strong>Analytical cookies</strong> (e.g., measuring traffic)"><strong>Analitikai cookie‑k</strong> (pl. látogatottság mérése)</li>
+          <li data-hu="<strong>Bejelentkezési cookie‑k</strong> (Supabase Auth)" data-en="<strong>Login cookies</strong> (Supabase Auth)"><strong>Bejelentkezési cookie‑k</strong> (Supabase Auth)</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Harmadik fél cookie‑k" data-en="Third-party cookies">Harmadik fél cookie‑k</h2>
+        <p data-hu="A platform használhat Google Analytics vagy hasonló analitikai szolgáltatást." data-en="The platform may use Google Analytics or similar analytical services.">A platform használhat Google Analytics vagy hasonló analitikai szolgáltatást.</p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold mb-2" data-hu="Cookie‑k kezelése" data-en="Managing cookies">Cookie‑k kezelése</h2>
+        <p data-hu="A felhasználó a böngészőjében bármikor törölheti vagy letilthatja a cookie‑kat." data-en="The user can delete or block cookies in their browser at any time.">A felhasználó a böngészőjében bármikor törölheti vagy letilthatja a cookie‑kat.</p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
