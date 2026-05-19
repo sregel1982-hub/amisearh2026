@@ -1,0 +1,20 @@
+<!-- AUTOMATIKUS URL CSERE - vendég hozzáféréshez -->
+<script>
+(function() {
+    // Eredeti fetch mentése
+    const originalFetch = window.fetch;
+    
+    // Fetch felülírása URL cserevel
+    window.fetch = function(url, options) {
+        if (typeof url === 'string') {
+            // Régi URL-ek → Új publikus URL-ek
+            url = url.replace('/.netlify/functions/chat', '/.netlify/functions/chat-public');
+            url = url.replace('/.netlify/functions/search', '/.netlify/functions/search-public');
+            url = url.replace('/.netlify/functions/notes', '/.netlify/functions/notes-public');
+        }
+        return originalFetch(url, options);
+    };
+    
+    console.log('URL redirect active: chat→chat-public, search→search-public, notes→notes-public');
+})();
+</script>
