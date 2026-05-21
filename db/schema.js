@@ -1,14 +1,17 @@
 import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
 
-// 1) user_profiles
 export const userProfiles = pgTable("user_profiles", {
   id: text("id").primaryKey(),
+  identityId: text("identity_id").unique(),
+  fullName: text("full_name"),
+  username: text("username").unique(),
   email: text("email"),
+  status: text("status").default("student"),
+  plan: text("plan").default("Free"),
   points: integer("points").default(0),
   created_at: timestamp("created_at").defaultNow(),
 });
 
-// 2) uploaded_notes
 export const uploadedNotes = pgTable("uploaded_notes", {
   id: text("id").primaryKey(),
   user_id: text("user_id"),
@@ -17,10 +20,10 @@ export const uploadedNotes = pgTable("uploaded_notes", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
-// 3) site_ratings
 export const siteRatings = pgTable("site_ratings", {
   id: text("id").primaryKey(),
   user_id: text("user_id"),
   rating: integer("rating"),
   created_at: timestamp("created_at").defaultNow(),
 });
+
