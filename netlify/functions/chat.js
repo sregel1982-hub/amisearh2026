@@ -2,7 +2,7 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 
-const ai = new GoogleGenAI({});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export default async function handler(req) {
   if (req.method !== "POST") {
@@ -32,8 +32,6 @@ export default async function handler(req) {
   }
 
   const contents = [];
-
-  // Chat history (max 10)
   if (Array.isArray(history)) {
     for (const msg of history.slice(-10)) {
       if (msg.role === "user" || msg.role === "assistant") {
@@ -45,7 +43,6 @@ export default async function handler(req) {
     }
   }
 
-  // Prompt összeállítása
   let promptText = message;
   if (notes) {
     promptText += "\n\nFeltöltött jegyzet:\n" + notes;
@@ -57,31 +54,15 @@ export default async function handler(req) {
   });
 
   try {
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-3-flash-preview",
-      contents,
-      config: {
-        systemInstruction:
-          "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon. " +
-          "Használd a weben fellelhető online szakkönyveket, előadásokat és a feltöltött jegyzeteket. " +
-          "Segíts a diákoknak megérteni a tananyagot, válaszolj világosan. " +
-          "Ha a felhasználó gondolattérképet kér, mindig készíts egyet a Mermaid.js 'mindmap' szintaxisával. " +
-          "FONTOS SZABÁLYOK a mindmap szintaxishoz: " +
-          "1) Az első sor legyen pontosan 'mindmap'. " +
-          "2) A második sor legyen a gyökér elem pontosan 2 szóközzel behúzva: '  root((Téma neve))'. " +
-          "3) Minden további ág pontosan 2 szóközzel mélyebben legyen az előzőnél. " +
-          "4) NE használj speciális karaktereket: { } [ ] | < >. " +
-          "5) Kerüld az ékezeteket az ágak nevében ha lehet. " +
-          "6) Maximum 3 szint mélységet használj.",
-        tools: [{ googleSearch: {} }]
-      }
+    const model = ai.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon. Segíts a diákoknak megérteni a tananyagot."
     });
 
-    return streamText(stream);
+    const result = await model.generateContentStream({ contents });
+    return streamText(result.stream);
   } catch (error) {
     console.error("Chat AI generation failed:", error);
     return aiUnavailableResponse();
   }
 }
-
-export const config = {};
