@@ -1,14 +1,4 @@
-export interface SupabaseJwtPayload {
-  sub: string;
-  email?: string;
-  exp?: number;
-  aud?: string;
-  role?: string;
-}
-
-export async function getSupabaseUser(
-  req: Request,
-): Promise<{ id: string; email?: string } | null> {
+export async function getSupabaseUser(req) {
   const authHeader = req.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
@@ -35,13 +25,15 @@ export async function getSupabaseUser(
   return getUserFromSupabase(token);
 }
 
-function getEnv(name: string): string | undefined {
-  return Netlify.env.get(name) || process.env[name] || undefined;
+function getEnv(name) {
+  return (
+    (typeof Netlify !== "undefined" && Netlify.env.get(name)) ||
+    process.env[name] ||
+    undefined
+  );
 }
 
-async function getUserFromSupabase(
-  token: string,
-): Promise<{ id: string; email?: string } | null> {
+async function getUserFromSupabase(token) {
   const supabaseUrl = getEnv("SUPABASE_URL");
   const anonKey =
     getEnv("SUPABASE_ANON_KEY") ||
@@ -65,7 +57,7 @@ async function getUserFromSupabase(
     }
 
     const user = await response.json();
-    if (!user?.id) {
+    if (!user || !user.id) {
       return null;
     }
 
@@ -75,7 +67,7 @@ async function getUserFromSupabase(
   }
 }
 
-function base64UrlDecode(str: string): ArrayBuffer {
+function base64UrlDecode(str) {
   let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   while (base64.length % 4 !== 0) {
     base64 += "=";
@@ -88,10 +80,7 @@ function base64UrlDecode(str: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-async function verifyJwt(
-  token: string,
-  secret: string,
-): Promise<SupabaseJwtPayload | null> {
+async function verifyJwt(token, secret) {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
 
@@ -103,7 +92,7 @@ async function verifyJwt(
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["verify"],
+    ["verify"]
   );
 
   const signatureInput = encoder.encode(`${headerB64}.${payloadB64}`);
@@ -113,12 +102,12 @@ async function verifyJwt(
     "HMAC",
     key,
     signature,
-    signatureInput,
+    signatureInput
   );
   if (!valid) return null;
 
   const payloadJson = new TextDecoder().decode(base64UrlDecode(payloadB64));
-  const payload: SupabaseJwtPayload = JSON.parse(payloadJson);
+  const payload = JSON.parse(payloadJson);
 
   if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
