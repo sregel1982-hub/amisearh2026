@@ -1,5 +1,4 @@
-let db;
-if (process.env.NETLIFY) {
+process.env.NETLIFY) {
   const { connect } = await import("@netlify/database");
   const { drizzle } = await import("drizzle-orm/netlify-db");
   const client = connect();
@@ -11,4 +10,3 @@ if (process.env.NETLIFY) {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   db = drizzle(pool);
 }
-export { db };
