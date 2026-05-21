@@ -1,17 +1,19 @@
-import type { Config } from "@netlify/functions";
 import { getSupabaseUser } from "./auth-helper.js";
 import { db } from "../../db/index.js";
 import { uploadedNotes } from "../../db/schema.js";
 import { desc, or, ilike } from "drizzle-orm";
 
-export default async (req: Request) => {
+export default async function handler(req) {
   const user = await getSupabaseUser(req);
 
+  // -------------------------
+  // GET → keresés + listázás
+  // -------------------------
   if (req.method === "GET") {
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" }
       });
     }
 
@@ -19,8 +21,10 @@ export default async (req: Request) => {
     const query = url.searchParams.get("q")?.trim();
 
     let rows;
+
     if (query) {
       const words = query.split(/\s+/).filter((w) => w.length > 1);
+
       if (words.length === 0) {
         rows = await db
           .select()
@@ -30,8 +34,9 @@ export default async (req: Request) => {
       } else {
         const conditions = words.flatMap((word) => [
           ilike(uploadedNotes.originalName, `%${word}%`),
-          ilike(uploadedNotes.textContent, `%${word}%`),
+          ilike(uploadedNotes.textContent, `%${word}%`)
         ]);
+
         rows = await db
           .select()
           .from(uploadedNotes)
@@ -47,42 +52,70 @@ export default async (req: Request) => {
         .limit(100);
     }
 
-    return Response.json(rows);
+    return new Response(JSON.stringify(rows), {
+      headers: { "Content-Type": "application/json" }
+    });
   }
 
+  // -------------------------
+  // POST → új jegyzet metaadat mentése
+  // -------------------------
   if (req.method === "POST") {
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" }
       });
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     const { fileName, originalName, publicUrl, fileSize } = body;
 
     if (!fileName || !originalName || !publicUrl) {
-      return Response.json(
-        { error: "fileName, originalName, and publicUrl are required" },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({
+          error: "fileName, originalName, and publicUrl are required"
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        }
       );
     }
 
-    const [inserted] = await db
+    const insertedRows = await db
       .insert(uploadedNotes)
       .values({
         fileName,
         originalName,
         publicUrl,
         fileSize: fileSize || 0,
-        uploaderIdentityId: user.id,
+        uploaderIdentityId: user.id
       })
       .returning();
 
-    return Response.json(inserted, { status: 201 });
+    const inserted = insertedRows[0];
+
+    return new Response(JSON.stringify(inserted), {
+      status: 201,
+      headers: { "Content-Type": "application/json" }
+    });
   }
 
+  // -------------------------
+  // Minden más HTTP metódus tiltva
+  // -------------------------
   return new Response("Method not allowed", { status: 405 });
-};
+}
 
-export const config: Config = {};
+export const config = {};
+
