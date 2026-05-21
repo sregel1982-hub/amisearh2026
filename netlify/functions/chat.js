@@ -2,7 +2,11 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({
+  apiKey:
+    (typeof Netlify !== "undefined" && Netlify.env.get("GEMINI_API_KEY")) ||
+    process.env.GEMINI_API_KEY
+});
 
 export default async function handler(req) {
   if (req.method !== "POST") {
@@ -54,15 +58,19 @@ export default async function handler(req) {
   });
 
   try {
-    const model = ai.getGenerativeModel({ 
+    const stream = await ai.models.generateContentStream({
       model: "gemini-1.5-flash",
-      systemInstruction: "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon. Segíts a diákoknak megérteni a tananyagot."
+      contents,
+      config: {
+        systemInstruction: "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon. Segíts a diákoknak megérteni a tananyagot."
+      }
     });
 
-    const result = await model.generateContentStream({ contents });
-    return streamText(result.stream);
+    return streamText(stream);
   } catch (error) {
     console.error("Chat AI generation failed:", error);
     return aiUnavailableResponse();
   }
 }
+
+export const config = {};
