@@ -1,12 +1,6 @@
-[build]
+build]
   publish = "."
-
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
-[[redirects]]
-  from = "/*"
+ "/*"
   to = "/index.html"
   status = 200
 
@@ -19,3 +13,4 @@
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Content-Security-Policy = "upgrade-insecure-requests"
+    
