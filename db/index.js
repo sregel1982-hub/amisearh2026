@@ -1,6 +1,5 @@
-import pg from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
+import { connect } from "@netlify/database";
+import { drizzle } from "drizzle-orm/netlify-db";
 
-const { Pool } = pg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool);
+const client = connect();
+export const db = drizzle(client);
