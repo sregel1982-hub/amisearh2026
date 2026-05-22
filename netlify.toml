@@ -3,17 +3,7 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
-  external_node_modules = [
-    "@google/genai",
-    "@supabase/supabase-js",
-    "@anthropic-ai/sdk",
-    "@netlify/database",
-    "drizzle-orm",
-    "pdf-parse",
-    "canvas",
-    "pg-native"
-  ]
+  node_bundler = "nft"
 
 [[redirects]]
   from = "/*"
