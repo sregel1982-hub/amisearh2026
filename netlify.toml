@@ -4,6 +4,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  external_node_modules = ["pdf-parse", "canvas", "pg-native"]
 
 [[redirects]]
   from = "/*"
