@@ -1,4 +1,6 @@
-// ⚠️ TEMPORARY DIAGNOSTIC FUNCTION — törölhető a hibakeresés után
+// ⚠️ TEMPORARY DIAGNOSTIC FUNCTION — v2 — törölhető a hibakeresés után
+
+import { GoogleGenAI } from "@google/genai";
 
 function envGet(name) {
   if (typeof Netlify !== "undefined" && Netlify.env && Netlify.env.get) {
@@ -18,70 +20,49 @@ export default async function handler(req) {
     GEMINI_API_KEY: !!envGet("GEMINI_API_KEY"),
     GEMINI_API_KEY_PREFIX: maskValue(envGet("GEMINI_API_KEY")),
     SUPABASE_URL: envGet("SUPABASE_URL") || null,
-    SUPABASE_ANON_KEY: !!envGet("SUPABASE_ANON_KEY"),
-    SUPABASE_ANON_KEY_PREFIX: maskValue(envGet("SUPABASE_ANON_KEY")),
-    SUPABASE_SERVICE_ROLE_KEY: !!envGet("SUPABASE_SERVICE_ROLE_KEY"),
-    SERVICE_ROLE_KEY: !!envGet("SERVICE_ROLE_KEY"),
-    SUPABASE_JWT_SECRET: !!envGet("SUPABASE_JWT_SECRET"),
-    NETLIFY_DB_URL: !!envGet("NETLIFY_DB_URL"),
     NODE_VERSION: process.version
   };
 
-  let authResult = null;
-  const authHeader = req.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.slice(7).trim();
-    const supabaseUrl = envGet("SUPABASE_URL");
-    const anonKey = envGet("SUPABASE_ANON_KEY");
+  // Gemini API teszt — több modellt is kipróbálunk
+  const geminiKey = envGet("GEMINI_API_KEY");
+  const geminiResults = {};
 
-    if (!supabaseUrl || !anonKey) {
-      authResult = { error: "SUPABASE_URL vagy SUPABASE_ANON_KEY hiányzik" };
-    } else {
-      let tokenInfo = null;
-      try {
-        const parts = token.split(".");
-        if (parts.length === 3) {
-          const payload = JSON.parse(
-            Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString()
-          );
-          tokenInfo = {
-            iss: payload.iss,
-            aud: payload.aud,
-            sub: payload.sub,
-            email: payload.email,
-            exp: payload.exp,
-            expiresIn: payload.exp ? `${payload.exp - Math.floor(Date.now() / 1000)} sec` : null,
-            isExpired: payload.exp ? payload.exp < Math.floor(Date.now() / 1000) : null
+  if (!geminiKey) {
+    geminiResults.error = "GEMINI_API_KEY nincs beállítva";
+  } else {
+    const models = [
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash"
+    ];
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      
+      for (const model of models) {
+        try {
+          const resp = await ai.models.generateContent({
+            model,
+            contents: [{ role: "user", parts: [{ text: "Mondj egy szót magyarul." }] }]
+          });
+          const text = resp?.text || resp?.candidates?.[0]?.content?.parts?.[0]?.text || "(no text)";
+          geminiResults[model] = { ok: true, response: text.substring(0, 100) };
+        } catch (e) {
+          geminiResults[model] = { 
+            ok: false, 
+            error: e.message?.substring(0, 300),
+            status: e.status,
+            code: e.code
           };
         }
-      } catch (e) {
-        tokenInfo = { decodeError: e.message };
       }
-
-      try {
-        const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
-          headers: {
-            apikey: anonKey,
-            Authorization: `Bearer ${token}`
-          }
-        });
-        const body = await r.text();
-        authResult = {
-          tokenInfo,
-          supabaseStatus: r.status,
-          supabaseOk: r.ok,
-          supabaseBody: body.substring(0, 300)
-        };
-      } catch (e) {
-        authResult = { tokenInfo, fetchError: e.message };
-      }
+    } catch (e) {
+      geminiResults.initError = e.message?.substring(0, 300);
     }
-  } else {
-    authResult = { note: "Nincs Authorization header" };
   }
 
   return new Response(
-    JSON.stringify({ envCheck, authResult }, null, 2),
+    JSON.stringify({ envCheck, geminiResults }, null, 2),
     { headers: { "Content-Type": "application/json" } }
   );
 }
