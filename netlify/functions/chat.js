@@ -71,12 +71,6 @@ export default async function handler(req) {
     console.error("Chat AI generation failed:", error);
     return aiUnavailableResponse();
   }
+}
 
-
-
-
-
-  
-
-  
-
+export const config = {};
