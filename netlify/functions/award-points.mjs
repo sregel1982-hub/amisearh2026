@@ -1,7 +1,15 @@
 import { getSupabaseUser } from "./auth-helper.js";
 import { db } from "../../db/index.js";
 import { userProfiles } from "../../db/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+
+const POINTS_PER_REASON = {
+  document_upload: 20,
+  corrected_note: 20,
+  five_star_rating: 50
+};
+
+const PRO_THRESHOLD = 500;
 
 export default async function handler(req) {
   if (req.method !== "POST") {
@@ -27,36 +35,67 @@ export default async function handler(req) {
   }
 
   const { reason } = body;
+  const pointsToAdd = POINTS_PER_REASON[reason];
 
-  if (!reason || !["document_upload", "corrected_note"].includes(reason)) {
+  if (!pointsToAdd) {
     return new Response(JSON.stringify({ error: "Invalid reason" }), {
       status: 400,
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  const pointsToAdd = 20;
+  // Profil automatikus létrehozása, ha még nincs
+  let existing = await db
+    .select()
+    .from(userProfiles)
+    .where(eq(userProfiles.identityId, user.id));
+
+  if (existing.length === 0) {
+    const inserted = await db
+      .insert(userProfiles)
+      .values({
+        identityId: user.id,
+        fullName: user.email || "User",
+        username: (user.email && user.email.split("@")[0]) || ("user_" + Date.now()),
+        email: user.email || "",
+        status: "student",
+        points: 0,
+        plan: "Free"
+      })
+      .returning();
+    existing = inserted;
+  }
+
+  const currentProfile = existing[0];
+  const newPoints = (currentProfile.points || 0) + pointsToAdd;
+  let finalPoints = newPoints;
+  let finalPlan = currentProfile.plan || "Free";
+
+  // 500 pont elérése: nullázás + Pro plan
+  let upgraded = false;
+  if (newPoints >= PRO_THRESHOLD) {
+    finalPoints = 0;
+    finalPlan = "Pro";
+    upgraded = true;
+  }
 
   const updatedRows = await db
     .update(userProfiles)
-    .set({
-      points: sql`${userProfiles.points} + ${pointsToAdd}`
-    })
+    .set({ points: finalPoints, plan: finalPlan })
     .where(eq(userProfiles.identityId, user.id))
     .returning();
 
   const updated = updatedRows[0];
 
-  if (!updated) {
-    return new Response(JSON.stringify({ error: "Profile not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  return new Response(JSON.stringify({ points: updated.points }), {
-    headers: { "Content-Type": "application/json" }
-  });
+  return new Response(
+    JSON.stringify({
+      points: updated.points,
+      plan: updated.plan,
+      upgraded
+    }),
+    { headers: { "Content-Type": "application/json" } }
+  );
 }
 
 export const config = {};
+  
