@@ -6,9 +6,6 @@ import { desc, or, ilike } from "drizzle-orm";
 export default async function handler(req) {
   const user = await getSupabaseUser(req);
 
-  // -------------------------
-  // GET → keresés + listázás
-  // -------------------------
   if (req.method === "GET") {
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -34,6 +31,7 @@ export default async function handler(req) {
       } else {
         const conditions = words.flatMap((word) => [
           ilike(uploadedNotes.originalName, `%${word}%`),
+          ilike(uploadedNotes.fileName, `%${word}%`),
           ilike(uploadedNotes.textContent, `%${word}%`)
         ]);
 
@@ -57,9 +55,6 @@ export default async function handler(req) {
     });
   }
 
-  // -------------------------
-  // POST → új jegyzet metaadat mentése
-  // -------------------------
   if (req.method === "POST") {
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -111,9 +106,6 @@ export default async function handler(req) {
     });
   }
 
-  // -------------------------
-  // Minden más HTTP metódus tiltva
-  // -------------------------
   return new Response("Method not allowed", { status: 405 });
 }
 
