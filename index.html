@@ -1716,6 +1716,28 @@
     return html;
   }
 
+  window.extractMindMapTopic = function(rawCode) {
+    if (!rawCode) return 'Gondolattérkép';
+    const patterns = [
+      /root\s*\(\(\s*"?([^")\n]+?)"?\s*\)\)/i,
+      /root\s*\(\s*"?([^")\n]+?)"?\s*\)/i,
+      /root\s*\[\s*"?([^"\]\n]+?)"?\s*\]/i
+    ];
+    for (const p of patterns) {
+      const m = rawCode.match(p);
+      if (m && m[1]) return m[1].trim();
+    }
+    return 'Gondolattérkép';
+  };
+
+  window.sanitizeFilename = function(name) {
+    return (name || 'Gondolatterkep')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .substring(0, 80);
+  };
+
   window.downloadMindMapPdf = async function(btn) {
     const wrapper = btn.closest('div').previousElementSibling || btn.parentElement.parentElement.querySelector('.mermaid-render');
     if (!wrapper) return;
