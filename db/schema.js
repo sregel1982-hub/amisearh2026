@@ -1,29 +1,31 @@
-import { pgTable, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
 
 export const userProfiles = pgTable("user_profiles", {
-  id: text("id").primaryKey(),
-  identityId: text("identity_id").unique(),
-  fullName: text("full_name"),
-  username: text("username").unique(),
-  email: text("email"),
-  status: text("status").default("student"),
-  plan: text("plan").default("Free"),
-  points: integer("points").default(0),
-  created_at: timestamp("created_at").defaultNow(),
+  id: serial("id").primaryKey(),
+  identityId: text("identity_id").unique().notNull(),
+  fullName: text("full_name").notNull(),
+  username: text("username").unique().notNull(),
+  status: text("status").default("student").notNull(),
+  email: text("email").notNull(),
+  points: integer("points").default(0).notNull(),
+  plan: text("plan").default("Free").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const uploadedNotes = pgTable("uploaded_notes", {
-  id: text("id").primaryKey(),
-  user_id: text("user_id"),
-  file_name: text("file_name"),
-  text_content: text("text_content"),
-  created_at: timestamp("created_at").defaultNow(),
+  id: serial("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  originalName: text("original_name").notNull(),
+  publicUrl: text("public_url").notNull(),
+  fileSize: integer("file_size").default(0).notNull(),
+  uploaderIdentityId: text("uploader_identity_id"),
+  textContent: text("text_content"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const siteRatings = pgTable("site_ratings", {
-  id: text("id").primaryKey(),
-  user_id: text("user_id"),
-  rating: integer("rating"),
-  created_at: timestamp("created_at").defaultNow(),
+  id: serial("id").primaryKey(),
+  rating: integer("rating").notNull(),
+  ipHash: text("ip_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
-
