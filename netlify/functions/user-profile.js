@@ -45,11 +45,10 @@ export default async function handler(req) {
       const inserted = await db
         .insert(userProfiles)
         .values({
-          id: crypto.randomUUID(),
           identityId: user.id,
-          fullName,
-          username,
-          email,
+          fullName: fullName || (user.email || "User"),
+          username: username || (user.email?.split("@")[0] || "user_" + Date.now()),
+          email: email || user.email || "",
           status: status || "student",
           points: 0,
           plan: "Free"
@@ -61,3 +60,4 @@ export default async function handler(req) {
   return new Response("Method not allowed", { status: 405 });
 }
 
+export const config = {};
