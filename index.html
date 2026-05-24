@@ -1924,9 +1924,16 @@
         body: JSON.stringify({ rating }),
       });
       const data = await res.json();
+      // 5-csillag egyszeri bónusz (50 pont)
+      if (rating === 5 && !localStorage.getItem('fiveStarBonusGiven') && window.currentUser) {
+        try {
+          await window.awardPoints('five_star_rating');
+          localStorage.setItem('fiveStarBonusGiven', 'true');
+        } catch (e) { /* csendes */ }
+      }
       const avg = data.average ? data.average.toFixed(1) : '0';
       resultEl.innerHTML = (window.currentLang === 'hu'
-        ? '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Köszönjük! Átlag: <strong>' + avg + '</strong>/5 (' + data.total + ' értékelés)'
+        ? '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Köszönjük! Átlag:
         : '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Thank you! Average: <strong>' + avg + '</strong>/5 (' + data.total + ' ratings)');
     } catch (e) {
       resultEl.textContent = window.currentLang === 'hu' ? 'Hiba történt.' : 'An error occurred.';
