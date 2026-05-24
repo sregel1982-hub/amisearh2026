@@ -1933,7 +1933,7 @@
       }
       const avg = data.average ? data.average.toFixed(1) : '0';
       resultEl.innerHTML = (window.currentLang === 'hu'
-        ? '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Köszönjük! Átlag:
+        ? '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Köszönjük! Átlag:<strong>' + avg + '</strong>/5 (' + data.total + ' értékelés)'
         : '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Thank you! Average: <strong>' + avg + '</strong>/5 (' + data.total + ' ratings)');
     } catch (e) {
       resultEl.textContent = window.currentLang === 'hu' ? 'Hiba történt.' : 'An error occurred.';
