@@ -1675,6 +1675,21 @@
       const leadingSpaces = line.search(/\S/);
       const level = Math.max(1, Math.round(leadingSpaces / 2));
       let text = trimmed.replace(/[{}|<>]/g, '').replace(/\[/g, '(').replace(/\]/g, ')');
+      
+      // Idézőjelekbe tesszük az ékezetes szöveget, hogy a mermaid helyesen rendereli
+      const hasNonAscii = /[^-\x7F]/.test(text);
+      if (hasNonAscii) {
+        const rootDouble = text.match(/^root\(\(\s*"?([^")]+?)"?\s*\)\)$/i);
+        const rootSingle = text.match(/^root\(\s*"?([^")]+?)"?\s*\)$/i);
+        if (rootDouble) {
+          text = 'root(("' + rootDouble[1].replace(/"/g, '') + '"))';
+        } else if (rootSingle) {
+          text = 'root("' + rootSingle[1].replace(/"/g, '') + '")';
+        } else if (!text.startsWith('"')) {
+          text = '"' + text.replace(/"/g, '') + '"';
+        }
+      }
+      
       result.push('  '.repeat(level) + text);
     }
     return result.join('\n');
