@@ -1850,6 +1850,8 @@
           mermaidDiv.className = 'mermaid-render';
           wrapper.appendChild(mermaidDiv);
           parent.replaceWith(wrapper);
+          Keresd ezt PONTOSAN (egy 16 soros blokk, csak 1 találat lesz):
+
           try {
             const id = 'mm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
             const sanitized = sanitizeMermaidCode(raw);
@@ -1860,6 +1862,26 @@
             toolbar.innerHTML = '<button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
             wrapper.appendChild(toolbar);
           } catch (e) {
+            mermaidDiv.innerHTML = renderMindMapFallback(raw);
+            const toolbar = document.createElement('div');
+            toolbar.className = 'flex gap-2 mt-2 justify-end';
+            toolbar.innerHTML = '<button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+            wrapper.appendChild(toolbar);
+          }
+Cseréld le erre (2 új sor van benne — a wrapper.dataset.topic sorok):
+
+          try {
+            const id = 'mm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+            const sanitized = sanitizeMermaidCode(raw);
+            wrapper.dataset.topic = window.extractMindMapTopic(raw);
+            const { svg } = await mermaid.render(id, sanitized);
+            mermaidDiv.innerHTML = svg;
+            const toolbar = document.createElement('div');
+            toolbar.className = 'flex gap-2 mt-2 justify-end';
+            toolbar.innerHTML = '<button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+            wrapper.appendChild(toolbar);
+          } catch (e) {
+            wrapper.dataset.topic = window.extractMindMapTopic(raw);
             mermaidDiv.innerHTML = renderMindMapFallback(raw);
             const toolbar = document.createElement('div');
             toolbar.className = 'flex gap-2 mt-2 justify-end';
