@@ -1850,9 +1850,6 @@
           mermaidDiv.className = 'mermaid-render';
           wrapper.appendChild(mermaidDiv);
           parent.replaceWith(wrapper);
-          parent.replaceWith(wrapper);
-          try {
-
           try {
             const id = 'mm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
             const sanitized = sanitizeMermaidCode(raw);
