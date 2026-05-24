@@ -1991,6 +1991,8 @@
       if (mobileLoginBtn) mobileLoginBtn.classList.add('hidden');
       if (mobileUserSection) mobileUserSection.classList.remove('hidden');
       //if (landingContent) landingContent.classList.add('hidden');
+      const heroSection = document.getElementById('heroSection');
+      if (heroSection) heroSection.classList.add('hidden');
       if (dashboardSection) dashboardSection.classList.remove('hidden');
       window.loadUserProfile();
     } else {
