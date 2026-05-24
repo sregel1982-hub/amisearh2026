@@ -1751,7 +1751,7 @@
       const pdfW = pdf.internal.pageSize.getWidth() - 20;
       const pdfH = (canvas.height * pdfW) / canvas.width;
       pdf.addImage(imgData, 'PNG', 10, 10, pdfW, pdfH);
-      pdf.save('gondolatterkep.pdf');
+      pdf.save(window.sanitizeFilename((btn.closest('div')?.parentElement?.dataset?.topic) || 'Gondolatterkep') + '-gondolatterkep.pdf');
     } catch (e) {
       console.error('PDF export error:', e);
     } finally {
