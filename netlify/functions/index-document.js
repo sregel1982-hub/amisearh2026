@@ -5,6 +5,13 @@ import { db } from "../../db/index.js";
 import { uploadedNotes } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 
+function envGet(name) {
+  if (typeof Netlify !== "undefined" && Netlify.env && Netlify.env.get) {
+    return Netlify.env.get(name);
+  }
+  return process.env[name];
+}
+
 export default async function handler(req) {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -18,13 +25,10 @@ export default async function handler(req) {
     });
   }
 
-  const supabaseUrl =
-    (typeof Netlify !== "undefined" && Netlify.env.get("SUPABASE_URL")) ||
-    process.env.SUPABASE_URL;
-
+  const supabaseUrl = envGet("SUPABASE_URL");
+  // Fogadjuk mindkét névkonvenciót
   const serviceRoleKey =
-    (typeof Netlify !== "undefined" && Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY")) ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+    envGet("SUPABASE_SERVICE_ROLE_KEY") || envGet("SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) {
     return new Response(JSON.stringify({ error: "Supabase configuration missing" }), {
@@ -68,13 +72,9 @@ export default async function handler(req) {
   let textContent = "";
   const lowerName = fileName.toLowerCase();
 
-  // TXT fájl
   if (lowerName.endsWith(".txt")) {
     textContent = await fileData.text();
-  }
-
-  // PDF fájl (pdf-parse v2 API)
-  else if (lowerName.endsWith(".pdf")) {
+  } else if (lowerName.endsWith(".pdf")) {
     try {
       const data = new Uint8Array(await fileData.arrayBuffer());
       const parser = new PDFParse({ data });
@@ -86,7 +86,6 @@ export default async function handler(req) {
     }
   }
 
-  // Ha sikerült szöveget kinyerni → mentjük az adatbázisba
   if (textContent) {
     await db
       .update(uploadedNotes)
