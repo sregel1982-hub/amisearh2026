@@ -1769,7 +1769,8 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'gondolatterkep.doc';
+    const topic = (btn.closest('div')?.parentElement?.dataset?.topic) || 'Gondolattérkép';
+    a.download = window.sanitizeFilename(topic) + '-gondolatterkep.doc';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
