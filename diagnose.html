@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>AMISEARCH Diagnosztika</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+    pre { background: white; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    h2 { color: #6C5CE7; }
+    button { padding: 10px 20px; background: #6C5CE7; color: white; border: 0; border-radius: 8px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>AMISEARCH Auth Diagnosztika</h2>
+  <p>Ez az oldal kideríti miért nem fogadja el a függvény a tokenedet.</p>
+  <p><b>FONTOS:</b> előtte jelentkezz be a főoldalon (amisearch.org), aztán jöjj VISSZA ide.</p>
+  <button onclick="runDiag()">Diagnózis futtatása</button>
+  <h3>Eredmény:</h3>
+  <pre id="result">(kattints a gombra)</pre>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabase = createClient(
+      'https://rvgzvseejzbzmcqidnzc.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ'
+    );
+
+    window.runDiag = async function() {
+      const res = document.getElementById('result');
+      res.textContent = '⏳ Folyamatban...';
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error || !session) {
+        res.textContent = '❌ Nincs aktív session! Lépj be a https://amisearch.org-on először.\n\nError: ' + (error?.message || 'no session');
+        return;
+      }
+
+      const token = session.access_token;
+      const tokenPrefix = token.substring(0, 30) + '...' + token.substring(token.length - 10);
+      const user = session.user;
+
+      let output = '✅ AKTIV SESSION VAN:\n';
+      output += '   Email: ' + user.email + '\n';
+      output += '   User ID: ' + user.id + '\n';
+      output += '   Token prefix: ' + tokenPrefix + '\n';
+      output += '   Token hossza: ' + token.length + ' karakter\n\n';
+
+      output += '⏳ /.netlify/functions/diag hívása auth headerrel...\n\n';
+      res.textContent = output;
+
+      try {
+        const r = await fetch('/.netlify/functions/diag', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await r.json();
+        output += '✅ Diag válasz (HTTP ' + r.status + '):\n\n';
+        output += JSON.stringify(data.authResult, null, 2);
+      } catch (e) {
+        output += '❌ Fetch hiba: ' + e.message;
+      }
+
+      output += '\n\n⏳ /.netlify/functions/chat hívása (eredeti chat function):\n';
+      try {
+        const r = await fetch('/.netlify/functions/chat', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message: 'teszt' })
+        });
+        output += '   HTTP ' + r.status + '\n';
+        const text = await r.text();
+        output += '   Válasz (első 500 karakter): ' + text.substring(0, 500);
+      } catch (e) {
+        output += '   ❌ Hiba: ' + e.message;
+      }
+
+      res.textContent = output;
+    };
+  </script>
+</body>
+</html>
+
+
+
+
+
+
