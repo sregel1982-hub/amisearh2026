@@ -47,9 +47,18 @@ export default async function handler(req) {
     }
   }
 
+  // Limit notes context (Gemini handles up to 1M tokens, but be sensible)
+  const notesContext = (notes && typeof notes === "string") 
+    ? notes.substring(0, 200000)
+    : "";
+
   let promptText = message;
-  if (notes) {
-    promptText += "\n\nFeltöltött jegyzet:\n" + notes;
+  if (notesContext) {
+    promptText = 
+      "=== FELTÖLTÖTT JEGYZET ===\n" +
+      notesContext +
+      "\n=== JEGYZET VÉGE ===\n\n" +
+      "Felhasználó kérdése: " + message;
   }
 
   contents.push({
@@ -57,12 +66,26 @@ export default async function handler(req) {
     parts: [{ text: promptText }]
   });
 
+  const baseInstruction = 
+    "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon, egyetemistáknak segítesz tanulni. " +
+    "Válaszolj MAGYARUL, érthető magyarázatokkal. " +
+    "Használhatsz LaTeX formulákat a $...$ vagy $$...$$ szintaxissal. " +
+    "Listák, fejezetek és táblázatok markdown-nal. " +
+    "Ha a felhasználó gondolattérképet kér, készíts egyet a Mermaid 'mindmap' szintaxissal " +
+    "(első sor 'mindmap', gyökér root((Téma)), ágak 2 szóköz indent, MAX 3 szint).";
+
+  const notesInstruction = notesContext
+    ? " A felhasználó FELTÖLTÖTT EGY JEGYZETET (lásd '=== FELTÖLTÖTT JEGYZET ===' szekciót a kérdés előtt). " +
+      "ELSŐSORBAN ebből a jegyzetből válaszolj. Idézz vagy hivatkozz konkrét részekre. " +
+      "Ha a kérdésre a jegyzetben nincs válasz, akkor ezt JELEZD, és csak utána egészítsd ki általános tudásoddal."
+    : "";
+
   try {
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents,
       config: {
-        systemInstruction: "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon. Segíts a diákoknak megérteni a tananyagot."
+        systemInstruction: baseInstruction + notesInstruction
       }
     });
 
