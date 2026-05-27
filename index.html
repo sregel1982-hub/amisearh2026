@@ -1638,15 +1638,6 @@
 
                         if (successCount > 0 && window.currentUser) {
 
-
- for (let i = 0; i < successCount; i++) {
-            await window.awardPoints('document_upload');
-          }
-        }
-        
-        uploadTarget.innerHTML = '<i class="fa-solid fa-check-circle text-5xl text-green-500 mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + message + '</p>';
-        await new Promise(r => setTimeout(r, 3000));
-      } catch (err) {
         console.error('Supabase init error:', err);
         uploadTarget.innerHTML = '<i class="fa-solid fa-exclamation-triangle text-5xl text-red-500 mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + (window.currentLang === 'hu' ? 'Hiba történt a rendszer inicializálásakor.' : 'An error occurred during system initialization.') + '</p>';
         await new Promise(r => setTimeout(r, 3000));
