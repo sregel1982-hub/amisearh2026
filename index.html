@@ -1636,16 +1636,22 @@
           message = window.currentLang === 'hu' ? 'Hiba történt a fájlok feltöltésekor.' : 'An error occurred while uploading files.';
         }
 
-                        if (successCount > 0 && window.currentUser) {
+        if (successCount > 0 && window.userProfile) {
           for (let i = 0; i < successCount; i++) {
             await window.awardPoints('document_upload');
           }
         }
+        
+        uploadTarget.innerHTML = '<i class="fa-solid fa-check-circle text-5xl text-green-500 mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + message + '</p>';
+        await new Promise(r => setTimeout(r, 3000));
       } catch (err) {
         console.error('Supabase init error:', err);
         uploadTarget.innerHTML = '<i class="fa-solid fa-exclamation-triangle text-5xl text-red-500 mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + (window.currentLang === 'hu' ? 'Hiba történt a rendszer inicializálásakor.' : 'An error occurred during system initialization.') + '</p>';
         await new Promise(r => setTimeout(r, 3000));
       } finally {
+        uploadTarget.innerHTML = originalContent;
+        window.activeUploadBoxId = 'uploadBox';
+      }
     }
   }
 
@@ -1670,8 +1676,9 @@
       const level = Math.max(1, Math.round(leadingSpaces / 2));
       let text = trimmed.replace(/[{}|<>]/g, '').replace(/\[/g, '(').replace(/\]/g, ')');
       
-      // Idézőjelekbe tesszük az ékezetes szöveget, hogy a mermaid helyesen rendereli
-      const hasNonAscii = /[^-\x7F]/.test(text);
+      // Idézőjelekbe tesszük az ékezetes/nem-ASCII szöveget, hogy a mermaid
+      // helyesen rendelje (különben elnyeli az ékezeteket)
+      const hasNonAscii = /[^\x00-\x7F]/.test(text);
       if (hasNonAscii) {
         const rootDouble = text.match(/^root\(\(\s*"?([^")]+?)"?\s*\)\)$/i);
         const rootSingle = text.match(/^root\(\s*"?([^")]+?)"?\s*\)$/i);
@@ -1770,82 +1777,6 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
-
-  // === AI Chat válasz PDF/Word letöltés ===
-  window.downloadChatAsPdf = async function(btn) {
-    const bubble = btn.closest('[data-chat-bubble]');
-    if (!bubble || !window.jspdf) return;
-    const content = bubble.querySelector('[data-chat-content]');
-    if (!content) return;
-
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>PDF';
-    const clone = content.cloneNode(true);
-    // Eltávolítjuk a streaming cursor-t és belső toolbarokat ami nem kell PDF-be
-    clone.querySelectorAll('.animate-pulse, .chat-download-toolbar, .flex.gap-2.mt-2.justify-end').forEach(el => el.remove());
-
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'background:#fff;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1f2937;max-width:800px;line-height:1.6;font-size:13px;';
-    const title = document.createElement('h1');
-    title.style.cssText = 'color:#6C5CE7;font-size:18px;margin:0 0 16px 0;border-bottom:2px solid #6C5CE7;padding-bottom:8px;';
-    title.textContent = 'AMISEARCH - AI válasz';
-    wrapper.appendChild(title);
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '-9999px';
-    wrapper.style.top = '0';
-
-    try {
-      const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-      const pdfW = pdf.internal.pageSize.getWidth() - 20;
-      const pdfH = pdf.internal.pageSize.getHeight() - 20;
-      const imgH = (canvas.height * pdfW) / canvas.width;
-      let heightLeft = imgH;
-      let position = 10;
-      pdf.addImage(imgData, 'PNG', 10, position, pdfW, imgH);
-      heightLeft -= pdfH;
-      while (heightLeft > 0) {
-        position = heightLeft - imgH + 10;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position, pdfW, imgH);
-        heightLeft -= pdfH;
-      }
-      const filename = (window.sanitizeFilename && window.sanitizeFilename(window.lastChatQuestion || 'AI-valasz')) || 'AI-valasz';
-      pdf.save(filename + '.pdf');
-    } catch (e) {
-      console.error('Chat PDF export error:', e);
-      alert(window.currentLang === 'hu' ? 'Hiba a PDF létrehozásakor.' : 'PDF generation error.');
-    } finally {
-      document.body.removeChild(wrapper);
-      btn.innerHTML = '<i class="fa-solid fa-file-pdf mr-1"></i>PDF';
-    }
-  };
-
-  window.downloadChatAsWord = function(btn) {
-    const bubble = btn.closest('[data-chat-bubble]');
-    if (!bubble) return;
-    const content = bubble.querySelector('[data-chat-content]');
-    if (!content) return;
-    const clone = content.cloneNode(true);
-    clone.querySelectorAll('.animate-pulse, .chat-download-toolbar').forEach(el => el.remove());
-    const htmlContent = clone.innerHTML;
-
-    const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AMISEARCH AI valasz</title><style>body{font-family:Calibri,sans-serif;padding:20px;line-height:1.6;}h1{color:#6C5CE7;border-bottom:2px solid #6C5CE7;padding-bottom:8px;}pre{background:#f3f4f6;padding:12px;border-radius:6px;overflow-x:auto;}code{background:#f3f4f6;padding:2px 4px;border-radius:4px;}table{border-collapse:collapse;}td,th{border:1px solid #d1d5db;padding:6px 10px;}</style></head><body><h1>AMISEARCH - AI v&aacute;lasz</h1>' + htmlContent + '</body></html>';
-
-    const blob = new Blob([htmlDoc], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const filename = (window.sanitizeFilename && window.sanitizeFilename(window.lastChatQuestion || 'AI-valasz')) || 'AI-valasz';
-    a.download = filename + '.doc';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   // Chat file upload handler
   const chatFileInput = document.getElementById('chatFileInput');
