@@ -1555,7 +1555,9 @@
         window.supabaseClient = supabase;
       }
 
-      const safeName = file.name.replace(/[^a-zA-Z0-9áéíóöőúüűÁÉÍÓÖŐÚÜŰ._-]/g, '_');
+      const safeName = file.name
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // ékezetek le
+        .replace(/[^a-zA-Z0-9._-]/g, '_');                  // csak ASCII + . _ -
       const filePath = Date.now() + '_' + safeName;
 
       const { data: stData, error: stErr } = await supabase.storage
@@ -1744,7 +1746,13 @@
         body: JSON.stringify({ query, lang, includeForeign: !!includeForeign })
       });
       if (!resp.ok) {
-        targetEl.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Külső keresés nem érhető el.' : 'External search unavailable.') + '</div>';
+        let errMsg = (lang === 'hu' ? 'Külső keresés nem érhető el.' : 'External search unavailable.');
+        try {
+          const text = await resp.text();
+          errMsg += ' [HTTP ' + resp.status + ']';
+          if (text && text.length < 300) errMsg += ' ' + text.slice(0, 200);
+        } catch {}
+        targetEl.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800"><i class="fa-solid fa-triangle-exclamation mr-2"></i>' + escapeHtml(errMsg) + '</div>';
         return;
       }
       const data = await resp.json();
