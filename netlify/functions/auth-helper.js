@@ -1,117 +1,36 @@
+import { createClient } from "@supabase/supabase-js";
+
+/**
+ * Supabase user lekérése a Bearer token alapján.
+ * A SUPABASE_URL és a SERVICE_ROLE_KEY (vagy SUPABASE_SERVICE_ROLE_KEY)
+ * env változókat használja.
+ */
 export async function getSupabaseUser(req) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
-  }
+  const auth = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!auth || !auth.startsWith("Bearer ")) return null;
+  const token = auth.slice(7).trim();
+  if (!token) return null;
 
-  const token = authHeader.slice(7).trim();
-  const jwtSecret =
-    getEnv("SUPABASE_JWT_SECRET") ||
-    getEnv("SUPABASEJWTSECRET") ||
-    getEnv("SUPABASE_JWT");
+  const supabaseUrl =
+    (typeof Netlify !== "undefined" && Netlify.env.get("SUPABASE_URL")) ||
+    process.env.SUPABASE_URL;
 
-  if (jwtSecret) {
-    try {
-      const payload = await verifyJwt(token, jwtSecret);
-      if (!payload || !payload.sub) {
-        return null;
-      }
-      return { id: payload.sub, email: payload.email };
-    } catch {
-      return null;
-    }
-  }
+  const serviceRoleKey =
+    (typeof Netlify !== "undefined" &&
+      (Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") || Netlify.env.get("SERVICE_ROLE_KEY"))) ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SERVICE_ROLE_KEY;
 
-  return getUserFromSupabase(token);
-}
+  if (!supabaseUrl || !serviceRoleKey) return null;
 
-function getEnv(name) {
-  return (
-    (typeof Netlify !== "undefined" && Netlify.env.get(name)) ||
-    process.env[name] ||
-    undefined
-  );
-}
-
-async function getUserFromSupabase(token) {
-  const supabaseUrl = getEnv("SUPABASE_URL");
-  const anonKey =
-    getEnv("SUPABASE_ANON_KEY") ||
-    getEnv("VITE_SUPABASE_ANON_KEY") ||
-    getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-
-  if (!supabaseUrl || !anonKey) {
-    return null;
-  }
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        apikey: anonKey,
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const user = await response.json();
-    if (!user || !user.id) {
-      return null;
-    }
-
-    return { id: user.id, email: user.email };
-  } catch {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) return null;
+    return data.user;
+  } catch (e) {
+    console.error("getSupabaseUser error:", e);
     return null;
   }
-}
-
-function base64UrlDecode(str) {
-  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (base64.length % 4 !== 0) {
-    base64 += "=";
-  }
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-async function verifyJwt(token, secret) {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-
-  const [headerB64, payloadB64, signatureB64] = parts;
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["verify"]
-  );
-
-  const signatureInput = encoder.encode(`${headerB64}.${payloadB64}`);
-  const signature = base64UrlDecode(signatureB64);
-
-  const valid = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    signature,
-    signatureInput
-  );
-  if (!valid) return null;
-
-  const payloadJson = new TextDecoder().decode(base64UrlDecode(payloadB64));
-  const payload = JSON.parse(payloadJson);
-
-  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-    return null;
-  }
-
-  return payload;
 }
