@@ -34,15 +34,14 @@ export const uploadedNotes = pgTable("uploaded_notes", {
   uploaderIdentityId: text("uploader_identity_id"),
   textContent: text("text_content"),
 
-  /* Új mezők — feltöltési metaadatok és plágium ellenőrzés */
   title: text("title"),
   subject: text("subject"),
   language: text("language"),
   fileHash: text("file_hash"),
   textHash: text("text_hash"),
   shingleSignature: jsonb("shingle_signature"),
-  plagiarismScore: integer("plagiarism_score"),     // 0-100, NULL ha nincs vizsgálva
-  similarNoteIds: jsonb("similar_note_ids"),         // [{id, score}] tömb
+  plagiarismScore: integer("plagiarism_score"),
+  similarNoteIds: jsonb("similar_note_ids"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow()
 });
@@ -51,3 +50,7 @@ export const uploadedNotes = pgTable("uploaded_notes", {
 export const siteRatings = pgTable("site_ratings", {
   id: serial("id").primaryKey(),
   rating: integer("rating").notNull(),
+  ipHash: text("ip_hash"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow()
+});
+
