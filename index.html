@@ -619,7 +619,7 @@
           <span class="text-5xl font-extrabold" data-hu="2 100 Ft" data-en="$7">2 100 Ft</span>
           <span class="text-gray-600 ml-1" data-hu="/hó" data-en="/mo">/hó</span>
         </div>
-        <button onclick="openModal('registerModal')" data-testid="pricing-pro1-btn" class="w-full py-3 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-bold rounded-xl transition mb-8" data-hu="Frissítés Pro-ra" data-en="Upgrade to Pro">Frissítés Pro-ra</button>
+        <button onclick="window.startCheckout('pro_1month')" data-testid="pricing-pro1-btn" class="w-full py-3 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-bold rounded-xl transition mb-8" data-hu="Vásárlás" data-en="Buy Pro">Vásárlás</button>
         <ul class="space-y-3 text-sm">
           <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="100 AI kérdés" data-en="100 AI questions">100 AI kérdés</span></li>
           <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="10 dokumentum feltöltés" data-en="10 document uploads">10 dokumentum feltöltés</span></li>
@@ -639,7 +639,7 @@
           <span class="text-5xl font-extrabold text-white" data-hu="11 000 Ft" data-en="$35">11 000 Ft</span>
           <span class="text-purple-100 ml-1" data-hu="/6 hó" data-en="/6 mo">/6 hó</span>
         </div>
-        <button onclick="openModal('registerModal')" data-testid="pricing-pro6-btn" class="w-full py-3 bg-white hover:bg-gray-100 text-[#6C5CE7] font-bold rounded-xl transition mb-8" data-hu="Frissítés Pro-ra" data-en="Upgrade to Pro">Frissítés Pro-ra</button>
+        <button onclick="window.startCheckout('pro_6month')" data-testid="pricing-pro6-btn" class="w-full py-3 bg-white hover:bg-gray-100 text-[#6C5CE7] font-bold rounded-xl transition mb-8" data-hu="Vásárlás" data-en="Buy Pro">Vásárlás</button>
         <ul class="space-y-3 text-white text-sm">
           <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="1 000 AI kérdés" data-en="1,000 AI questions">1 000 AI kérdés</span></li>
           <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="20 dokumentum feltöltés" data-en="20 document uploads">20 dokumentum feltöltés</span></li>
@@ -913,6 +913,51 @@
               </div>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- ───────────────────────── Saját jegyzeteim ───────────────────────── -->
+      <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8" id="myNotesPanel">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold text-gray-900 flex items-center">
+            <i class="fa-solid fa-folder-open text-[#6C5CE7] mr-2"></i>
+            <span data-hu="Saját jegyzeteim" data-en="My notes">Saját jegyzeteim</span>
+          </h3>
+          <button onclick="window.loadMyNotes()" data-testid="refresh-my-notes-btn" class="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium">
+            <i class="fa-solid fa-arrows-rotate mr-1"></i>
+            <span data-hu="Frissítés" data-en="Refresh">Frissítés</span>
+          </button>
+        </div>
+        <p class="text-sm text-gray-500 mb-4" data-hu="Egy kattintással AI összefoglaló bármelyik jegyzetből." data-en="One-click AI summary from any note.">Egy kattintással AI összefoglaló bármelyik jegyzetből.</p>
+        <div id="myNotesList" class="space-y-2"></div>
+      </div>
+
+      <!-- ───────────────────────── Feladat generátor ───────────────────────── -->
+      <div class="bg-gradient-to-br from-purple-50 to-white rounded-3xl shadow-sm border border-purple-100 p-6 md:p-8 mb-8" id="practicePanel">
+        <h3 class="text-xl font-bold text-gray-900 mb-2 flex items-center">
+          <i class="fa-solid fa-wand-magic-sparkles text-[#6C5CE7] mr-2"></i>
+          <span data-hu="Feladat generátor" data-en="Practice generator">Feladat generátor</span>
+        </h3>
+        <p class="text-sm text-gray-600 mb-5" data-hu="Add meg a témát, és az AI mintafeladatokat készít megoldással. PDF/Word formátumban is letöltheted." data-en="Enter a topic, and AI generates practice problems with solutions. Downloadable as PDF/Word.">Add meg a témát, és az AI mintafeladatokat készít megoldással. PDF/Word formátumban is letöltheted.</p>
+
+        <div class="grid md:grid-cols-3 gap-3 mb-4">
+          <input type="text" id="practiceTopicInput" data-testid="practice-topic-input" placeholder="pl. Deriválás" data-hu-placeholder="pl. Deriválás" data-en-placeholder="e.g. Derivatives" class="md:col-span-1 px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/20 outline-none">
+          <select id="practiceDifficulty" data-testid="practice-difficulty" class="px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none">
+            <option value="könnyű" data-hu="Könnyű" data-en="Easy">Könnyű</option>
+            <option value="közepes" selected data-hu="Közepes" data-en="Medium">Közepes</option>
+            <option value="nehéz" data-hu="Nehéz" data-en="Hard">Nehéz</option>
+          </select>
+          <div class="flex gap-2">
+            <input type="number" id="practiceCountInput" data-testid="practice-count-input" value="3" min="1" max="10" class="w-20 px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none">
+            <button onclick="window.generatePractice()" data-testid="practice-generate-btn" class="flex-1 btn-primary text-white font-semibold rounded-lg px-4 py-2">
+              <i class="fa-solid fa-bolt mr-1"></i>
+              <span data-hu="Generálás" data-en="Generate">Generálás</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="practiceOutput" class="bg-white rounded-2xl border border-gray-100 p-4 min-h-[80px] text-sm">
+          <p class="text-gray-400 italic text-center py-4" data-hu="Itt jelennek meg a generált feladatok…" data-en="Generated problems will appear here…">Itt jelennek meg a generált feladatok…</p>
         </div>
       </div>
 
@@ -1313,6 +1358,8 @@
         const data = await res.json();
         if (data.profile) {
           window.updateDashboardUI(data.profile);
+          // Saját jegyzeteket is betöltjük a dashboard panelbe
+          try { if (typeof window.loadMyNotes === 'function') window.loadMyNotes(); } catch (e) {}
         }
       }
     } catch (e) {
@@ -1823,6 +1870,40 @@
     }
   };
 
+  /* ──────────────────────────────────────────────────────────────
+     LemonSqueezy checkout indítása
+     ────────────────────────────────────────────────────────────── */
+  window.startCheckout = async function(variantKey) {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    if (!window.currentUser) {
+      window.openModal('loginModal');
+      return;
+    }
+    const variant = variantKey || 'pro_1month';
+    try {
+      const resp = await fetch('/.netlify/functions/lemon-checkout?variant=' + encodeURIComponent(variant), {
+        method: 'GET',
+        headers: await window.getAuthHeaders({})
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        let msg = lang === 'hu' ? 'Nem sikerült a fizetési oldal megnyitása. ' : 'Could not open checkout. ';
+        try { const j = JSON.parse(t); msg += j.error || ''; } catch { msg += t.slice(0,200); }
+        alert(msg);
+        return;
+      }
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(lang === 'hu' ? 'A fizetési URL hiányzik.' : 'Checkout URL missing.');
+      }
+    } catch (e) {
+      alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
+    }
+  };
+
+
   window.handleDashboardSearch = async function() {
     const input = document.getElementById('dashSearchInput');
     const resultsContainer = document.getElementById('dashSearchResults');
@@ -2028,6 +2109,273 @@
     URL.revokeObjectURL(url);
   }
 
+  /* ──────────────────────────────────────────────────────────────
+     AI VÁLASZ letöltés PDF / Word formátumban + Másolás
+     ────────────────────────────────────────────────────────────── */
+  function _findAiBubbleFrom(btn) {
+    // The toolbar lives inside the bubble; the answer paragraph is the first child <p>
+    const bubble = btn.closest('.bg-white');
+    if (!bubble) return null;
+    return bubble;
+  }
+
+  function _aiBubbleHtml(bubble) {
+    if (!bubble) return '';
+    const clone = bubble.cloneNode(true);
+    // remove the toolbar from the cloned content
+    const tb = clone.querySelector('[data-ai-dl-toolbar]');
+    if (tb) tb.remove();
+    return clone.innerHTML.trim();
+  }
+
+  function _aiBubbleText(bubble) {
+    if (!bubble) return '';
+    const clone = bubble.cloneNode(true);
+    const tb = clone.querySelector('[data-ai-dl-toolbar]');
+    if (tb) tb.remove();
+    return (clone.innerText || clone.textContent || '').trim();
+  }
+
+  window.downloadAiAnswerPdf = async function(btn) {
+    const bubble = _findAiBubbleFrom(btn);
+    if (!bubble) return;
+    const q = btn.getAttribute('data-q') || 'ai-valasz';
+    const text = _aiBubbleText(bubble);
+    try {
+      const { jsPDF } = window.jspdf || {};
+      if (!jsPDF) { alert('PDF library hiányzik.'); return; }
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const margin = 40;
+      const maxWidth = pdf.internal.pageSize.getWidth() - margin * 2;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('AmiSearh — AI válasz', margin, margin);
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'italic');
+      pdf.text(new Date().toLocaleString(window.currentLang === 'hu' ? 'hu-HU' : 'en-US'), margin, margin + 18);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(12);
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      let y = margin + 44;
+      const lineHeight = 16;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      for (const line of lines) {
+        if (y > pageHeight - margin) { pdf.addPage(); y = margin; }
+        pdf.text(line, margin, y);
+        y += lineHeight;
+      }
+      pdf.save((window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.pdf');
+    } catch (e) {
+      console.error(e);
+      alert('PDF generálás hiba: ' + (e?.message || e));
+    }
+  };
+
+  window.downloadAiAnswerWord = function(btn) {
+    const bubble = _findAiBubbleFrom(btn);
+    if (!bubble) return;
+    const q = btn.getAttribute('data-q') || 'ai-valasz';
+    const html = _aiBubbleHtml(bubble);
+    const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title><style>body{font-family:Calibri,Arial,sans-serif;padding:24px;line-height:1.5;} h1,h2,h3{color:#5A4BD1;} pre,code{background:#f4f4f4;padding:6px;border-radius:4px;} blockquote{border-left:3px solid #6C5CE7;padding-left:12px;color:#555;}</style></head><body><h1>AmiSearh — AI válasz</h1><p><i>' + new Date().toLocaleString() + '</i></p><hr/>' + html + '</body></html>';
+    const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.doc';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  window.copyAiAnswer = function(btn) {
+    const bubble = _findAiBubbleFrom(btn);
+    if (!bubble) return;
+    const text = _aiBubbleText(bubble);
+    try {
+      navigator.clipboard.writeText(text);
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>' + (window.currentLang === 'hu' ? 'Másolva!' : 'Copied!');
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    } catch (e) { /* csendes */ }
+  };
+
+  /* ──────────────────────────────────────────────────────────────
+     SAJÁT JEGYZETEK panel — listáz + 1-kattintásos összefoglaló
+     ────────────────────────────────────────────────────────────── */
+  window.loadMyNotes = async function() {
+    const container = document.getElementById('myNotesList');
+    if (!container) return;
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    container.innerHTML = '<div class="flex items-center gap-2 text-gray-400 text-sm"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Jegyzetek betöltése...' : 'Loading notes...') + '</span></div>';
+    try {
+      const resp = await fetch('/.netlify/functions/notes', {
+        method: 'GET',
+        headers: await window.getAuthHeaders({})
+      });
+      if (!resp.ok) {
+        container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba a lekéréskor.' : 'Failed to load.') + '</div>';
+        return;
+      }
+      const all = await resp.json();
+      const mine = Array.isArray(all)
+        ? all.filter(n => n.uploaderIdentityId === window.currentUser?.id)
+        : [];
+      if (!mine.length) {
+        container.innerHTML = '<div class="text-sm text-gray-500 italic">' + (lang === 'hu' ? 'Még nincs feltöltött jegyzeted.' : 'No notes yet.') + '</div>';
+        return;
+      }
+      let html = '<div class="space-y-2">';
+      for (const n of mine.slice(0, 15)) {
+        const safeTitle = escapeHtml(n.title || n.originalName || ('Note #' + n.id));
+        const subject = n.subject ? '<span class="text-xs text-gray-500 ml-2">' + escapeHtml(n.subject) + '</span>' : '';
+        html += '<div class="flex items-center justify-between gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition">' +
+                '<div class="min-w-0 flex-1"><p class="text-sm font-medium text-gray-900 truncate">' + safeTitle + subject + '</p>' +
+                (n.publicUrl ? '<a href="' + escapeHtml(n.publicUrl) + '" target="_blank" class="text-xs text-[#6C5CE7] hover:underline"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</a>' : '') +
+                '</div>' +
+                '<button onclick="window.summarizeNote(' + n.id + ', this)" data-testid="summarize-note-' + n.id + '" class="text-xs px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize') + '</button>' +
+                '</div>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba történt.' : 'An error occurred.') + '</div>';
+    }
+  };
+
+  window.summarizeNote = async function(noteId, btn) {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>...'; }
+    try {
+      // Lekérjük a jegyzetet
+      const noteResp = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders({}) });
+      const all = await noteResp.json();
+      const note = (Array.isArray(all) ? all : []).find(n => n.id === noteId);
+      if (!note || !note.textContent) {
+        alert(lang === 'hu' ? 'A jegyzet szöveges tartalma még nem indexelt.' : 'Note text is not indexed yet.');
+        return;
+      }
+      // Beletoljuk a chat-be: a chat történet alapján AI összefoglal
+      const dashChatBtn = document.querySelector('[data-testid="open-chat-from-dashboard"]');
+      const chatInput = document.getElementById('chatInput');
+      if (chatInput) {
+        chatInput.value = (lang === 'hu'
+          ? 'Készíts részletes összefoglalót az alábbi jegyzetből (' + (note.title || note.originalName) + '). Strukturált felsorolással, kulcsfogalmakkal és példákkal. Szöveg:\n\n'
+          : 'Create a detailed summary of the following note (' + (note.title || note.originalName) + '). Structured with bullet points, key concepts and examples. Text:\n\n')
+          + note.textContent.slice(0, 8000);
+        // Chat dialog megnyitás ha létezik
+        const chatModal = document.getElementById('aiChatModal') || document.getElementById('aiTutorModal');
+        if (chatModal) window.openModal(chatModal.id);
+        await window.sendMessage();
+      } else {
+        alert(lang === 'hu' ? 'Chat ablak nem található.' : 'Chat panel not found.');
+      }
+    } catch (e) {
+      alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60');
+        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize');
+      }
+    }
+  };
+
+  /* ──────────────────────────────────────────────────────────────
+     FELADAT generátor (deriválás → mintafeladat + megoldás)
+     ────────────────────────────────────────────────────────────── */
+  window.generatePractice = async function() {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const topic = (document.getElementById('practiceTopicInput')?.value || '').trim();
+    const count = parseInt(document.getElementById('practiceCountInput')?.value || '3', 10) || 3;
+    const difficulty = document.getElementById('practiceDifficulty')?.value || 'medium';
+    if (!topic) {
+      alert(lang === 'hu' ? 'Adj meg egy témát!' : 'Please enter a topic!');
+      return;
+    }
+
+    const out = document.getElementById('practiceOutput');
+    if (out) out.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-4"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Feladatok generálása...' : 'Generating problems...') + '</span></div>';
+
+    const prompt = (lang === 'hu')
+      ? 'Generálj ' + count + ' db ' + difficulty + ' nehézségű mintafeladatot a következő témából: "' + topic + '". Minden feladat után add meg a részletes, lépésről-lépésre haladó megoldást is. Használj LaTeX matematikai formázást ($...$ vagy $$...$$). Strukturáld így: ## 1. Feladat ... ### Megoldás ... ## 2. Feladat ...'
+      : 'Generate ' + count + ' ' + difficulty + ' difficulty practice problems on the topic: "' + topic + '". After each problem, provide a detailed step-by-step solution. Use LaTeX math formatting ($...$ or $$...$$). Structure: ## Problem 1 ... ### Solution ... ## Problem 2 ...';
+
+    try {
+      const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ message: prompt, history: [], notes: '' })
+      }, 60000);
+      if (!resp.ok) {
+        const m = await window.getAiErrorMessage(resp, lang);
+        if (out) out.innerHTML = '<div class="text-red-500 text-sm">' + escapeHtml(m) + '</div>';
+        return;
+      }
+      let full = '';
+      if (out) out.innerHTML = '<div class="prose prose-sm max-w-none" id="practiceContent"></div><div id="practiceToolbar" class="flex gap-2 mt-3 pt-3 border-t border-gray-100"></div>';
+      const target = document.getElementById('practiceContent');
+      full = await window.readTextStream(resp, (text) => {
+        full = text;
+        if (target) target.innerHTML = typeof marked !== 'undefined' ? marked.parse(full) : escapeHtml(full);
+      });
+      if (window.renderMathInElement && target) {
+        renderMathInElement(target, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false });
+      }
+      // Toolbar — PDF + Word + Másolás
+      const tb = document.getElementById('practiceToolbar');
+      if (tb) {
+        const safeT = window.sanitizeFilename ? window.sanitizeFilename(topic) : topic.replace(/[^a-zA-Z0-9_-]/g,'_');
+        tb.innerHTML =
+          '<button onclick="window.downloadPracticePdf(\'' + safeT + '\')" class="text-xs px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>' +
+          '<button onclick="window.downloadPracticeWord(\'' + safeT + '\')" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+      }
+    } catch (e) {
+      if (out) out.innerHTML = '<div class="text-red-500 text-sm">' + (lang === 'hu' ? 'Hiba: ' : 'Error: ') + escapeHtml(e?.message || String(e)) + '</div>';
+    }
+  };
+
+  window.downloadPracticePdf = async function(topicName) {
+    const target = document.getElementById('practiceContent');
+    if (!target) return;
+    const text = (target.innerText || target.textContent || '').trim();
+    try {
+      const { jsPDF } = window.jspdf || {};
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const margin = 40;
+      const maxW = pdf.internal.pageSize.getWidth() - margin * 2;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('AmiSearh — ' + topicName + ' — Feladatok', margin, margin);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(12);
+      const lines = pdf.splitTextToSize(text, maxW);
+      let y = margin + 30;
+      const ph = pdf.internal.pageSize.getHeight();
+      for (const l of lines) {
+        if (y > ph - margin) { pdf.addPage(); y = margin; }
+        pdf.text(l, margin, y); y += 16;
+      }
+      pdf.save(topicName + '-feladatok.pdf');
+    } catch (e) { alert('Hiba: ' + e?.message); }
+  };
+
+  window.downloadPracticeWord = function(topicName) {
+    const target = document.getElementById('practiceContent');
+    if (!target) return;
+    const html = target.innerHTML;
+    const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Feladatok</title><style>body{font-family:Calibri,Arial,sans-serif;padding:24px;line-height:1.6;}h1,h2,h3{color:#5A4BD1;}code{background:#f4f4f4;padding:2px 6px;border-radius:4px;}</style></head><body><h1>' + topicName + ' — Feladatok</h1>' + html + '</body></html>';
+    const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = topicName + '-feladatok.doc';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Chat file upload handler
   const chatFileInput = document.getElementById('chatFileInput');
   if (chatFileInput) {
@@ -2090,6 +2438,23 @@
       if (window.renderMathInElement) {
         renderMathInElement(target, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false });
       }
+
+      /* AI válasz letöltése PDF/Word formátumban — minden válasz alá tesszük */
+      try {
+        const bubble = target.parentElement;
+        if (bubble && !bubble.querySelector('[data-ai-dl-toolbar]')) {
+          const toolbar = document.createElement('div');
+          toolbar.dataset.aiDlToolbar = '1';
+          toolbar.className = 'flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap';
+          const safeQ = window.sanitizeFilename ? window.sanitizeFilename(message) : message.replace(/[^a-zA-Z0-9_-]/g,'_');
+          toolbar.innerHTML =
+            '<button onclick="window.downloadAiAnswerPdf(this)" data-q="' + escapeHtml(safeQ).slice(0,80) + '" class="text-xs px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium transition"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>' +
+            '<button onclick="window.downloadAiAnswerWord(this)" data-q="' + escapeHtml(safeQ).slice(0,80) + '" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium transition"><i class="fa-solid fa-file-word mr-1"></i>Word</button>' +
+            '<button onclick="window.copyAiAnswer(this)" class="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition"><i class="fa-regular fa-copy mr-1"></i>' + (window.currentLang === 'hu' ? 'Másolás' : 'Copy') + '</button>';
+          bubble.appendChild(toolbar);
+        }
+      } catch (e) { /* csendes */ }
+
       if (window.mermaid) {
         const mermaidBlocks = target.querySelectorAll('.language-mermaid');
         for (const block of mermaidBlocks) {
@@ -2129,368 +2494,3 @@
   }
 
   document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') window.sendMessage();
-  });
-
-  // --- Search (Supabase notes + AI) ---
-  window.handleSearch = async function() {
-    const input = document.getElementById('searchInput');
-    const results = document.getElementById('searchResults');
-    const icon = document.getElementById('searchIcon');
-    const query = input.value.trim();
-
-    if (!query) return;
-
-    const lang = window.detectSearchLang(query);
-
-    if (!window.currentUser) {
-      results.classList.remove('hidden');
-      results.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center"><i class="fa-solid fa-lock text-3xl mb-2 text-[#6C5CE7]"></i><p class="text-gray-600 mb-3">' + (lang === 'hu' ? 'A kereséshez bejelentkezés szükséges.' : 'Login required to search.') + '</p><button onclick="openModal(\'loginModal\')" class="btn-primary px-6 py-2 text-white rounded-xl font-semibold text-sm">' + (lang === 'hu' ? 'Belépés' : 'Login') + '</button></div>';
-      return;
-    }
-
-    results.classList.remove('hidden');
-    results.innerHTML = '<div id="heroDocResults"><div class="bg-white rounded-3xl p-5 shadow border border-gray-100 flex items-center justify-center"><div class="flex items-center space-x-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Keresés a jegyzetekben...' : 'Searching notes...') + '</span></div></div></div><div id="heroExternalResults" class="mt-4"></div><div id="heroAiResults" class="ai-output bg-white rounded-3xl p-5 shadow border border-gray-100 max-h-[500px] overflow-y-auto text-sm text-gray-700 mt-4"><div class="flex items-center space-x-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'AI válasz generálása...' : 'Generating AI response...') + '</span></div></div>';
-    icon.className = 'fa-solid fa-spinner fa-spin';
-
-    var heroDocResults = document.getElementById('heroDocResults');
-    var heroAiResults = document.getElementById('heroAiResults');
-    var heroExternalResults = document.getElementById('heroExternalResults');
-
-    try {
-      const docs = await window.searchSupabaseDocuments(query);
-      if (docs && docs.length > 0) {
-        heroDocResults.innerHTML = '<div class="text-sm text-gray-500 mb-2">' + (lang === 'hu' ? docs.length + ' találat' : docs.length + ' result(s)') + '</div>' + window.buildDocResultsHtml(docs, lang);
-      } else {
-        heroDocResults.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center text-gray-500"><i class="fa-solid fa-folder-open text-3xl mb-2 text-gray-300"></i><p>' + (lang === 'hu' ? 'Nincs találat a jegyzetekben.' : 'No results found in notes.') + '</p></div>';
-      }
-    } catch (e) {
-      heroDocResults.innerHTML = '<div class="text-red-500 mt-2">' + (lang === 'hu' ? 'Hiba történt a keresés során.' : 'An error occurred during search.') + '</div>';
-    }
-
-    /* Külső akadémiai keresés (OpenAlex + arXiv) */
-    if (heroExternalResults) {
-      heroExternalResults.innerHTML = '<div class="flex items-center space-x-2 text-gray-400 py-2"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Keresés külső forrásokban...' : 'Searching external sources...') + '</span></div>';
-      window.runExternalSearch(query, lang, false, heroExternalResults);
-    }
-
-    try {
-      const response = await window.fetchWithTimeout('/.netlify/functions/search', {
-        method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
-      }, 45000);
-      if (response.ok && response.body) {
-        heroAiResults.innerHTML = '';
-        var aiText = await window.readTextStream(response, function(text) {
-          aiText = text;
-          heroAiResults.innerHTML = typeof marked !== 'undefined' ? marked.parse(aiText) : escapeHtml(aiText);
-        });
-        if (!aiText) {
-          heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
-        }
-      } else {
-        heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + escapeHtml(await window.getAiErrorMessage(response, lang)) + '</div>';
-      }
-    } catch (e) {
-      heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'AI válasz nem érhető el vagy időtúllépés történt.' : 'AI response is unavailable or timed out.') + '</div>';
-    } finally {
-      icon.className = 'fa-solid fa-arrow-right';
-    }
-  }
-
-  document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') window.handleSearch();
-  });
-
-  // --- Star Rating ---
-  window.submitRating = async function(rating) {
-    const stars = document.querySelectorAll('.rating-star');
-    stars.forEach(s => {
-      const star = parseInt(s.getAttribute('data-star'));
-      s.classList.toggle('text-yellow-400', star <= rating);
-      s.classList.toggle('text-gray-300', star > rating);
-    });
-
-    const resultEl = document.getElementById('ratingResult');
-    resultEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>' + (window.currentLang === 'hu' ? 'Küldés...' : 'Submitting...');
-
-    try {
-      const res = await fetch('/.netlify/functions/site-rating', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating }),
-      });
-      const data = await res.json();
-      // 5-csillag egyszeri bónusz (50 pont)
-      if (rating === 5 && !localStorage.getItem('fiveStarBonusGiven') && window.currentUser) {
-        try {
-          await window.awardPoints('five_star_rating');
-          localStorage.setItem('fiveStarBonusGiven', 'true');
-        } catch (e) { /* csendes */ }
-      }
-      const avg = data.average ? data.average.toFixed(1) : '0';
-      resultEl.innerHTML = (window.currentLang === 'hu'
-        ? '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Köszönjük! Átlag:<strong>' + avg + '</strong>/5 (' + data.total + ' értékelés)'
-        : '<i class="fa-solid fa-check-circle text-green-500 mr-1"></i>Thank you! Average: <strong>' + avg + '</strong>/5 (' + data.total + ' ratings)');
-    } catch (e) {
-      resultEl.textContent = window.currentLang === 'hu' ? 'Hiba történt.' : 'An error occurred.';
-    }
-  }
-
-  window.loadRatingAverage = async function() {
-    try {
-      const res = await fetch('/.netlify/functions/site-rating');
-      const data = await res.json();
-      if (data.total > 0) {
-        const resultEl = document.getElementById('ratingResult');
-        const avg = data.average ? data.average.toFixed(1) : '0';
-        resultEl.innerHTML = (window.currentLang === 'hu'
-          ? 'Átlag: <strong>' + avg + '</strong>/5 (' + data.total + ' értékelés)'
-          : 'Average: <strong>' + avg + '</strong>/5 (' + data.total + ' ratings)');
-      }
-    } catch (e) {}
-  }
-  window.addEventListener('DOMContentLoaded', () => window.loadRatingAverage());
-
-  document.querySelectorAll('.search-tag').forEach(tag => {
-    tag.addEventListener('click', () => {
-      const text = tag.textContent;
-      document.getElementById('searchInput').value = text;
-      window.handleSearch();
-    });
-  });
-</script>
-
-<script type="module">
-  // --- Supabase Auth ---
-  window.currentUser = null;
-  window.authReady = false;
-
-  function getSupabase() {
-    return window.supabaseClient;
-  }
-
-  function authServiceMessage() {
-    return window.currentLang === 'hu'
-      ? 'A bejelentkezési szolgáltatás még nem érhető el. Frissítsd az oldalt, majd próbáld újra.'
-      : 'The login service is not ready yet. Refresh the page and try again.';
-  }
-
-  function updateAuthUI(user) {
-    window.currentUser = user || null;
-
-    const loginBtn = document.getElementById('loginBtn');
-    const registerBtn = document.getElementById('registerBtn');
-    const headerDashboard = document.getElementById('headerDashboard');
-    const heroDashboard = document.getElementById('heroDashboard');
-    const mobileLoginBtn = document.getElementById('mobileLoginBtn');
-    const mobileUserSection = document.getElementById('mobileUserSection');
-    const landingContent = document.getElementById('landingContent');
-    const dashboardSection = document.getElementById('dashboardSection');
-
-    if (user) {
-      loginBtn.classList.add('hidden');
-      registerBtn.classList.add('hidden');
-      headerDashboard.classList.remove('hidden');
-      if (mobileLoginBtn) mobileLoginBtn.classList.add('hidden');
-      if (mobileUserSection) mobileUserSection.classList.remove('hidden');
-      //if (landingContent) landingContent.classList.add('hidden');
-      const heroSection = document.getElementById('heroSection');
-      if (heroSection) heroSection.classList.add('hidden');
-      if (dashboardSection) dashboardSection.classList.remove('hidden');
-      window.loadUserProfile();
-    } else {
-      loginBtn.classList.remove('hidden');
-      registerBtn.classList.remove('hidden');
-      headerDashboard.classList.add('hidden');
-      document.getElementById('headerDropdown').classList.add('hidden');
-      if (mobileLoginBtn) mobileLoginBtn.classList.remove('hidden');
-      if (mobileUserSection) mobileUserSection.classList.add('hidden');
-      if (landingContent) landingContent.classList.remove('hidden');
-      const heroSectionShow = document.getElementById('heroSection');
-      if (heroSectionShow) heroSectionShow.classList.remove('hidden');
-      if (dashboardSection) dashboardSection.classList.add('hidden');
-      window.userProfile = null;
-      if (heroDashboard) heroDashboard.classList.add('hidden');
-    }
-  }
-
-  async function waitForSupabase() {
-    if (window.waitForSupabaseClient) {
-      return await window.waitForSupabaseClient(5000);
-    }
-    for (let i = 0; i < 50; i++) {
-      if (window.supabaseClient) return window.supabaseClient;
-      await new Promise(r => setTimeout(r, 100));
-    }
-    return null;
-  }
-
-  async function initAuth() {
-    const supabase = await waitForSupabase();
-    if (!supabase) {
-      console.error('Supabase client not available');
-      window.authReady = true;
-      window.showLoginMsg?.('loginError', authServiceMessage());
-      return;
-    }
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user || null;
-    console.log('Auth init:', user ? user.email : 'no user');
-    updateAuthUI(user);
-    window.authReady = true;
-
-    if (user) {
-      const dash = document.getElementById('dashboardSection');
-      if (dash) dash.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    supabase.auth.onAuthStateChange((event, session) => {
-      const u = session?.user || null;
-      console.log('Auth event:', event, u ? u.email : null);
-      updateAuthUI(u);
-    });
-  }
-
-  initAuth();
-
-  // --- Login ---
-  window.handleLogin = async function(e) {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    const btn = document.getElementById('loginSubmitBtn');
-    window.hideLoginMsgs();
-    btn.disabled = true;
-    btn.textContent = '...';
-
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (!supabase) throw new Error(authServiceMessage());
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      const user = data.user;
-      window.currentUser = user;
-      try {
-        const profileRes = await fetch('/.netlify/functions/user-profile', {
-          headers: await window.getAuthHeaders(),
-        });
-        const profileData = await profileRes.json();
-        if (!profileData.profile) {
-          await fetch('/.netlify/functions/user-profile', {
-            method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({
-              fullName: (user.user_metadata && user.user_metadata.full_name) || email.split('@')[0],
-              username: (user.user_metadata && user.user_metadata.username) || email.split('@')[0],
-              status: (user.user_metadata && user.user_metadata.status) || 'student',
-              email: email,
-            }),
-          });
-        }
-      } catch (profileErr) {
-        console.error('Profile sync error:', profileErr);
-      }
-      updateAuthUI(user);
-      window.closeModal('loginModal');
-      document.getElementById('loginEmail').value = '';
-      document.getElementById('loginPassword').value = '';
-      const dash = document.getElementById('dashboardSection');
-      if (dash) dash.scrollIntoView({ behavior: 'smooth' });
-    } catch (error) {
-      const msg = (error.message && error.message.includes('Invalid login'))
-        ? (window.currentLang === 'hu' ? 'Hibás email vagy jelszó.' : 'Invalid email or password.')
-        : (error.message || (window.currentLang === 'hu' ? 'A szolgáltatás nem elérhető.' : 'Service not available.'));
-      window.showLoginMsg('loginError', msg);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = window.currentLang === 'hu' ? 'Belépés' : 'Login';
-    }
-  }
-
-  // --- Register ---
-  window.handleRegister = async function(e) {
-    e.preventDefault();
-    const name = document.getElementById('registerName').value;
-    const username = document.getElementById('registerUsername').value;
-    const status = document.getElementById('registerStatus').value;
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
-    const btn = document.getElementById('registerSubmitBtn');
-    window.hideRegisterMsgs();
-    btn.disabled = true;
-    btn.textContent = '...';
-
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (!supabase) throw new Error(authServiceMessage());
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: name, username: username, status: status } }
-      });
-      if (error) throw error;
-      const user = data.user;
-      if (user && !data.session) {
-        window.showRegisterMsg('registerSuccess', window.currentLang === 'hu' ? 'Regisztráció sikeres! Nézd meg az email fiókodat a megerősítéshez.' : 'Registration successful! Check your email to confirm.');
-      } else if (user && data.session) {
-        window.currentUser = user;
-        try {
-          await fetch('/.netlify/functions/user-profile', {
-            method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ fullName: name, username: username, status: status, email: email }),
-          });
-        } catch (profileErr) {
-          console.error('Profile creation error:', profileErr);
-        }
-        updateAuthUI(user);
-        window.closeModal('registerModal');
-        const dash = document.getElementById('dashboardSection');
-        if (dash) dash.scrollIntoView({ behavior: 'smooth' });
-      }
-      document.getElementById('registerName').value = '';
-      document.getElementById('registerUsername').value = '';
-      document.getElementById('registerEmail').value = '';
-      document.getElementById('registerPassword').value = '';
-    } catch (error) {
-      window.showRegisterMsg('registerError', error.message || (window.currentLang === 'hu' ? 'A szolgáltatás nem elérhető.' : 'Service not available.'));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = window.currentLang === 'hu' ? 'Fiók létrehozása' : 'Create Account';
-    }
-  }
-
-  // --- Logout ---
-  window.handleLogout = async function() {
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (supabase) await supabase.auth.signOut();
-    } catch (e) {}
-    updateAuthUI(null);
-  }
-
-  // --- Forgot Password ---
-  window.handleForgotPassword = async function() {
-    const email = document.getElementById('loginEmail').value;
-    if (!email) {
-      window.showLoginMsg('loginError', window.currentLang === 'hu' ? 'Add meg az email címed a jelszó visszaállításhoz.' : 'Enter your email for password recovery.');
-      return;
-    }
-    window.hideLoginMsgs();
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (!supabase) throw new Error(authServiceMessage());
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
-      window.showLoginMsg('loginSuccess', window.currentLang === 'hu' ? 'Jelszó-visszaállító email elküldve!' : 'Password recovery email sent!');
-    } catch (error) {
-      window.showLoginMsg('loginError', error.message || 'Error');
-    }
-  }
-</script>
-
-</body>
-</html>
