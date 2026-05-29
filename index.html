@@ -334,7 +334,67 @@
 </header>
 
 <!-- Landing Page Content (hidden when logged in) -->
-<input type="file" id="fileInput" class="hidden" accept=".pdf,.docx,.pptx,.jpg,.png" multiple>
+<input type="file" id="fileInput" class="hidden" accept=".pdf,.docx,.pptx,.txt,.jpg,.png" multiple>
+
+<!-- Upload metadata modal ───────────────────────────────────────── -->
+<div id="uploadModal" class="modal fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-gray-900" data-testid="upload-modal-title" data-hu="Jegyzet feltöltése" data-en="Upload note">Jegyzet feltöltése</h3>
+      <button onclick="closeModal('uploadModal')" data-testid="upload-modal-close" class="w-9 h-9 hover:bg-gray-100 rounded-lg flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <form id="uploadForm" onsubmit="event.preventDefault(); window.submitUpload();" class="space-y-3" novalidate>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1" data-hu="Cím / téma" data-en="Title / topic">Cím / téma <span class="text-red-500">*</span></label>
+        <input type="text" id="uploadTitle" data-testid="upload-title-input" required maxlength="200" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/20 outline-none transition" placeholder="Pl: 3. fejezet — Mikroökonómia" data-hu-placeholder="Pl: 3. fejezet — Mikroökonómia" data-en-placeholder="E.g: Chapter 3 — Microeconomics">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1" data-hu="Tantárgy" data-en="Subject">Tantárgy <span class="text-red-500">*</span></label>
+        <input type="text" id="uploadSubject" data-testid="upload-subject-input" required maxlength="100" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/20 outline-none transition" placeholder="Pl: Közgazdaságtan" data-hu-placeholder="Pl: Közgazdaságtan" data-en-placeholder="E.g: Economics">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1" data-hu="Nyelv" data-en="Language">Nyelv</label>
+        <div class="flex gap-2">
+          <label class="flex-1 flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg cursor-pointer hover:border-[#6C5CE7]">
+            <input type="radio" name="uploadLang" value="hu" checked data-testid="upload-lang-hu">
+            <span>🇭🇺 Magyar</span>
+          </label>
+          <label class="flex-1 flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg cursor-pointer hover:border-[#6C5CE7]">
+            <input type="radio" name="uploadLang" value="en" data-testid="upload-lang-en">
+            <span>🇬🇧 English</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1" data-hu="Fájl" data-en="File">Fájl <span class="text-red-500">*</span></label>
+        <input type="file" id="uploadFileInput" data-testid="upload-file-input" required accept=".pdf,.txt,.docx,.pptx" class="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#6C5CE7] file:text-white hover:file:bg-[#5A4BD1]">
+        <p class="text-xs text-gray-500 mt-1">PDF, TXT, DOCX, PPTX • max 20 MB</p>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+        <i class="fa-solid fa-shield-halved mr-1"></i>
+        <span data-hu="Plágium ellenőrzés: a feltöltött szöveget összevetjük a meglévő jegyzetekkel. Ugyanazt a fájlt nem töltheted fel kétszer." data-en="Plagiarism check: we compare the uploaded text against existing notes. Same file cannot be uploaded twice.">Plágium ellenőrzés: a feltöltött szöveget összevetjük a meglévő jegyzetekkel. Ugyanazt a fájlt nem töltheted fel kétszer.</span>
+      </div>
+
+      <div id="uploadModalStatus" class="hidden text-sm rounded-lg p-3"></div>
+
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeModal('uploadModal')" data-testid="upload-modal-cancel" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition" data-hu="Mégse" data-en="Cancel">Mégse</button>
+        <button type="submit" id="uploadSubmitBtn" data-testid="upload-submit-btn" class="flex-1 py-2.5 btn-primary text-white font-semibold rounded-lg">
+          <i class="fa-solid fa-cloud-arrow-up mr-1"></i>
+          <span data-hu="Feltöltés" data-en="Upload">Feltöltés</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="landingContent">
 <!-- Hero Section -->
 <section id="heroSection" class="hero-pattern relative pt-12 pb-20 md:pt-20 md:pb-32">
@@ -400,7 +460,7 @@
             <p class="text-gray-600" data-hu="PDF, DOCX, PPT vagy akár kézzel írt jegyzet" data-en="PDF, DOCX, PPT or even handwritten notes">PDF, DOCX, PPT vagy akár kézzel írt jegyzet</p>
           </div>
           
-          <div id="uploadBox" class="upload-box rounded-xl p-8 text-center cursor-pointer" onclick="window.activeUploadBoxId = 'uploadBox'; document.getElementById('fileInput').click()">
+          <div id="uploadBox" data-testid="upload-box-hero" class="upload-box rounded-xl p-8 text-center cursor-pointer" onclick="window.openUploadModal('uploadBox')">
             <i class="fa-solid fa-file-circle-plus text-5xl text-[#A29BFE] mb-4"></i>
             <p class="text-gray-700 font-semibold mb-1" data-hu="Húzd ide a fájlokat" data-en="Drag files here">Húzd ide a fájlokat</p>
             <p class="text-sm text-gray-500" data-hu="vagy kattints a tallózáshoz" data-en="or click to browse">vagy kattints a tallózáshoz</p>
@@ -762,16 +822,21 @@
             <i class="fa-solid fa-arrow-right" id="dashSearchIcon"></i>
           </button>
         </div>
-        <div class="flex flex-wrap gap-2 mb-4">
+        <div class="flex flex-wrap items-center gap-2 mb-4">
           <span class="dash-search-tag px-3 py-1 bg-purple-50 text-[#6C5CE7] rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition">ELTE</span>
           <span class="dash-search-tag px-3 py-1 bg-purple-50 text-[#6C5CE7] rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition">BME</span>
           <span class="dash-search-tag px-3 py-1 bg-purple-50 text-[#6C5CE7] rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition">Corvinus</span>
           <span class="dash-search-tag px-3 py-1 bg-purple-50 text-[#6C5CE7] rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition" data-hu="Matematika" data-en="Mathematics">Matematika</span>
           <span class="dash-search-tag px-3 py-1 bg-purple-50 text-[#6C5CE7] rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition" data-hu="Programozás" data-en="Programming">Programozás</span>
           <span class="dash-search-tag px-3 py-1 bg-purple-50 text-[#6C5CE7] rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition" data-hu="Közgazdaságtan" data-en="Economics">Közgazdaságtan</span>
+          <label class="ml-auto inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none px-3 py-1 bg-gray-50 rounded-full hover:bg-gray-100" data-testid="dash-foreign-toggle">
+            <input type="checkbox" id="dashIncludeForeign" class="rounded text-[#6C5CE7] focus:ring-[#6C5CE7]">
+            <span data-hu="Idegen nyelvű is" data-en="Foreign too">Idegen nyelvű is</span>
+          </label>
         </div>
         <div id="dashSearchResults" class="hidden mt-4 space-y-4">
           <div id="dashDocResults"></div>
+          <div id="dashExternalResults"></div>
           <div id="dashAiResults" class="ai-output bg-white rounded-3xl p-5 shadow border border-gray-100 max-h-[500px] overflow-y-auto text-sm text-gray-700"></div>
         </div>
       </div>
@@ -784,7 +849,7 @@
             <i class="fa-solid fa-cloud-arrow-up text-[#6C5CE7] mr-3"></i>
             <span data-hu="Jegyzet feltöltése" data-en="Upload notes">Jegyzet feltöltése</span>
           </h3>
-          <div id="dashUploadBox" class="upload-box rounded-xl p-6 text-center cursor-pointer" onclick="window.activeUploadBoxId = 'dashUploadBox'; document.getElementById('fileInput').click()">
+          <div id="dashUploadBox" data-testid="upload-box-dashboard" class="upload-box rounded-xl p-6 text-center cursor-pointer" onclick="window.openUploadModal('dashUploadBox')">
             <i class="fa-solid fa-file-circle-plus text-4xl text-[#A29BFE] mb-3"></i>
             <p class="text-gray-700 font-semibold mb-1" data-hu="Húzd ide a fájlokat" data-en="Drag files here">Húzd ide a fájlokat</p>
             <p class="text-sm text-gray-500" data-hu="PDF, DOCX, PPT, JPG, PNG" data-en="PDF, DOCX, PPT, JPG, PNG">PDF, DOCX, PPT, JPG, PNG</p>
@@ -817,7 +882,7 @@
                 <p class="text-xs text-gray-500" data-hu="Keress dokumentumokat és tananyagokat" data-en="Search documents and study materials">Keress dokumentumokat és tananyagokat</p>
               </div>
             </button>
-            <button onclick="document.getElementById('fileInput').click()" class="w-full flex items-center space-x-3 p-4 bg-gray-50 hover:bg-purple-50 rounded-xl transition text-left">
+            <button onclick="window.openUploadModal('dashUploadBox')" data-testid="quick-upload-btn" class="w-full flex items-center space-x-3 p-4 bg-gray-50 hover:bg-purple-50 rounded-xl transition text-left">
               <div class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center flex-shrink-0">
                 <i class="fa-solid fa-cloud-arrow-up text-white"></i>
               </div>
@@ -1343,7 +1408,7 @@
   const fileInput = document.getElementById('fileInput');
 
   function attachUploadBox(box, boxId) {
-    if (!box || !fileInput) return;
+    if (!box) return;
     box.addEventListener('dragover', (e) => {
       e.preventDefault();
       window.activeUploadBoxId = boxId;
@@ -1358,22 +1423,240 @@
       e.preventDefault();
       window.activeUploadBoxId = boxId;
       box.classList.remove('dragover');
-      window.handleFiles(e.dataTransfer.files);
+      const dropped = e.dataTransfer.files;
+      if (dropped && dropped[0]) {
+        // Megnyitjuk a modalt és bekészítjük a fájlt
+        window.openUploadModal(boxId);
+        const modalFileInput = document.getElementById('uploadFileInput');
+        if (modalFileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(dropped[0]);
+          modalFileInput.files = dt.files;
+          // Cím auto-kitöltés a fájlnévből (kiterjesztés nélkül)
+          const titleEl = document.getElementById('uploadTitle');
+          if (titleEl && !titleEl.value) {
+            titleEl.value = dropped[0].name.replace(/\.[^.]+$/, '').slice(0, 200);
+          }
+        }
+      }
     });
   }
 
   attachUploadBox(uploadBox, 'uploadBox');
   attachUploadBox(dashUploadBox, 'dashUploadBox');
 
+  /* Régi rejtett fileInput változatlan - ha valaki kívülről ezt használja */
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
-      window.handleFiles(e.target.files);
+      const f = e.target.files;
+      if (f && f[0]) {
+        window.openUploadModal(window.activeUploadBoxId || 'uploadBox');
+        const modalFileInput = document.getElementById('uploadFileInput');
+        if (modalFileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(f[0]);
+          modalFileInput.files = dt.files;
+          const titleEl = document.getElementById('uploadTitle');
+          if (titleEl && !titleEl.value) {
+            titleEl.value = f[0].name.replace(/\.[^.]+$/, '').slice(0, 200);
+          }
+        }
+      }
+      e.target.value = '';
     });
   }
 
   window.uploadedNotes = window.uploadedNotes || "";
   window.parsedPdfNotes = window.parsedPdfNotes || [];
   window.activeUploadBoxId = 'uploadBox';
+
+  /* ─── Upload modal megnyitás ─────────────────────────────────── */
+  window.openUploadModal = function(activeBoxId) {
+    if (!window.currentUser) {
+      window.openModal('loginModal');
+      return;
+    }
+    window.activeUploadBoxId = activeBoxId || 'uploadBox';
+    const form = document.getElementById('uploadForm');
+    if (form) form.reset();
+    const status = document.getElementById('uploadModalStatus');
+    if (status) { status.className = 'hidden text-sm rounded-lg p-3'; status.innerHTML = ''; }
+    window.openModal('uploadModal');
+  };
+
+  /* ─── SHA-256 hash a kliens oldalon ─────────────────────────── */
+  async function sha256Hex(arrayBuffer) {
+    const digest = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /* ─── Status helper ─────────────────────────────────────────── */
+  function setUploadStatus(type, html) {
+    const status = document.getElementById('uploadModalStatus');
+    if (!status) return;
+    const colors = {
+      info: 'bg-blue-50 border border-blue-200 text-blue-800',
+      success: 'bg-green-50 border border-green-200 text-green-800',
+      warn: 'bg-amber-50 border border-amber-200 text-amber-800',
+      error: 'bg-red-50 border border-red-200 text-red-800'
+    };
+    status.className = 'text-sm rounded-lg p-3 ' + (colors[type] || colors.info);
+    status.innerHTML = html;
+  }
+
+  /* ─── Feltöltés indítás (modal submit) ──────────────────────── */
+  window.submitUpload = async function() {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const t = (k) => ({
+      need_login: { hu: 'Bejelentkezés szükséges.', en: 'Login required.' }[lang],
+      need_title: { hu: 'A cím / téma megadása kötelező.', en: 'Title is required.' }[lang],
+      need_subject: { hu: 'A tantárgy megadása kötelező.', en: 'Subject is required.' }[lang],
+      need_file: { hu: 'Válassz egy fájlt.', en: 'Please choose a file.' }[lang],
+      too_big: { hu: 'A fájl max. 20 MB lehet.', en: 'File max 20 MB.' }[lang],
+      hashing: { hu: 'Fájl ellenőrzése (hash)...', en: 'Verifying file (hash)...' }[lang],
+      uploading: { hu: 'Feltöltés a tárhelyre...', en: 'Uploading to storage...' }[lang],
+      registering: { hu: 'Jegyzet regisztrálása...', en: 'Registering note...' }[lang],
+      indexing: { hu: 'Plágium ellenőrzés és szövegindexelés...', en: 'Plagiarism check and text indexing...' }[lang],
+      ok: { hu: 'Sikeres feltöltés!', en: 'Upload successful!' }[lang],
+      duplicate: { hu: 'Ezt a fájlt már feltöltötted egyszer.', en: 'You have already uploaded this file.' }[lang]
+    }[k]);
+
+    if (!window.currentUser) { setUploadStatus('error', t('need_login')); return; }
+
+    const title = document.getElementById('uploadTitle').value.trim();
+    const subject = document.getElementById('uploadSubject').value.trim();
+    const language = (document.querySelector('input[name="uploadLang"]:checked') || {}).value || 'hu';
+    const fileInputEl = document.getElementById('uploadFileInput');
+    const file = fileInputEl && fileInputEl.files && fileInputEl.files[0];
+
+    if (!title) { setUploadStatus('error', t('need_title')); return; }
+    if (!subject) { setUploadStatus('error', t('need_subject')); return; }
+    if (!file) { setUploadStatus('error', t('need_file')); return; }
+    if (file.size > 20 * 1024 * 1024) { setUploadStatus('error', t('too_big')); return; }
+
+    const btn = document.getElementById('uploadSubmitBtn');
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
+
+    try {
+      /* 1) Hash */
+      setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('hashing'));
+      const arrayBuffer = await file.arrayBuffer();
+      const fileHash = await sha256Hex(arrayBuffer);
+
+      /* 2) Supabase Storage upload */
+      setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('uploading'));
+      let supabase = window.supabaseClient;
+      if (!supabase) {
+        const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+        supabase = createClient(
+          'https://rvgzvseejzbzmcqidnzc.supabase.co',
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ'
+        );
+        window.supabaseClient = supabase;
+      }
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9áéíóöőúüűÁÉÍÓÖŐÚÜŰ._-]/g, '_');
+      const filePath = Date.now() + '_' + safeName;
+
+      const { data: stData, error: stErr } = await supabase.storage
+        .from('jegyzetek').upload(filePath, file);
+      if (stErr) {
+        console.error('Supabase storage error:', stErr);
+        setUploadStatus('error', '<i class="fa-solid fa-triangle-exclamation mr-2"></i>' + (lang === 'hu' ? 'Tárhely hiba: ' : 'Storage error: ') + escapeHtml(stErr.message || JSON.stringify(stErr)));
+        return;
+      }
+      const publicUrl = supabase.storage.from('jegyzetek').getPublicUrl(filePath).data.publicUrl;
+
+      /* 3) /notes regisztráció (dedupe a backenden) */
+      setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('registering'));
+      const regResp = await fetch('/.netlify/functions/notes', {
+        method: 'POST',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          fileName: filePath,
+          originalName: file.name,
+          publicUrl, fileSize: file.size,
+          fileHash, title, subject, language
+        })
+      });
+
+      if (regResp.status === 409) {
+        const j = await regResp.json().catch(() => ({}));
+        setUploadStatus('warn', '<i class="fa-solid fa-circle-info mr-2"></i>' + (j.message || t('duplicate')));
+        // Töröljük a hibásan feltöltött másolatot
+        try { await supabase.storage.from('jegyzetek').remove([filePath]); } catch (e) { /* ok */ }
+        return;
+      }
+      if (!regResp.ok) {
+        const txt = await regResp.text();
+        setUploadStatus('error', '<i class="fa-solid fa-triangle-exclamation mr-2"></i>' + (lang === 'hu' ? 'Regisztrációs hiba: ' : 'Registration error: ') + escapeHtml(txt.slice(0, 200)));
+        try { await supabase.storage.from('jegyzetek').remove([filePath]); } catch (e) {}
+        return;
+      }
+      const regData = await regResp.json();
+
+      /* 4) Index dokumentum (await — plágium pontszám miatt) */
+      setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('indexing'));
+      let plagScore = 0;
+      let similar = [];
+      try {
+        const idxResp = await fetch('/.netlify/functions/index-document', {
+          method: 'POST',
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ noteId: regData.id, fileName: filePath })
+        });
+        if (idxResp.ok) {
+          const idx = await idxResp.json();
+          plagScore = idx.plagiarismScore || 0;
+          similar = idx.similar || [];
+        }
+      } catch (e) { console.warn('Index error (nem kritikus):', e); }
+
+      /* 5) Frontend cache + pont jutalom */
+      if (file.type === 'text/plain') {
+        try { window.uploadedNotes += '\n[Fájl feltöltve: ' + file.name + '](' + publicUrl + ')\n' + (await file.text()); } catch {}
+      }
+      if (window.userProfile) await window.awardPoints('document_upload');
+
+      /* 6) Eredmény üzenet */
+      let msg = '<i class="fa-solid fa-check-circle mr-2"></i><b>' + t('ok') + '</b>';
+      if (plagScore >= 80) {
+        const list = similar.map(s => '<li>' + escapeHtml(s.title || '#' + s.id) + ' — ' + s.score + '%</li>').join('');
+        msg += '<div class="mt-2 text-red-700"><b>⚠️ Plágium gyanús (' + plagScore + '%):</b><ul class="list-disc list-inside text-xs mt-1">' + list + '</ul></div>';
+        setUploadStatus('error', msg);
+      } else if (plagScore >= 50) {
+        msg += '<div class="mt-2 text-amber-700">Részleges egyezés: <b>' + plagScore + '%</b> hasonló meglévő jegyzettel.</div>';
+        setUploadStatus('warn', msg);
+      } else {
+        setUploadStatus('success', msg);
+      }
+
+      setTimeout(() => { try { window.closeModal('uploadModal'); } catch {} }, plagScore >= 50 ? 8000 : 2500);
+    } catch (err) {
+      console.error('Upload exception:', err);
+      setUploadStatus('error', '<i class="fa-solid fa-triangle-exclamation mr-2"></i>' + (err && err.message ? err.message : String(err)));
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
+    }
+  };
+
+  /* Régi handleFiles megőrizve kompatibilitás miatt – csak megnyitja a modalt */
+  window.handleFiles = async function(files) {
+    if (files && files[0]) {
+      window.openUploadModal(window.activeUploadBoxId || 'uploadBox');
+      const modalFileInput = document.getElementById('uploadFileInput');
+      if (modalFileInput) {
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        modalFileInput.files = dt.files;
+        const titleEl = document.getElementById('uploadTitle');
+        if (titleEl && !titleEl.value) {
+          titleEl.value = files[0].name.replace(/\.[^.]+$/, '').slice(0, 200);
+        }
+      }
+    }
+  };
+
 
   // --- Global Supabase client ---
   window.supabaseClient = null;
@@ -1452,6 +1735,55 @@
   }
 
   // --- Dashboard search handler ---
+  window.runExternalSearch = async function(query, lang, includeForeign, targetEl) {
+    if (!targetEl) return;
+    try {
+      const resp = await fetch('/.netlify/functions/external-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, lang, includeForeign: !!includeForeign })
+      });
+      if (!resp.ok) {
+        targetEl.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Külső keresés nem érhető el.' : 'External search unavailable.') + '</div>';
+        return;
+      }
+      const data = await resp.json();
+      const results = (data && data.results) || [];
+      if (!results.length) {
+        targetEl.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center text-gray-500"><i class="fa-solid fa-globe text-3xl mb-2 text-gray-300"></i><p>' + (lang === 'hu' ? 'Nincs külső találat. Próbáld be a "Idegen nyelvű is" pipát.' : 'No external results. Try the foreign-language checkbox.') + '</p></div>';
+        return;
+      }
+      let html = '<div class="text-sm text-gray-500 mb-2"><i class="fa-solid fa-globe mr-1"></i>' + (lang === 'hu' ? 'Külső akadémiai találatok' : 'External academic results') + ' (' + results.length + ')</div>';
+      html += '<div class="space-y-3">';
+      for (const r of results) {
+        const langBadge = r.language === 'hu'
+          ? '<span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">Magyar</span>'
+          : '<span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">English</span>';
+        const srcBadge = '<span class="px-2 py-0.5 text-xs bg-purple-100 text-[#6C5CE7] rounded-full">' + escapeHtml(r.source || '') + '</span>';
+        const year = r.year ? '<span class="text-xs text-gray-500">' + r.year + '</span>' : '';
+        const authors = r.authors ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(r.authors) + '</p>' : '';
+        const abstract = r.abstract ? '<p class="text-sm text-gray-600 mt-2 line-clamp-3">' + escapeHtml(r.abstract) + '</p>' : '';
+        const pdfBtn = r.pdfUrl
+          ? '<a href="' + escapeHtml(r.pdfUrl) + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition"><i class="fa-solid fa-file-pdf"></i>PDF</a>'
+          : '';
+        const linkBtn = r.sourceUrl
+          ? '<a href="' + escapeHtml(r.sourceUrl) + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition"><i class="fa-solid fa-arrow-up-right-from-square"></i>' + (lang === 'hu' ? 'Megnyitás' : 'Open') + '</a>'
+          : '';
+        html += '<div class="bg-white rounded-2xl p-4 shadow border border-gray-100">';
+        html += '  <div class="flex items-start gap-2 mb-1 flex-wrap">' + srcBadge + langBadge + year + '</div>';
+        html += '  <h4 class="font-semibold text-gray-900">' + escapeHtml(r.title || '') + '</h4>';
+        html += authors + abstract;
+        html += '  <div class="mt-3 flex gap-2 flex-wrap">' + pdfBtn + linkBtn + '</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+      targetEl.innerHTML = html;
+    } catch (e) {
+      console.error('External search error:', e);
+      targetEl.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Külső keresés hiba.' : 'External search error.') + '</div>';
+    }
+  };
+
   window.handleDashboardSearch = async function() {
     const input = document.getElementById('dashSearchInput');
     const resultsContainer = document.getElementById('dashSearchResults');
@@ -1486,6 +1818,14 @@
       }
     } catch (e) {
       docResults.innerHTML = '<div class="text-red-500">' + (lang === 'hu' ? 'Hiba történt a keresés során.' : 'An error occurred during search.') + '</div>';
+    }
+
+    /* Külső akadémiai keresés (OpenAlex + arXiv) */
+    const extEl = document.getElementById('dashExternalResults');
+    if (extEl) {
+      extEl.innerHTML = '<div class="flex items-center space-x-2 text-gray-400 py-2"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Keresés külső forrásokban...' : 'Searching external sources...') + '</span></div>';
+      const includeForeign = document.getElementById('dashIncludeForeign')?.checked || false;
+      window.runExternalSearch(query, lang, includeForeign, extEl);
     }
 
     try {
@@ -1525,135 +1865,6 @@
     });
   });
 
-  window.handleFiles = async function(files) {
-    if (files.length > 0) {
-      const uploadTarget = document.getElementById(window.activeUploadBoxId || 'uploadBox') || document.getElementById('uploadBox');
-      const originalContent = uploadTarget.innerHTML;
-      
-      const fileNames = Array.from(files).map(f => f.name).join(', ');
-      uploadTarget.innerHTML = '<i class="fa-solid fa-file-arrow-up text-5xl text-[#6C5CE7] mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + (window.currentLang === 'hu' ? 'Kiválasztva: ' : 'Selected: ') + escapeHtml(fileNames) + '</p>';
-      
-      await new Promise(r => setTimeout(r, 1000));
-      
-      uploadTarget.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-5xl text-[#6C5CE7] mb-4"></i><p class="text-gray-700 font-semibold mb-1" id="uploadStatusText">' + (window.currentLang === 'hu' ? 'Feltöltés folyamatban...' : 'Uploading...') + '</p>';
-
-      try {
-        let supabase = window.supabaseClient;
-        if (!supabase) {
-          const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-          supabase = createClient(
-            'https://rvgzvseejzbzmcqidnzc.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ'
-          );
-          window.supabaseClient = supabase;
-        }
-
-        let successCount = 0;
-        let errorCount = 0;
-
-        for(let file of files) {
-          try {
-            const uploadStatusText = uploadTarget.querySelector('#uploadStatusText');
-            if (uploadStatusText) uploadStatusText.textContent = (window.currentLang === 'hu' ? 'Feltöltés: ' : 'Uploading: ') + file.name;
-            const safeName = file.name.replace(/[^a-zA-Z0-9áéíóöőúüűÁÉÍÓÖŐÚÜŰa-zA-Z._-]/g, '_');
-            const filePath = Date.now() + '_' + safeName;
-
-            const { data, error } = await supabase.storage
-              .from('jegyzetek')
-              .upload(filePath, file);
-
-            if (error) {
-              console.error('Upload error:', error);
-              errorCount++;
-            } else {
-              successCount++;
-              const publicUrl = supabase.storage.from('jegyzetek').getPublicUrl(filePath).data.publicUrl;
-
-              try {
-                const regResp = await fetch('/.netlify/functions/notes', {
-                  method: 'POST',
-                  headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-                  body: JSON.stringify({
-                    fileName: filePath,
-                    originalName: file.name,
-                    publicUrl: publicUrl,
-                    fileSize: file.size,
-                  })
-                });
-                if (regResp.ok) {
-                  const regData = await regResp.json();
-                  window.getAuthHeaders({ 'Content-Type': 'application/json' }).then(function(authHeaders) {
-                    fetch('/.netlify/functions/index-document', {
-                      method: 'POST',
-                      headers: authHeaders,
-                      body: JSON.stringify({ noteId: regData.id, fileName: filePath })
-                    }).catch(function(e) { console.error('Index error:', e); });
-                  });
-                }
-              } catch (regErr) {
-                console.error('Note registration error:', regErr);
-              }
-              
-              if(file.type === "text/plain") {
-                const text = await file.text();
-                window.uploadedNotes += "\n[Fájl feltöltve: " + file.name + "](" + publicUrl + ")\n" + text;
-              } else if (file.type === "application/pdf" && typeof pdfjsLib !== 'undefined') {
-                 // Parse PDF
-                 try {
-                   const arrayBuffer = await file.arrayBuffer();
-                   const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-                   let pdfText = "";
-                   const pages = [];
-                   for(let i = 1; i <= pdfDoc.numPages; i++) {
-                     const page = await pdfDoc.getPage(i);
-                     const textContent = await page.getTextContent();
-                     const pageText = textContent.items.map(item => item.str).join(' ');
-                     pdfText += `\n--- Oldal ${i} ---\n` + pageText;
-                     pages.push({ pageNum: i, text: pageText.toLowerCase() });
-                   }
-                   window.uploadedNotes += "\n[Fájl feltöltve: " + file.name + "](" + publicUrl + ")\n" + pdfText;
-                   window.parsedPdfNotes.push({ fileName: file.name, publicUrl, pages });
-                 } catch(pdfErr) {
-                   console.error('PDF parsing error', pdfErr);
-                   window.uploadedNotes += "\n[Fájl feltöltve: " + file.name + "](" + publicUrl + ")";
-                 }
-              } else {
-                window.uploadedNotes += "\n[Fájl feltöltve: " + file.name + "](" + publicUrl + ")";
-              }
-            }
-          } catch (err) {
-            console.error('Upload exception:', err);
-            errorCount++;
-          }
-        }
-
-        let message = '';
-        if (successCount > 0 && errorCount === 0) {
-          message = window.currentLang === 'hu' ? successCount + ' fájl sikeresen feltöltve!' : successCount + ' file(s) successfully uploaded!';
-        } else if (successCount > 0 && errorCount > 0) {
-          message = window.currentLang === 'hu' ? successCount + ' fájl sikeresen feltöltve, de ' + errorCount + ' hibára futott.' : successCount + ' file(s) uploaded successfully, but ' + errorCount + ' failed.';
-        } else if (errorCount > 0) {
-          message = window.currentLang === 'hu' ? 'Hiba történt a fájlok feltöltésekor.' : 'An error occurred while uploading files.';
-        }
-
-        if (successCount > 0 && window.userProfile) {
-          for (let i = 0; i < successCount; i++) {
-            await window.awardPoints('document_upload');
-          }
-        }
-        
-        uploadTarget.innerHTML = '<i class="fa-solid fa-check-circle text-5xl text-green-500 mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + message + '</p>';
-        await new Promise(r => setTimeout(r, 3000));
-      } catch (err) {
-        console.error('Supabase init error:', err);
-        uploadTarget.innerHTML = '<i class="fa-solid fa-exclamation-triangle text-5xl text-red-500 mb-4"></i><p class="text-gray-700 font-semibold mb-1">' + (window.currentLang === 'hu' ? 'Hiba történt a rendszer inicializálásakor.' : 'An error occurred during system initialization.') + '</p>';
-        await new Promise(r => setTimeout(r, 3000));
-      } finally {
-        uploadTarget.innerHTML = originalContent;
-        window.activeUploadBoxId = 'uploadBox';
-      }
-    }
-  }
 
   // --- AI Chat (streaming) ---
   function escapeHtml(text) {
@@ -1900,11 +2111,12 @@
     }
 
     results.classList.remove('hidden');
-    results.innerHTML = '<div id="heroDocResults"><div class="bg-white rounded-3xl p-5 shadow border border-gray-100 flex items-center justify-center"><div class="flex items-center space-x-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Keresés a jegyzetekben...' : 'Searching notes...') + '</span></div></div></div><div id="heroAiResults" class="ai-output bg-white rounded-3xl p-5 shadow border border-gray-100 max-h-[500px] overflow-y-auto text-sm text-gray-700 mt-4"><div class="flex items-center space-x-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'AI válasz generálása...' : 'Generating AI response...') + '</span></div></div>';
+    results.innerHTML = '<div id="heroDocResults"><div class="bg-white rounded-3xl p-5 shadow border border-gray-100 flex items-center justify-center"><div class="flex items-center space-x-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Keresés a jegyzetekben...' : 'Searching notes...') + '</span></div></div></div><div id="heroExternalResults" class="mt-4"></div><div id="heroAiResults" class="ai-output bg-white rounded-3xl p-5 shadow border border-gray-100 max-h-[500px] overflow-y-auto text-sm text-gray-700 mt-4"><div class="flex items-center space-x-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'AI válasz generálása...' : 'Generating AI response...') + '</span></div></div>';
     icon.className = 'fa-solid fa-spinner fa-spin';
 
     var heroDocResults = document.getElementById('heroDocResults');
     var heroAiResults = document.getElementById('heroAiResults');
+    var heroExternalResults = document.getElementById('heroExternalResults');
 
     try {
       const docs = await window.searchSupabaseDocuments(query);
@@ -1915,6 +2127,12 @@
       }
     } catch (e) {
       heroDocResults.innerHTML = '<div class="text-red-500 mt-2">' + (lang === 'hu' ? 'Hiba történt a keresés során.' : 'An error occurred during search.') + '</div>';
+    }
+
+    /* Külső akadémiai keresés (OpenAlex + arXiv) */
+    if (heroExternalResults) {
+      heroExternalResults.innerHTML = '<div class="flex items-center space-x-2 text-gray-400 py-2"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Keresés külső forrásokban...' : 'Searching external sources...') + '</span></div>';
+      window.runExternalSearch(query, lang, false, heroExternalResults);
     }
 
     try {
