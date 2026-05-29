@@ -3,117 +3,146 @@
  *  POST { query, lang, includeForeign }
  *
  *  Külső, ingyenes akadémiai forrásokban keres:
- *   - OpenAlex (https://api.openalex.org) — kulcs nélkül, magyar + angol
- *   - arXiv (http://export.arxiv.org)    — kulcs nélkül, angol
+ *   - OpenAlex (https://api.openalex.org) — kulcs nélkül
+ *   - arXiv (http://export.arxiv.org)    — kulcs nélkül
  *
- *  Visszaadás: { results: [{ title, authors, year, abstract, pdfUrl,
- *                            sourceUrl, source, language }] }
+ *  Stratégia:
+ *   - HU query: OpenAlex relevance search filter NÉLKÜL (jobb recall),
+ *               + ha vannak Hungarian-tagged eredmények, előre soroljuk
+ *   - EN query: OpenAlex english + arXiv
+ *   - includeForeign=true: a másik nyelvet is hozzáadjuk
  */
 
 const OPENALEX = "https://api.openalex.org/works";
 const ARXIV = "https://export.arxiv.org/api/query";
+const MAILTO = "info@amisearch.app";
 
 export default async function handler(req) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST")
     return new Response("Method not allowed", { status: 405 });
-  }
 
   let body;
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
+    return jerr("Invalid JSON", 400);
   }
 
   const query = (body.query || "").trim();
-  if (!query) {
-    return new Response(JSON.stringify({ results: [] }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
+  if (!query) return jok({ results: [] });
 
   const lang = body.lang === "hu" ? "hu" : "en";
   const includeForeign = !!body.includeForeign;
 
   const tasks = [];
 
-  /* OpenAlex elsődleges nyelven */
-  tasks.push(searchOpenAlex(query, lang, 10));
-
-  /* OpenAlex idegen nyelven (ha kérik) */
-  if (includeForeign) {
-    const other = lang === "hu" ? "en" : "hu";
-    tasks.push(searchOpenAlex(query, other, 5));
-  }
-
-  /* arXiv csak angolul érdekes, de mindig megnézzük (kis költség)
-     - ha a query magyar, akkor csak ha includeForeign=true */
-  if (lang === "en" || includeForeign) {
+  if (lang === "hu") {
+    /* Magyar query: szűrő NÉLKÜL relevance — sok hu doc nincs nyelv-taggel */
+    tasks.push(searchOpenAlex(query, null, 15, "hu"));
+    if (includeForeign) {
+      /* Idegen nyelv is: angolul is kerestünk + arXiv */
+      tasks.push(searchOpenAlex(query, "en", 10, "en"));
+      tasks.push(searchArxiv(query, 5));
+    }
+  } else {
+    /* Angol query: szigorúbb english filter + arXiv */
+    tasks.push(searchOpenAlex(query, "en", 15, "en"));
     tasks.push(searchArxiv(query, 5));
+    if (includeForeign) {
+      tasks.push(searchOpenAlex(query, "hu", 5, "hu"));
+    }
   }
 
   const settled = await Promise.allSettled(tasks);
   let results = [];
   for (const r of settled) {
-    if (r.status === "fulfilled" && Array.isArray(r.value)) {
+    if (r.status === "fulfilled" && Array.isArray(r.value))
       results = results.concat(r.value);
-    }
   }
 
-  /* Sortolás: PDF letölthető előre, aztán relevancia */
+  /* dedup by sourceUrl */
+  const seen = new Set();
+  results = results.filter((r) => {
+    const k = r.sourceUrl || r.title;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  /* Rangsor: a query nyelvével megegyező nyelvű ÉS PDF-fel rendelkező előre */
+  const wantLang = lang;
   results.sort((a, b) => {
-    if (a.pdfUrl && !b.pdfUrl) return -1;
-    if (!a.pdfUrl && b.pdfUrl) return 1;
+    const al = a.language === wantLang ? 1 : 0;
+    const bl = b.language === wantLang ? 1 : 0;
+    if (bl - al !== 0) return bl - al;
+    if (!!b.pdfUrl - !!a.pdfUrl !== 0) return (!!b.pdfUrl) - (!!a.pdfUrl);
     return 0;
   });
 
-  return new Response(JSON.stringify({ results: results.slice(0, 25) }), {
-    headers: { "Content-Type": "application/json" }
-  });
+  return jok({ results: results.slice(0, 25), query, lang, includeForeign });
 }
 
-async function searchOpenAlex(q, lang, perPage) {
+/* ────────────────  OpenAlex  ──────────────── */
+async function searchOpenAlex(q, langFilter, perPage, taggedLang) {
   try {
-    const params = new URLSearchParams({
-      search: q,
-      per_page: String(perPage),
-      filter: `language:${lang}`,
-      // emailt küldünk: "polite pool" — gyorsabb, stabilabb
-      mailto: "info@amisearch.app"
-    });
-    const url = `${OPENALEX}?${params.toString()}`;
-    const r = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!r.ok) return [];
-    const data = await r.json();
-    return (data.results || []).map((w) => {
-      const oa = w.open_access || {};
-      const primary = w.primary_location || {};
-      return {
-        title: w.title || w.display_name || "Untitled",
-        authors: (w.authorships || [])
-          .slice(0, 4)
-          .map((a) => a?.author?.display_name)
-          .filter(Boolean)
-          .join(", "),
-        year: w.publication_year || null,
-        abstract: reconstructAbstract(w.abstract_inverted_index),
-        pdfUrl: oa.oa_url || primary.pdf_url || null,
-        sourceUrl: w.doi
-          ? `https://doi.org/${w.doi.replace("https://doi.org/", "")}`
-          : primary.landing_page_url || w.id,
-        source: "OpenAlex",
-        language: lang
-      };
-    });
+    let results = await openAlexQuery(q, langFilter, perPage, taggedLang);
+    /* Ha üres és a query több szót tartalmaz, próbáljuk meg
+       a leghosszabb szóval is külön (broader recall) */
+    if (results.length === 0) {
+      const words = q
+        .split(/\s+/)
+        .filter((w) => w.length >= 4)
+        .sort((a, b) => b.length - a.length);
+      if (words.length > 1) {
+        const broader = await openAlexQuery(words[0], langFilter, perPage, taggedLang);
+        results = broader;
+      }
+    }
+    return results;
   } catch (e) {
-    console.error("OpenAlex error:", e);
+    console.error("OpenAlex error:", e?.message);
     return [];
   }
 }
 
+async function openAlexQuery(q, langFilter, perPage, taggedLang) {
+  const params = new URLSearchParams({
+    search: q,
+    per_page: String(perPage),
+    mailto: MAILTO
+  });
+  if (langFilter) params.set("filter", `language:${langFilter}`);
+  const url = `${OPENALEX}?${params.toString()}`;
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!r.ok) {
+    console.error("[external-search] OpenAlex", r.status, await r.text());
+    return [];
+  }
+  const data = await r.json();
+  return (data.results || []).map((w) => {
+    const oa = w.open_access || {};
+    const primary = w.primary_location || {};
+    const lang = w.language || taggedLang || null;
+    return {
+      title: w.title || w.display_name || "Untitled",
+      authors: (w.authorships || [])
+        .slice(0, 4)
+        .map((a) => a?.author?.display_name)
+        .filter(Boolean)
+        .join(", "),
+      year: w.publication_year || null,
+      abstract: reconstructAbstract(w.abstract_inverted_index),
+      pdfUrl: oa.oa_url || primary.pdf_url || null,
+      sourceUrl: w.doi
+        ? `https://doi.org/${w.doi.replace("https://doi.org/", "")}`
+        : primary.landing_page_url || w.id,
+      source: "OpenAlex",
+      language: lang
+    };
+  });
+}
+
+/* ────────────────  arXiv  ──────────────── */
 async function searchArxiv(q, max) {
   try {
     const params = new URLSearchParams({
@@ -127,7 +156,7 @@ async function searchArxiv(q, max) {
     const xml = await r.text();
     return parseArxiv(xml);
   } catch (e) {
-    console.error("arXiv error:", e);
+    console.error("arXiv error:", e?.message);
     return [];
   }
 }
@@ -164,7 +193,7 @@ function parseArxiv(xml) {
   return out;
 }
 
-/* OpenAlex "inverted index" → plain string */
+/* OpenAlex inverted index → plain string */
 function reconstructAbstract(inv) {
   if (!inv || typeof inv !== "object") return "";
   const arr = [];
@@ -172,6 +201,19 @@ function reconstructAbstract(inv) {
     for (const pos of inv[word]) arr[pos] = word;
   }
   return arr.filter(Boolean).join(" ").slice(0, 400);
+}
+
+function jok(d, s = 200) {
+  return new Response(JSON.stringify(d), {
+    status: s,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+function jerr(m, s = 400) {
+  return new Response(JSON.stringify({ error: m }), {
+    status: s,
+    headers: { "Content-Type": "application/json" }
+  });
 }
 
 export const config = {};
