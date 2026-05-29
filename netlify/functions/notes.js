@@ -1,7 +1,36 @@
 import { getSupabaseUser } from "./auth-helper.js";
 import { db } from "../../db/index.js";
 import { uploadedNotes } from "../../db/schema.js";
-import { desc, eq, and, or, ilike } from "drizzle-orm";
+import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
+
+/**
+ * Egyszer (Lambda instance-onként) megpróbálja hozzáadni a hiányzó
+ * oszlopokat. ADD COLUMN IF NOT EXISTS idempotens, biztonságos újrafutáskor.
+ */
+let _schemaEnsured = false;
+async function ensureSchema() {
+  if (_schemaEnsured) return;
+  try {
+    await db.execute(sql`
+      ALTER TABLE uploaded_notes
+        ADD COLUMN IF NOT EXISTS title TEXT,
+        ADD COLUMN IF NOT EXISTS subject TEXT,
+        ADD COLUMN IF NOT EXISTS language TEXT,
+        ADD COLUMN IF NOT EXISTS file_hash TEXT,
+        ADD COLUMN IF NOT EXISTS text_hash TEXT,
+        ADD COLUMN IF NOT EXISTS shingle_signature JSONB,
+        ADD COLUMN IF NOT EXISTS plagiarism_score INTEGER,
+        ADD COLUMN IF NOT EXISTS similar_note_ids JSONB
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_uploaded_notes_file_hash ON uploaded_notes(file_hash)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_uploaded_notes_subject ON uploaded_notes(subject)`);
+    _schemaEnsured = true;
+    console.log("[notes] ensureSchema OK");
+  } catch (e) {
+    console.error("[notes] ensureSchema failed:", e?.message);
+    /* nem dobunk hibát — a kéréskezelés próbálja meg amúgy is */
+  }
+}
 
 /**
  * /.netlify/functions/notes
@@ -14,6 +43,7 @@ import { desc, eq, and, or, ilike } from "drizzle-orm";
 
 export default async function handler(req) {
   try {
+    await ensureSchema();
     const user = await getSupabaseUser(req);
     if (!user) return jerr("Bejelentkezés szükséges (Unauthorized).", 401);
 
@@ -146,33 +176,3 @@ export default async function handler(req) {
 
       if (!row) return jerr("Not found", 404);
       if (row.uploaderIdentityId !== user.id) return jerr("Forbidden", 403);
-
-      await db.delete(uploadedNotes).where(eq(uploadedNotes.id, id));
-      return jok({ success: true });
-    }
-
-    return jerr("Method not allowed", 405);
-  } catch (err) {
-    console.error("[notes] FATAL:", err?.message, err?.stack);
-    return jerr(
-      "Szerver hiba (" + (err?.name || "Error") + "): " + (err?.message || String(err)),
-      500
-    );
-  }
-}
-
-/* helpers */
-function jok(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
-}
-function jerr(msg, status = 400) {
-  return new Response(JSON.stringify({ error: msg }), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
-}
-
-export const config = {};
