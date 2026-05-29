@@ -1,4 +1,4 @@
-import { getSupabaseUser } from "./auth-helper.js";
+import { getSupabaseUser } from "./auth-helper.mjs";
 import { db } from "../../db/index.js";
 import { uploadedNotes } from "../../db/schema.js";
 import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
@@ -176,3 +176,33 @@ export default async function handler(req) {
 
       if (!row) return jerr("Not found", 404);
       if (row.uploaderIdentityId !== user.id) return jerr("Forbidden", 403);
+
+      await db.delete(uploadedNotes).where(eq(uploadedNotes.id, id));
+      return jok({ success: true });
+    }
+
+    return jerr("Method not allowed", 405);
+  } catch (err) {
+    console.error("[notes] FATAL:", err?.message, err?.stack);
+    return jerr(
+      "Szerver hiba (" + (err?.name || "Error") + "): " + (err?.message || String(err)),
+      500
+    );
+  }
+}
+
+/* helpers */
+function jok(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+function jerr(msg, status = 400) {
+  return new Response(JSON.stringify({ error: msg }), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+export const config = {};
