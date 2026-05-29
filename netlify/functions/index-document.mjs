@@ -1,4 +1,4 @@
-https://github.com/microsoft/vscode/wiki/TypeScript-Issues azimport { getSupabaseUser } from "./auth-helper.js";
+import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { PDFParse } from "pdf-parse";
 import { db } from "../../db/index.js";
