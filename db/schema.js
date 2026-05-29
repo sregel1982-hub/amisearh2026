@@ -18,6 +18,9 @@ export const userProfiles = pgTable("user_profiles", {
   email: text("email"),
   points: integer("points").default(0),
   plan: text("plan").default("free"),
+  planExpiresAt: timestamp("plan_expires_at", { withTimezone: true }),
+  lsSubscriptionId: text("ls_subscription_id"),
+  lsCustomerId: text("ls_customer_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow()
 });
 
@@ -48,6 +51,3 @@ export const uploadedNotes = pgTable("uploaded_notes", {
 export const siteRatings = pgTable("site_ratings", {
   id: serial("id").primaryKey(),
   rating: integer("rating").notNull(),
-  ipHash: text("ip_hash"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow()
-});
