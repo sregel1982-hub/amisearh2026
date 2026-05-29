@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const userProfiles = pgTable("user_profiles", {
   id: serial("id").primaryKey(),
@@ -20,6 +20,14 @@ export const uploadedNotes = pgTable("uploaded_notes", {
   fileSize: integer("file_size").default(0).notNull(),
   uploaderIdentityId: text("uploader_identity_id"),
   textContent: text("text_content"),
+  title: text("title"),
+  subject: text("subject"),
+  language: text("language"),
+  fileHash: text("file_hash"),
+  textHash: text("text_hash"),
+  shingleSignature: jsonb("shingle_signature"),
+  plagiarismScore: integer("plagiarism_score"),
+  similarNoteIds: jsonb("similar_note_ids"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
