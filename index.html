@@ -333,6 +333,23 @@
   </div>
 </header>
 
+<!-- Free credit expired warning banner -->
+<div id="freeExpiredBanner" class="hidden fixed top-4 right-4 left-4 md:left-auto md:max-w-md z-[60] bg-gradient-to-r from-amber-50 to-red-50 border-2 border-amber-300 rounded-2xl shadow-2xl p-4 md:p-5">
+  <div class="flex items-start gap-3">
+    <div class="w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0">
+      <i class="fa-solid fa-triangle-exclamation text-white"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <h4 class="font-bold text-amber-900" data-hu="Lejárt a Free krediteed" data-en="Your free credit ran out">Lejárt a Free krediteed</h4>
+      <p class="text-sm text-amber-800 mt-1" data-hu="Válts Pro-ra a folytatáshoz!" data-en="Upgrade to Pro to continue!">Válts Pro-ra a folytatáshoz!</p>
+      <div class="mt-3 flex gap-2">
+        <a href="#arak" onclick="document.getElementById('freeExpiredBanner').classList.add('hidden')" data-testid="free-expired-upgrade-btn" class="px-4 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white text-sm font-bold rounded-lg transition" data-hu="Pro csomag" data-en="Get Pro">Pro csomag</a>
+        <button onclick="document.getElementById('freeExpiredBanner').classList.add('hidden')" data-testid="free-expired-dismiss-btn" class="px-4 py-2 bg-white border border-amber-300 text-amber-800 text-sm font-medium rounded-lg hover:bg-amber-50 transition" data-hu="Bezárás" data-en="Dismiss">Bezárás</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Landing Page Content (hidden when logged in) -->
 <input type="file" id="fileInput" class="hidden" accept=".pdf,.docx,.pptx,.txt,.jpg,.png" multiple>
 
@@ -573,59 +590,63 @@
       <h2 class="text-4xl md:text-5xl font-extrabold mt-6 mb-4" data-hu="Válassz csomagot" data-en="Choose your plan">Válassz csomagot</h2>
       <p class="text-xl text-gray-600" data-hu="Kezdd ingyen, frissíts amikor készen állsz" data-en="Start free, upgrade when you're ready">Kezdd ingyen, frissíts amikor készen állsz</p>
     </div>
-    
+
     <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
       <!-- Free -->
-      <div class="bg-white rounded-2xl p-8 shadow-lg hover-lift border-2 border-gray-100">
+      <div class="bg-white rounded-2xl p-8 shadow-lg hover-lift border-2 border-gray-100" data-testid="pricing-free">
         <h3 class="text-2xl font-bold mb-2" data-hu="Ingyenes" data-en="Free">Ingyenes</h3>
-        <p class="text-gray-600 mb-6" data-hu="Próbáld ki alapfunkciókkal" data-en="Try with basic features">Próbáld ki alapfunkciókkal</p>
+        <p class="text-gray-600 mb-6" data-hu="Próbáld ki alapfunkciókkal" data-en="Try the basics">Próbáld ki alapfunkciókkal</p>
         <div class="mb-6">
-          <span class="text-5xl font-extrabold">0 Ft</span>
-          <span class="text-gray-600" data-hu="/hó" data-en="/mo">/hó</span>
+          <span class="text-5xl font-extrabold" data-hu="0 Ft" data-en="$0">0 Ft</span>
+          <span class="text-gray-600" data-hu="" data-en=""></span>
         </div>
-        <button onclick="openModal('registerModal')" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold rounded-xl transition mb-8" data-hu="Kezdd el" data-en="Get Started">Kezdd el</button>
-        <ul class="space-y-4">
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="Havi 5 dokumentum feltöltés" data-en="5 document uploads/month">Havi 5 dokumentum feltöltés</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="Alap AI összefoglalók" data-en="Basic AI summaries">Alap AI összefoglalók</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="10 kérdés/nap AI chat" data-en="10 questions/day AI chat">10 kérdés/nap AI chat</span></li>
-          <li class="flex items-start text-gray-400"><i class="fa-solid fa-xmark mr-3 mt-1"></i><span data-hu="Vizsga szimulátor" data-en="Exam simulator">Vizsga szimulátor</span></li>
+        <button onclick="openModal('registerModal')" data-testid="pricing-free-btn" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold rounded-xl transition mb-8" data-hu="Kezdd el" data-en="Get Started">Kezdd el</button>
+        <ul class="space-y-3 text-sm">
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="30 AI kérdés" data-en="30 AI questions">30 AI kérdés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="5 dokumentum feltöltés" data-en="5 document uploads">5 dokumentum feltöltés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="5 dokumentum letöltés" data-en="5 document downloads">5 dokumentum letöltés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="5 gondolattérkép" data-en="5 mind maps">5 gondolattérkép</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="1 AI összefoglaló" data-en="1 AI summary">1 AI összefoglaló</span></li>
+          <li class="flex items-start text-gray-400"><i class="fa-solid fa-xmark mr-3 mt-1"></i><span data-hu="ZH feladatok magyarázattal" data-en="Mock test explanations">ZH feladatok magyarázattal</span></li>
         </ul>
       </div>
-      
-      <!-- Pro -->
-      <div class="bg-gradient-to-br from-[#6C5CE7] to-[#5A4BD1] rounded-2xl p-8 shadow-2xl hover-lift border-2 border-[#6C5CE7] relative transform scale-105">
+
+      <!-- Pro 1 hónap -->
+      <div class="bg-white rounded-2xl p-8 shadow-lg hover-lift border-2 border-purple-200" data-testid="pricing-pro1">
+        <h3 class="text-2xl font-bold mb-2" data-hu="Pro – 1 hónap" data-en="Pro – 1 month">Pro – 1 hónap</h3>
+        <p class="text-gray-600 mb-6" data-hu="Komoly tanuláshoz" data-en="For serious learners">Komoly tanuláshoz</p>
+        <div class="mb-6">
+          <span class="text-5xl font-extrabold" data-hu="2 100 Ft" data-en="$7">2 100 Ft</span>
+          <span class="text-gray-600 ml-1" data-hu="/hó" data-en="/mo">/hó</span>
+        </div>
+        <button onclick="openModal('registerModal')" data-testid="pricing-pro1-btn" class="w-full py-3 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-bold rounded-xl transition mb-8" data-hu="Frissítés Pro-ra" data-en="Upgrade to Pro">Frissítés Pro-ra</button>
+        <ul class="space-y-3 text-sm">
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="100 AI kérdés" data-en="100 AI questions">100 AI kérdés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="10 dokumentum feltöltés" data-en="10 document uploads">10 dokumentum feltöltés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="20 dokumentum letöltés" data-en="20 document downloads">20 dokumentum letöltés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="15 gondolattérkép" data-en="15 mind maps">15 gondolattérkép</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="10 AI összefoglaló" data-en="10 AI summaries">10 AI összefoglaló</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="10 ZH feladat magyarázattal" data-en="10 mock tests w/ explanation">10 ZH feladat magyarázattal</span></li>
+        </ul>
+      </div>
+
+      <!-- Pro 6 hónap (Most Popular) -->
+      <div class="bg-gradient-to-br from-[#6C5CE7] to-[#5A4BD1] rounded-2xl p-8 shadow-2xl hover-lift border-2 border-[#6C5CE7] relative transform scale-105" data-testid="pricing-pro6">
         <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-yellow-400 text-gray-900 rounded-full text-sm font-bold" data-hu="Legnépszerűbb" data-en="Most Popular">Legnépszerűbb</div>
-        <h3 class="text-2xl font-bold mb-2 text-white">Pro</h3>
-        <p class="text-purple-100 mb-6" data-hu="Komoly tanuláshoz" data-en="For serious studying">Komoly tanuláshoz</p>
+        <h3 class="text-2xl font-bold mb-2 text-white" data-hu="Pro – 6 hónap" data-en="Pro – 6 months">Pro – 6 hónap</h3>
+        <p class="text-purple-100 mb-6" data-hu="Hosszú távra a legjobb" data-en="Best long-term value">Hosszú távra a legjobb</p>
         <div class="mb-6">
-          <span class="text-5xl font-extrabold text-white">2 990 Ft</span>
-          <span class="text-purple-100" data-hu="/hó" data-en="/mo">/hó</span>
+          <span class="text-5xl font-extrabold text-white" data-hu="11 000 Ft" data-en="$35">11 000 Ft</span>
+          <span class="text-purple-100 ml-1" data-hu="/6 hó" data-en="/6 mo">/6 hó</span>
         </div>
-        <button onclick="openModal('registerModal')" class="w-full py-3 bg-white hover:bg-gray-100 text-[#6C5CE7] font-bold rounded-xl transition mb-8" data-hu="Frissítés Pro-ra" data-en="Upgrade to Pro">Frissítés Pro-ra</button>
-        <ul class="space-y-4 text-white">
-          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="Korlátlan dokumentum feltöltés" data-en="Unlimited uploads">Korlátlan dokumentum feltöltés</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="Fejlett AI összefoglalók" data-en="Advanced AI summaries">Fejlett AI összefoglalók</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="Korlátlan AI chat" data-en="Unlimited AI chat">Korlátlan AI chat</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="Vizsga szimulátor" data-en="Exam simulator">Vizsga szimulátor</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="Gondolattérképek" data-en="Mind maps">Gondolattérképek</span></li>
-        </ul>
-      </div>
-      
-      <!-- Team -->
-      <div class="bg-white rounded-2xl p-8 shadow-lg hover-lift border-2 border-gray-100">
-        <h3 class="text-2xl font-bold mb-2">Team</h3>
-        <p class="text-gray-600 mb-6" data-hu="Tanulócsoportoknak" data-en="For study groups">Tanulócsoportoknak</p>
-        <div class="mb-6">
-          <span class="text-5xl font-extrabold">9 990 Ft</span>
-          <span class="text-gray-600" data-hu="/hó" data-en="/mo">/hó</span>
-        </div>
-        <button onclick="openModal('registerModal')" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold rounded-xl transition mb-8" data-hu="Kapcsolat" data-en="Contact Sales">Kapcsolat</button>
-        <ul class="space-y-4">
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="Minden Pro funkció" data-en="All Pro features">Minden Pro funkció</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="5 felhasználóig" data-en="Up to 5 users">5 felhasználóig</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="Közös jegyzet megosztás" data-en="Shared notes">Közös jegyzet megosztás</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="Csoportos vizsga mód" data-en="Group exam mode">Csoportos vizsga mód</span></li>
-          <li class="flex items-start"><i class="fa-solid fa-check text-green-500 mr-3 mt-1"></i><span data-hu="Prioritás support" data-en="Priority support">Prioritás support</span></li>
+        <button onclick="openModal('registerModal')" data-testid="pricing-pro6-btn" class="w-full py-3 bg-white hover:bg-gray-100 text-[#6C5CE7] font-bold rounded-xl transition mb-8" data-hu="Frissítés Pro-ra" data-en="Upgrade to Pro">Frissítés Pro-ra</button>
+        <ul class="space-y-3 text-white text-sm">
+          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="1 000 AI kérdés" data-en="1,000 AI questions">1 000 AI kérdés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="20 dokumentum feltöltés" data-en="20 document uploads">20 dokumentum feltöltés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="100 dokumentum letöltés" data-en="100 document downloads">100 dokumentum letöltés</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="50 gondolattérkép" data-en="50 mind maps">50 gondolattérkép</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="25 AI összefoglaló" data-en="25 AI summaries">25 AI összefoglaló</span></li>
+          <li class="flex items-start"><i class="fa-solid fa-check mr-3 mt-1"></i><span data-hu="50 ZH feladat magyarázattal" data-en="50 mock tests w/ explanation">50 ZH feladat magyarázattal</span></li>
         </ul>
       </div>
     </div>
@@ -1359,6 +1380,16 @@
   window.addEventListener('DOMContentLoaded', () => {
     window.toggleLang(window.currentLang);
   });
+
+  /* Free kredit lejárt figyelmeztetés – meghívható a kvótakezelő logikából */
+  window.showFreeExpiredWarning = function() {
+    const banner = document.getElementById('freeExpiredBanner');
+    if (banner) banner.classList.remove('hidden');
+  };
+  window.hideFreeExpiredWarning = function() {
+    const banner = document.getElementById('freeExpiredBanner');
+    if (banner) banner.classList.add('hidden');
+  };
 
   window.toggleMobileMenu = function() {
     document.getElementById('mobileMenu').classList.toggle('hidden');
