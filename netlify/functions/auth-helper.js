@@ -1,3 +1,1 @@
-/* Kompatibilitási réteg: a régi `./auth-helper.js` import is működjön.
-   Az új .mjs fájlból re-exportál. */
-export { getSupabaseUser } from "./
+export { getSupabaseUser } from "./auth-helper.mjs";
