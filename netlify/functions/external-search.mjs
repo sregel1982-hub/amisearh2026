@@ -33,23 +33,21 @@ export default async function handler(req) {
 
   const lang = body.lang === "hu" ? "hu" : "en";
   const includeForeign = !!body.includeForeign;
+  const page = Math.max(1, Math.min(20, parseInt(body.page || "1", 10) || 1));
 
   const tasks = [];
 
   if (lang === "hu") {
-    /* Magyar query: szűrő NÉLKÜL relevance — sok hu doc nincs nyelv-taggel */
-    tasks.push(searchOpenAlex(query, null, 15, "hu"));
+    tasks.push(searchOpenAlex(query, null, 25, "hu", page));
     if (includeForeign) {
-      /* Idegen nyelv is: angolul is kerestünk + arXiv */
-      tasks.push(searchOpenAlex(query, "en", 10, "en"));
-      tasks.push(searchArxiv(query, 5));
+      tasks.push(searchOpenAlex(query, "en", 15, "en", page));
+      tasks.push(searchArxiv(query, 10, page));
     }
   } else {
-    /* Angol query: szigorúbb english filter + arXiv */
-    tasks.push(searchOpenAlex(query, "en", 15, "en"));
-    tasks.push(searchArxiv(query, 5));
+    tasks.push(searchOpenAlex(query, "en", 25, "en", page));
+    tasks.push(searchArxiv(query, 10, page));
     if (includeForeign) {
-      tasks.push(searchOpenAlex(query, "hu", 5, "hu"));
+      tasks.push(searchOpenAlex(query, "hu", 10, "hu", page));
     }
   }
 
@@ -79,22 +77,20 @@ export default async function handler(req) {
     return 0;
   });
 
-  return jok({ results: results.slice(0, 25), query, lang, includeForeign });
+  return jok({ results: results.slice(0, 40), query, lang, includeForeign, page });
 }
 
 /* ────────────────  OpenAlex  ──────────────── */
-async function searchOpenAlex(q, langFilter, perPage, taggedLang) {
+async function searchOpenAlex(q, langFilter, perPage, taggedLang, page) {
   try {
-    let results = await openAlexQuery(q, langFilter, perPage, taggedLang);
-    /* Ha üres és a query több szót tartalmaz, próbáljuk meg
-       a leghosszabb szóval is külön (broader recall) */
-    if (results.length === 0) {
+    let results = await openAlexQuery(q, langFilter, perPage, taggedLang, page);
+    if (results.length === 0 && (!page || page === 1)) {
       const words = q
         .split(/\s+/)
         .filter((w) => w.length >= 4)
         .sort((a, b) => b.length - a.length);
       if (words.length > 1) {
-        const broader = await openAlexQuery(words[0], langFilter, perPage, taggedLang);
+        const broader = await openAlexQuery(words[0], langFilter, perPage, taggedLang, page);
         results = broader;
       }
     }
@@ -105,10 +101,11 @@ async function searchOpenAlex(q, langFilter, perPage, taggedLang) {
   }
 }
 
-async function openAlexQuery(q, langFilter, perPage, taggedLang) {
+async function openAlexQuery(q, langFilter, perPage, taggedLang, page) {
   const params = new URLSearchParams({
     search: q,
     per_page: String(perPage),
+    page: String(page || 1),
     mailto: MAILTO
   });
   if (langFilter) params.set("filter", `language:${langFilter}`);
@@ -143,11 +140,12 @@ async function openAlexQuery(q, langFilter, perPage, taggedLang) {
 }
 
 /* ────────────────  arXiv  ──────────────── */
-async function searchArxiv(q, max) {
+async function searchArxiv(q, max, page) {
   try {
+    const start = ((page || 1) - 1) * max;
     const params = new URLSearchParams({
       search_query: `all:${q}`,
-      start: "0",
+      start: String(start),
       max_results: String(max)
     });
     const url = `${ARXIV}?${params.toString()}`;
