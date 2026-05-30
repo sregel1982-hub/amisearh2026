@@ -1,101 +1,161 @@
-import { getSupabaseUser } from "./auth-helper.js";
+import { getSupabaseUser } from "./auth-helper.mjs";
 import { db } from "../../db/index.js";
 import { userProfiles } from "../../db/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
-const POINTS_PER_REASON = {
-  document_upload: 20,
-  corrected_note: 20,
-  five_star_rating: 50
+/**
+ * /.netlify/functions/award-points
+ *  POST { reason }
+ *
+ *  Reason → pontok hozzárendelése + dedup szabály
+ *  - five_star_rating: 50 pont, csak egyszer / user (rated_bonus_claimed)
+ *  - document_upload: 20 pont, MINDEN upload-ra (limit: napi max 10 = 200 pont/nap)
+ *  - profile_complete: 30 pont, csak egyszer / user
+ *
+ *  Response: { points: új total, awarded: most adott, plan }
+ *
+ *  Idempotens DB schema migráció: rated_bonus_claimed, profile_bonus_claimed,
+ *  uploads_today_count, uploads_today_date oszlopok auto-add.
+ */
+
+let _schemaEnsured = false;
+async function ensureSchema() {
+  if (_schemaEnsured) return;
+  try {
+    await db.execute(sql`
+      ALTER TABLE user_profiles
+        ADD COLUMN IF NOT EXISTS rated_bonus_claimed BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS profile_bonus_claimed BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS uploads_today_count INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS uploads_today_date DATE
+    `);
+    _schemaEnsured = true;
+  } catch (e) {
+    console.error("[award-points] ensureSchema failed:", e?.message);
+  }
+}
+
+const REWARDS = {
+  five_star_rating: { amount: 50, oneTime: true, flagCol: "ratedBonusClaimed" },
+  document_upload: { amount: 20, oneTime: false, dailyLimit: 10 },
+  profile_complete: { amount: 30, oneTime: true, flagCol: "profileBonusClaimed" }
 };
 
-const PRO_THRESHOLD = 500;
-
 export default async function handler(req) {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
+  if (req.method !== "POST") return jerr("Method not allowed", 405);
 
   const user = await getSupabaseUser(req);
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
+  if (!user) return jerr("Unauthorized", 401);
+
+  await ensureSchema();
 
   let body;
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
+    return jerr("Invalid JSON", 400);
   }
 
-  const { reason } = body;
-  const pointsToAdd = POINTS_PER_REASON[reason];
+  const reason = body?.reason;
+  const rule = REWARDS[reason];
+  if (!rule) return jerr("Unknown reason: " + reason, 400);
 
-  if (!pointsToAdd) {
-    return new Response(JSON.stringify({ error: "Invalid reason" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  // Profil automatikus létrehozása, ha még nincs
-  let existing = await db
+  /* Profil lekérése — automatikus létrehozás, ha nincs */
+  let [profile] = await db
     .select()
     .from(userProfiles)
-    .where(eq(userProfiles.identityId, user.id));
+    .where(eq(userProfiles.identityId, user.id))
+    .limit(1);
 
-  if (existing.length === 0) {
-    const inserted = await db
+  if (!profile) {
+    const [created] = await db
       .insert(userProfiles)
       .values({
         identityId: user.id,
-        fullName: user.email || "User",
-        username: (user.email && user.email.split("@")[0]) || ("user_" + Date.now()),
-        email: user.email || "",
-        status: "student",
+        email: user.email || null,
         points: 0,
-        plan: "Free"
+        plan: "free"
       })
       .returning();
-    existing = inserted;
+    profile = created;
   }
 
-  const currentProfile = existing[0];
-  const newPoints = (currentProfile.points || 0) + pointsToAdd;
-  let finalPoints = newPoints;
-  let finalPlan = currentProfile.plan || "Free";
+  /* Dedup ellenőrzés */
+  let awarded = 0;
+  const updates = {};
 
-  // 500 pont elérése: nullázás + Pro plan
+  if (rule.oneTime) {
+    if (profile[rule.flagCol]) {
+      return jok({
+        points: profile.points || 0,
+        awarded: 0,
+        plan: profile.plan,
+        message: "Already claimed"
+      });
+    }
+    updates[rule.flagCol] = true;
+    awarded = rule.amount;
+  } else if (rule.dailyLimit) {
+    const today = new Date().toISOString().slice(0, 10);
+    const isNewDay = !profile.uploadsTodayDate || profile.uploadsTodayDate.toISOString?.().slice(0, 10) !== today;
+    const usedToday = isNewDay ? 0 : (profile.uploadsTodayCount || 0);
+    if (usedToday >= rule.dailyLimit) {
+      return jok({
+        points: profile.points || 0,
+        awarded: 0,
+        plan: profile.plan,
+        message: "Daily limit reached"
+      });
+    }
+    updates.uploadsTodayCount = usedToday + 1;
+    updates.uploadsTodayDate = new Date(today);
+    awarded = rule.amount;
+  }
+
+  if (awarded === 0) {
+    return jok({ points: profile.points || 0, awarded: 0, plan: profile.plan });
+  }
+
+  const newPoints = (profile.points || 0) + awarded;
+  updates.points = newPoints;
+
+  /* Auto-upgrade to pro at 500 pts (csak ha még free) */
   let upgraded = false;
-  if (newPoints >= PRO_THRESHOLD) {
-    finalPoints = 0;
-    finalPlan = "Pro";
+  if (profile.plan === "free" && newPoints >= 500) {
+    updates.plan = "pro";
     upgraded = true;
   }
 
-  const updatedRows = await db
-    .update(userProfiles)
-    .set({ points: finalPoints, plan: finalPlan })
-    .where(eq(userProfiles.identityId, user.id))
-    .returning();
+  try {
+    await db
+      .update(userProfiles)
+      .set(updates)
+      .where(eq(userProfiles.identityId, user.id));
+  } catch (e) {
+    console.error("[award-points] update failed:", e?.message);
+    return jerr("DB update error: " + (e?.message || e), 500);
+  }
 
-  const updated = updatedRows[0];
+  return jok({
+    points: newPoints,
+    awarded,
+    plan: updates.plan || profile.plan,
+    upgraded,
+    reason
+  });
+}
 
-  return new Response(
-    JSON.stringify({
-      points: updated.points,
-      plan: updated.plan,
-      upgraded
-    }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+function jok(d, s = 200) {
+  return new Response(JSON.stringify(d), {
+    status: s,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+function jerr(m, s = 400) {
+  return new Response(JSON.stringify({ error: m }), {
+    status: s,
+    headers: { "Content-Type": "application/json" }
+  });
 }
 
 export const config = {};
-  
