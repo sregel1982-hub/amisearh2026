@@ -390,8 +390,8 @@
 
       <div>
         <label class="block text-sm font-semibold text-gray-700 mb-1" data-hu="Fájl" data-en="File">Fájl <span class="text-red-500">*</span></label>
-        <input type="file" id="uploadFileInput" data-testid="upload-file-input" required accept=".pdf,.txt,.docx,.pptx" class="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#6C5CE7] file:text-white hover:file:bg-[#5A4BD1]">
-        <p class="text-xs text-gray-500 mt-1">PDF, TXT, DOCX, PPTX • max 20 MB</p>
+        <input type="file" id="uploadFileInput" data-testid="upload-file-input" required accept=".pdf,.txt,.docx" class="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#6C5CE7] file:text-white hover:file:bg-[#5A4BD1]">
+        <p class="text-xs text-gray-500 mt-1">PDF, TXT, DOCX • max 20 MB</p>
       </div>
 
       <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
@@ -1380,6 +1380,17 @@
           window.userProfile.points = data.points;
           window.updateDashboardUI(window.userProfile);
         }
+        // Sikeres pont jóváírás → toast
+        if (data.awarded && data.awarded > 0) {
+          try {
+            const txt = (window.currentLang === 'hu' ? '+' : '+') + data.awarded + (window.currentLang === 'hu' ? ' pont!' : ' points!');
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 right-4 z-[100] bg-emerald-500 text-white px-4 py-2 rounded-lg shadow-lg font-semibold animate-bounce';
+            toast.textContent = txt;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+          } catch (e) {}
+        }
       }
     } catch (e) {
       console.error('Failed to award points:', e);
@@ -2231,7 +2242,7 @@
         const subject = n.subject ? '<span class="text-xs text-gray-500 ml-2">' + escapeHtml(n.subject) + '</span>' : '';
         html += '<div class="flex items-center justify-between gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition">' +
                 '<div class="min-w-0 flex-1"><p class="text-sm font-medium text-gray-900 truncate">' + safeTitle + subject + '</p>' +
-                (n.publicUrl ? '<a href="' + escapeHtml(n.publicUrl) + '" target="_blank" class="text-xs text-[#6C5CE7] hover:underline"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</a>' : '') +
+                '<button onclick="window.downloadNote(' + n.id + ')" data-testid="download-note-' + n.id + '" class="text-xs text-[#6C5CE7] hover:underline mt-1"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</button>' +
                 '</div>' +
                 '<button onclick="window.summarizeNote(' + n.id + ', this)" data-testid="summarize-note-' + n.id + '" class="text-xs px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize') + '</button>' +
                 '</div>';
@@ -2240,6 +2251,37 @@
       container.innerHTML = html;
     } catch (e) {
       container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba történt.' : 'An error occurred.') + '</div>';
+    }
+  };
+
+  /* Signed URL alapú letöltés — privát bucket-hez is működik */
+  window.downloadNote = async function(noteId) {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    try {
+      const resp = await fetch('/.netlify/functions/download-note?id=' + noteId, {
+        method: 'GET',
+        headers: await window.getAuthHeaders({})
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        alert((lang === 'hu' ? 'Letöltési hiba: ' : 'Download error: ') + t.slice(0, 200));
+        return;
+      }
+      const data = await resp.json();
+      if (!data.url) {
+        alert(lang === 'hu' ? 'Hiányzó letöltési URL.' : 'Missing download URL.');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = data.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      if (data.originalName) a.download = data.originalName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 1000);
+    } catch (e) {
+      alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
     }
   };
 
