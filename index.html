@@ -390,8 +390,8 @@
 
       <div>
         <label class="block text-sm font-semibold text-gray-700 mb-1" data-hu="Fájl" data-en="File">Fájl <span class="text-red-500">*</span></label>
-        <input type="file" id="uploadFileInput" data-testid="upload-file-input" required accept=".pdf,.txt,.docx" class="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#6C5CE7] file:text-white hover:file:bg-[#5A4BD1]">
-        <p class="text-xs text-gray-500 mt-1">PDF, TXT, DOCX • max 20 MB</p>
+        <input type="file" id="uploadFileInput" data-testid="upload-file-input" required accept=".pdf,.txt,.docx,.pptx" class="w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-[#6C5CE7] file:text-white hover:file:bg-[#5A4BD1]">
+        <p class="text-xs text-gray-500 mt-1">PDF, TXT, DOCX, PPTX • max 20 MB</p>
       </div>
 
       <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
@@ -2530,10 +2530,28 @@
       } catch (e) { /* csendes */ }
 
       if (window.mermaid) {
-        const mermaidBlocks = target.querySelectorAll('.language-mermaid');
-        for (const block of mermaidBlocks) {
-          const raw = block.textContent;
-          const parent = block.parentElement;
+        /* Mermaid blokk detektálás — több formátumot is elfogadunk:
+           - ```mermaid (szabályos), ```mindmap, ```flowchart, etc.
+           - sima ``` blokk amely 'mindmap' / 'flowchart' / 'graph' / 'sequenceDiagram' / 'classDiagram' / 'erDiagram' sorral kezdődik */
+        const mermaidDiagramTypes = /^(mindmap|flowchart|graph|sequenceDiagram|classDiagram|erDiagram|stateDiagram|gantt|pie|journey|gitGraph|timeline)/i;
+        const candidateBlocks = target.querySelectorAll(
+          '.language-mermaid, .language-mindmap, .language-flowchart, code[class*="language-"], pre code'
+        );
+        const processed = new Set();
+        for (const block of candidateBlocks) {
+          if (processed.has(block)) continue;
+          const raw = (block.textContent || '').trim();
+          if (!raw) continue;
+          // Eldöntjük: ez tényleg mermaid-e?
+          const isMermaid =
+            block.className.includes('language-mermaid') ||
+            block.className.includes('language-mindmap') ||
+            block.className.includes('language-flowchart') ||
+            mermaidDiagramTypes.test(raw.split('\n')[0].trim());
+          if (!isMermaid) continue;
+          processed.add(block);
+          const parent = block.closest('pre') || block.parentElement;
+          if (!parent) continue;
           const wrapper = document.createElement('div');
           wrapper.style.position = 'relative';
           const mermaidDiv = document.createElement('div');
