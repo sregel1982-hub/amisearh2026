@@ -1,6 +1,7 @@
 import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { PDFParse } from "pdf-parse";
+import mammoth from "mammoth";
 import { db } from "../../db/index.js";
 import { uploadedNotes } from "../../db/schema.js";
 import { eq, and, ne, isNotNull, sql } from "drizzle-orm";
@@ -94,6 +95,14 @@ export default async function handler(req) {
       textContent = result?.text || "";
     } catch (e) {
       console.error("PDF parse error:", e);
+    }
+  } else if (lower.endsWith(".docx")) {
+    try {
+      const arrayBuffer = await fileData.arrayBuffer();
+      const result = await mammoth.extractRawText({ buffer: Buffer.from(arrayBuffer) });
+      textContent = result?.value || "";
+    } catch (e) {
+      console.error("DOCX parse error:", e);
     }
   }
 
