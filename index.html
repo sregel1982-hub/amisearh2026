@@ -956,6 +956,11 @@
           </div>
         </div>
 
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer mb-4 select-none">
+          <input type="checkbox" id="practiceOnlyTasks" data-testid="practice-only-tasks" class="rounded text-[#6C5CE7] focus:ring-[#6C5CE7]">
+          <span data-hu="Csak feladatok (megoldás nélkül)" data-en="Problems only (no solutions)">Csak feladatok (megoldás nélkül)</span>
+        </label>
+
         <div id="practiceOutput" class="bg-white rounded-2xl border border-gray-100 p-4 min-h-[80px] text-sm">
           <p class="text-gray-400 italic text-center py-4" data-hu="Itt jelennek meg a generált feladatok…" data-en="Generated problems will appear here…">Itt jelennek meg a generált feladatok…</p>
         </div>
@@ -1826,13 +1831,17 @@
   }
 
   // --- Dashboard search handler ---
-  window.runExternalSearch = async function(query, lang, includeForeign, targetEl) {
+  window._externalSearchState = { query: '', lang: 'hu', includeForeign: false, page: 1, target: null };
+
+  window.runExternalSearch = async function(query, lang, includeForeign, targetEl, page) {
     if (!targetEl) return;
+    const pg = page || 1;
+    window._externalSearchState = { query, lang, includeForeign, page: pg, target: targetEl };
     try {
       const resp = await fetch('/.netlify/functions/external-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, lang, includeForeign: !!includeForeign })
+        body: JSON.stringify({ query, lang, includeForeign: !!includeForeign, page: pg })
       });
       if (!resp.ok) {
         let errMsg = (lang === 'hu' ? 'Külső keresés nem érhető el.' : 'External search unavailable.');
@@ -1847,10 +1856,10 @@
       const data = await resp.json();
       const results = (data && data.results) || [];
       if (!results.length) {
-        targetEl.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center text-gray-500"><i class="fa-solid fa-globe text-3xl mb-2 text-gray-300"></i><p>' + (lang === 'hu' ? 'Nincs külső találat. Próbáld be a "Idegen nyelvű is" pipát.' : 'No external results. Try the foreign-language checkbox.') + '</p></div>';
+        targetEl.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center text-gray-500"><i class="fa-solid fa-globe text-3xl mb-2 text-gray-300"></i><p>' + (lang === 'hu' ? (pg > 1 ? 'Nincs több találat.' : 'Nincs külső találat. Próbáld be a "Idegen nyelvű is" pipát.') : (pg > 1 ? 'No more results.' : 'No external results. Try the foreign-language checkbox.')) + '</p>' + (pg > 1 ? '<button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg - 1) + ')" class="mt-3 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium">← ' + (lang === 'hu' ? 'Vissza' : 'Back') + '</button>' : '') + '</div>';
         return;
       }
-      let html = '<div class="text-sm text-gray-500 mb-2"><i class="fa-solid fa-globe mr-1"></i>' + (lang === 'hu' ? 'Külső akadémiai találatok' : 'External academic results') + ' (' + results.length + ')</div>';
+      let html = '<div class="text-sm text-gray-500 mb-2 flex items-center justify-between"><span><i class="fa-solid fa-globe mr-1"></i>' + (lang === 'hu' ? 'Külső akadémiai találatok' : 'External academic results') + ' (' + results.length + ')</span>' + (pg > 1 ? '<span class="text-xs text-gray-400">' + (lang === 'hu' ? 'Oldal' : 'Page') + ' ' + pg + '</span>' : '') + '</div>';
       html += '<div class="space-y-3">';
       for (const r of results) {
         const langBadge = r.language === 'hu'
@@ -1872,6 +1881,21 @@
         html += authors + abstract;
         html += '  <div class="mt-3 flex gap-2 flex-wrap">' + pdfBtn + linkBtn + '</div>';
         html += '</div>';
+      }
+      html += '</div>';
+
+      /* Pagination controls */
+      html += '<div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">';
+      if (pg > 1) {
+        html += '<button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg - 1) + ')" data-testid="ext-prev-page-btn" class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg font-medium text-gray-700 transition"><i class="fa-solid fa-arrow-left"></i>' + (lang === 'hu' ? 'Előző' : 'Previous') + '</button>';
+      } else {
+        html += '<div></div>';
+      }
+      html += '<span class="text-xs text-gray-500">' + (lang === 'hu' ? 'Oldal' : 'Page') + ' ' + pg + '</span>';
+      if (results.length >= 10) {
+        html += '<button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg + 1) + ')" data-testid="ext-next-page-btn" class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white rounded-lg font-medium transition">' + (lang === 'hu' ? 'Következő' : 'Next') + '<i class="fa-solid fa-arrow-right"></i></button>';
+      } else {
+        html += '<div></div>';
       }
       html += '</div>';
       targetEl.innerHTML = html;
@@ -2331,6 +2355,7 @@
     const topic = (document.getElementById('practiceTopicInput')?.value || '').trim();
     const count = parseInt(document.getElementById('practiceCountInput')?.value || '3', 10) || 3;
     const difficulty = document.getElementById('practiceDifficulty')?.value || 'medium';
+    const onlyTasks = document.getElementById('practiceOnlyTasks')?.checked || false;
     if (!topic) {
       alert(lang === 'hu' ? 'Adj meg egy témát!' : 'Please enter a topic!');
       return;
@@ -2339,9 +2364,16 @@
     const out = document.getElementById('practiceOutput');
     if (out) out.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-4"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Feladatok generálása...' : 'Generating problems...') + '</span></div>';
 
-    const prompt = (lang === 'hu')
-      ? 'Generálj ' + count + ' db ' + difficulty + ' nehézségű mintafeladatot a következő témából: "' + topic + '". Minden feladat után add meg a részletes, lépésről-lépésre haladó megoldást is. Használj LaTeX matematikai formázást ($...$ vagy $$...$$). Strukturáld így: ## 1. Feladat ... ### Megoldás ... ## 2. Feladat ...'
-      : 'Generate ' + count + ' ' + difficulty + ' difficulty practice problems on the topic: "' + topic + '". After each problem, provide a detailed step-by-step solution. Use LaTeX math formatting ($...$ or $$...$$). Structure: ## Problem 1 ... ### Solution ... ## Problem 2 ...';
+    let prompt;
+    if (onlyTasks) {
+      prompt = (lang === 'hu')
+        ? 'Generálj ' + count + ' db ' + difficulty + ' nehézségű mintafeladatot a következő témából: "' + topic + '". CSAK a feladatok szövegét add meg, NE add meg a megoldásokat! Használj LaTeX matematikai formázást ($...$ vagy $$...$$). Strukturáld így: ## 1. Feladat ... ## 2. Feladat ...'
+        : 'Generate ' + count + ' ' + difficulty + ' difficulty practice problems on the topic: "' + topic + '". Provide ONLY the problem statements, NOT the solutions! Use LaTeX math formatting ($...$ or $$...$$). Structure: ## Problem 1 ... ## Problem 2 ...';
+    } else {
+      prompt = (lang === 'hu')
+        ? 'Generálj ' + count + ' db ' + difficulty + ' nehézségű mintafeladatot a következő témából: "' + topic + '". Minden feladat után add meg a részletes, lépésről-lépésre haladó megoldást is. Használj LaTeX matematikai formázást ($...$ vagy $$...$$). Strukturáld így: ## 1. Feladat ... ### Megoldás ... ## 2. Feladat ...'
+        : 'Generate ' + count + ' ' + difficulty + ' difficulty practice problems on the topic: "' + topic + '". After each problem, provide a detailed step-by-step solution. Use LaTeX math formatting ($...$ or $$...$$). Structure: ## Problem 1 ... ### Solution ... ## Problem 2 ...';
+    }
 
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
