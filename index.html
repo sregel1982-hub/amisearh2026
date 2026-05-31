@@ -2958,3 +2958,77 @@
     const password = document.getElementById('registerPassword').value;
     const btn = document.getElementById('registerSubmitBtn');
     window.hideRegisterMsgs();
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+      const supabase = getSupabase() || await waitForSupabase();
+      if (!supabase) throw new Error(authServiceMessage());
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name, username: username, status: status } }
+      });
+      if (error) throw error;
+      const user = data.user;
+      if (user && !data.session) {
+        window.showRegisterMsg('registerSuccess', window.currentLang === 'hu' ? 'Regisztráció sikeres! Nézd meg az email fiókodat a megerősítéshez.' : 'Registration successful! Check your email to confirm.');
+      } else if (user && data.session) {
+        window.currentUser = user;
+        try {
+          await fetch('/.netlify/functions/user-profile', {
+            method: 'POST',
+            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ fullName: name, username: username, status: status, email: email }),
+          });
+        } catch (profileErr) {
+          console.error('Profile creation error:', profileErr);
+        }
+        updateAuthUI(user);
+        window.closeModal('registerModal');
+        const dash = document.getElementById('dashboardSection');
+        if (dash) dash.scrollIntoView({ behavior: 'smooth' });
+      }
+      document.getElementById('registerName').value = '';
+      document.getElementById('registerUsername').value = '';
+      document.getElementById('registerEmail').value = '';
+      document.getElementById('registerPassword').value = '';
+    } catch (error) {
+      window.showRegisterMsg('registerError', error.message || (window.currentLang === 'hu' ? 'A szolgáltatás nem elérhető.' : 'Service not available.'));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = window.currentLang === 'hu' ? 'Fiók létrehozása' : 'Create Account';
+    }
+  }
+
+  // --- Logout ---
+  window.handleLogout = async function() {
+    try {
+      const supabase = getSupabase() || await waitForSupabase();
+      if (supabase) await supabase.auth.signOut();
+    } catch (e) {}
+    updateAuthUI(null);
+  }
+
+  // --- Forgot Password ---
+  window.handleForgotPassword = async function() {
+    const email = document.getElementById('loginEmail').value;
+    if (!email) {
+      window.showLoginMsg('loginError', window.currentLang === 'hu' ? 'Add meg az email címed a jelszó visszaállításhoz.' : 'Enter your email for password recovery.');
+      return;
+    }
+    window.hideLoginMsgs();
+    try {
+      const supabase = getSupabase() || await waitForSupabase();
+      if (!supabase) throw new Error(authServiceMessage());
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      window.showLoginMsg('loginSuccess', window.currentLang === 'hu' ? 'Jelszó-visszaállító email elküldve!' : 'Password recovery email sent!');
+    } catch (error) {
+      window.showLoginMsg('loginError', error.message || 'Error');
+    }
+  }
+</script>
+
+</body>
+</html>
