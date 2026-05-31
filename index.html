@@ -2457,11 +2457,15 @@
         alert('PDF library hiányzik.');
         return;
       }
+      // Várunk 200ms-t, hogy a KaTeX render biztosan befejeződjön
+      await new Promise(r => setTimeout(r, 200));
       const canvas = await window.html2canvas(target, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
-        logging: false
+        allowTaint: true,
+        logging: false,
+        foreignObjectRendering: false
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -2501,12 +2505,15 @@
         alert('html2canvas library hiányzik.');
         return;
       }
+      await new Promise(r => setTimeout(r, 200));
       // Renderelt LaTeX-et képpé alakítjuk, hogy a Word is helyesen mutassa
       const canvas = await window.html2canvas(target, {
         scale: 2,
         backgroundColor: '#ffffff',
         useCORS: true,
-        logging: false
+        allowTaint: true,
+        logging: false,
+        foreignObjectRendering: false
       });
       const imgDataUrl = canvas.toDataURL('image/png');
       const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Feladatok</title></head><body><h1 style="font-family:Calibri,Arial,sans-serif;color:#5A4BD1;">' + topicName + ' — Feladatok</h1><img src="' + imgDataUrl + '" style="max-width:100%;"></body></html>';
