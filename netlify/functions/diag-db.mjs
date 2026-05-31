@@ -1,4 +1,4 @@
-import { neon } from "@netlify/neon";
+import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { sql as drizzleSql } from "drizzle-orm";
 
@@ -23,7 +23,16 @@ export default async function handler(req) {
 
   let sql;
   try {
-    sql = neon();
+    const connStr =
+      process.env.NETLIFY_DATABASE_URL ||
+      process.env.NETLIFY_DB_URL ||
+      process.env.DATABASE_URL ||
+      process.env.NEON_DATABASE_URL;
+    if (!connStr) {
+      result.steps.push({ name: "neon() init", ok: false, error: "No connection string env var found" });
+      return jres(result);
+    }
+    sql = neon(connStr);
     result.steps.push({ name: "neon() init", ok: true });
   } catch (e) {
     result.steps.push({ name: "neon() init", ok: false, error: e?.message });
