@@ -2175,29 +2175,46 @@
     const bubble = _findAiBubbleFrom(btn);
     if (!bubble) return;
     const q = btn.getAttribute('data-q') || 'ai-valasz';
-    const text = _aiBubbleText(bubble);
     try {
       const { jsPDF } = window.jspdf || {};
-      if (!jsPDF) { alert('PDF library hiányzik.'); return; }
+      if (!jsPDF || !window.html2canvas) {
+        alert('PDF library hiányzik.');
+        return;
+      }
+      // Tisztítjuk a klónt — toolbart eltávolítjuk
+      const clone = bubble.cloneNode(true);
+      const tb = clone.querySelector('[data-ai-dl-toolbar]');
+      if (tb) tb.remove();
+      // Ideiglenesen DOM-ba illesztjük (offscreen), hogy html2canvas tudja renderelni
+      clone.style.position = 'absolute';
+      clone.style.left = '-99999px';
+      clone.style.top = '0';
+      clone.style.background = '#ffffff';
+      clone.style.padding = '20px';
+      clone.style.width = '700px';
+      document.body.appendChild(clone);
+      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      document.body.removeChild(clone);
+
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-      const margin = 40;
-      const maxWidth = pdf.internal.pageSize.getWidth() - margin * 2;
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.text('AmiSearh — AI válasz', margin, margin);
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'italic');
-      pdf.text(new Date().toLocaleString(window.currentLang === 'hu' ? 'hu-HU' : 'en-US'), margin, margin + 18);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(12);
-      const lines = pdf.splitTextToSize(text, maxWidth);
-      let y = margin + 44;
-      const lineHeight = 16;
+      const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      for (const line of lines) {
-        if (y > pageHeight - margin) { pdf.addPage(); y = margin; }
-        pdf.text(line, margin, y);
-        y += lineHeight;
+      const margin = 30;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text('AmiSearh — AI válasz', margin, margin);
+      let heightLeft = imgHeight;
+      let position = margin + 20;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= (pageHeight - position);
+      while (heightLeft > 0) {
+        position = -heightLeft + margin;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= (pageHeight - margin * 2);
       }
       pdf.save((window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.pdf');
     } catch (e) {
@@ -2206,21 +2223,43 @@
     }
   };
 
-  window.downloadAiAnswerWord = function(btn) {
+  window.downloadAiAnswerWord = async function(btn) {
     const bubble = _findAiBubbleFrom(btn);
     if (!bubble) return;
     const q = btn.getAttribute('data-q') || 'ai-valasz';
-    const html = _aiBubbleHtml(bubble);
-    const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title><style>body{font-family:Calibri,Arial,sans-serif;padding:24px;line-height:1.5;} h1,h2,h3{color:#5A4BD1;} pre,code{background:#f4f4f4;padding:6px;border-radius:4px;} blockquote{border-left:3px solid #6C5CE7;padding-left:12px;color:#555;}</style></head><body><h1>AmiSearh — AI válasz</h1><p><i>' + new Date().toLocaleString() + '</i></p><hr/>' + html + '</body></html>';
-    const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.doc';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      if (!window.html2canvas) {
+        alert('html2canvas library hiányzik.');
+        return;
+      }
+      const clone = bubble.cloneNode(true);
+      const tb = clone.querySelector('[data-ai-dl-toolbar]');
+      if (tb) tb.remove();
+      clone.style.position = 'absolute';
+      clone.style.left = '-99999px';
+      clone.style.top = '0';
+      clone.style.background = '#ffffff';
+      clone.style.padding = '20px';
+      clone.style.width = '700px';
+      document.body.appendChild(clone);
+      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      document.body.removeChild(clone);
+
+      const imgDataUrl = canvas.toDataURL('image/png');
+      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title></head><body><h1 style="font-family:Calibri,Arial,sans-serif;color:#5A4BD1;">AmiSearh — AI válasz</h1><p style="font-family:Calibri,Arial,sans-serif;color:#666;"><i>' + new Date().toLocaleString() + '</i></p><img src="' + imgDataUrl + '" style="max-width:100%;"></body></html>';
+      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Word generálás hiba: ' + (e?.message || e));
+    }
   };
 
   window.copyAiAnswer = function(btn) {
@@ -2412,42 +2451,77 @@
   window.downloadPracticePdf = async function(topicName) {
     const target = document.getElementById('practiceContent');
     if (!target) return;
-    const text = (target.innerText || target.textContent || '').trim();
     try {
       const { jsPDF } = window.jspdf || {};
+      if (!jsPDF || !window.html2canvas) {
+        alert('PDF library hiányzik.');
+        return;
+      }
+      const canvas = await window.html2canvas(target, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-      const margin = 40;
-      const maxW = pdf.internal.pageSize.getWidth() - margin * 2;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 30;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Fejléc
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
       pdf.text('AmiSearh — ' + topicName + ' — Feladatok', margin, margin);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(12);
-      const lines = pdf.splitTextToSize(text, maxW);
-      let y = margin + 30;
-      const ph = pdf.internal.pageSize.getHeight();
-      for (const l of lines) {
-        if (y > ph - margin) { pdf.addPage(); y = margin; }
-        pdf.text(l, margin, y); y += 16;
+
+      // Több oldalas tördelés
+      let heightLeft = imgHeight;
+      let position = margin + 20;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= (pageHeight - position);
+      while (heightLeft > 0) {
+        position = -heightLeft + margin;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= (pageHeight - margin * 2);
       }
       pdf.save(topicName + '-feladatok.pdf');
-    } catch (e) { alert('Hiba: ' + e?.message); }
+    } catch (e) {
+      alert('Hiba: ' + (e?.message || e));
+    }
   };
 
-  window.downloadPracticeWord = function(topicName) {
+  window.downloadPracticeWord = async function(topicName) {
     const target = document.getElementById('practiceContent');
     if (!target) return;
-    const html = target.innerHTML;
-    const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Feladatok</title><style>body{font-family:Calibri,Arial,sans-serif;padding:24px;line-height:1.6;}h1,h2,h3{color:#5A4BD1;}code{background:#f4f4f4;padding:2px 6px;border-radius:4px;}</style></head><body><h1>' + topicName + ' — Feladatok</h1>' + html + '</body></html>';
-    const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = topicName + '-feladatok.doc';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      if (!window.html2canvas) {
+        alert('html2canvas library hiányzik.');
+        return;
+      }
+      // Renderelt LaTeX-et képpé alakítjuk, hogy a Word is helyesen mutassa
+      const canvas = await window.html2canvas(target, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+      const imgDataUrl = canvas.toDataURL('image/png');
+      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Feladatok</title></head><body><h1 style="font-family:Calibri,Arial,sans-serif;color:#5A4BD1;">' + topicName + ' — Feladatok</h1><img src="' + imgDataUrl + '" style="max-width:100%;"></body></html>';
+      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = topicName + '-feladatok.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Hiba: ' + (e?.message || e));
+    }
   };
 
   // Chat file upload handler
@@ -2884,77 +2958,3 @@
     const password = document.getElementById('registerPassword').value;
     const btn = document.getElementById('registerSubmitBtn');
     window.hideRegisterMsgs();
-    btn.disabled = true;
-    btn.textContent = '...';
-
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (!supabase) throw new Error(authServiceMessage());
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: name, username: username, status: status } }
-      });
-      if (error) throw error;
-      const user = data.user;
-      if (user && !data.session) {
-        window.showRegisterMsg('registerSuccess', window.currentLang === 'hu' ? 'Regisztráció sikeres! Nézd meg az email fiókodat a megerősítéshez.' : 'Registration successful! Check your email to confirm.');
-      } else if (user && data.session) {
-        window.currentUser = user;
-        try {
-          await fetch('/.netlify/functions/user-profile', {
-            method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ fullName: name, username: username, status: status, email: email }),
-          });
-        } catch (profileErr) {
-          console.error('Profile creation error:', profileErr);
-        }
-        updateAuthUI(user);
-        window.closeModal('registerModal');
-        const dash = document.getElementById('dashboardSection');
-        if (dash) dash.scrollIntoView({ behavior: 'smooth' });
-      }
-      document.getElementById('registerName').value = '';
-      document.getElementById('registerUsername').value = '';
-      document.getElementById('registerEmail').value = '';
-      document.getElementById('registerPassword').value = '';
-    } catch (error) {
-      window.showRegisterMsg('registerError', error.message || (window.currentLang === 'hu' ? 'A szolgáltatás nem elérhető.' : 'Service not available.'));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = window.currentLang === 'hu' ? 'Fiók létrehozása' : 'Create Account';
-    }
-  }
-
-  // --- Logout ---
-  window.handleLogout = async function() {
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (supabase) await supabase.auth.signOut();
-    } catch (e) {}
-    updateAuthUI(null);
-  }
-
-  // --- Forgot Password ---
-  window.handleForgotPassword = async function() {
-    const email = document.getElementById('loginEmail').value;
-    if (!email) {
-      window.showLoginMsg('loginError', window.currentLang === 'hu' ? 'Add meg az email címed a jelszó visszaállításhoz.' : 'Enter your email for password recovery.');
-      return;
-    }
-    window.hideLoginMsgs();
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (!supabase) throw new Error(authServiceMessage());
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
-      window.showLoginMsg('loginSuccess', window.currentLang === 'hu' ? 'Jelszó-visszaállító email elküldve!' : 'Password recovery email sent!');
-    } catch (error) {
-      window.showLoginMsg('loginError', error.message || 'Error');
-    }
-  }
-</script>
-
-</body>
-</html>
