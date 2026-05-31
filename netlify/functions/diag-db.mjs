@@ -2,15 +2,6 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { sql as drizzleSql } from "drizzle-orm";
 
-/**
- * /.netlify/functions/diag-db
- *
- *  GET — diagnosztika az adatbázis kapcsolatról és sémáról.
- *  - Ellenőrzi van-e NETLIFY_DATABASE_URL
- *  - Lefut egy SELECT 1
- *  - Megnézi az uploaded_notes oszlopait
- *  - Lefut egy ALTER TABLE ADD COLUMN IF NOT EXISTS
- */
 export default async function handler(req) {
   const result = {
     env: {
@@ -21,17 +12,19 @@ export default async function handler(req) {
     steps: []
   };
 
+  const connStr =
+    process.env.NETLIFY_DATABASE_URL ||
+    process.env.NETLIFY_DB_URL ||
+    process.env.DATABASE_URL ||
+    process.env.NEON_DATABASE_URL;
+
+  if (!connStr) {
+    result.steps.push({ name: "connection string", ok: false, error: "No env var found" });
+    return jres(result);
+  }
+
   let sql;
   try {
-    const connStr =
-      process.env.NETLIFY_DATABASE_URL ||
-      process.env.NETLIFY_DB_URL ||
-      process.env.DATABASE_URL ||
-      process.env.NEON_DATABASE_URL;
-    if (!connStr) {
-      result.steps.push({ name: "neon() init", ok: false, error: "No connection string env var found" });
-      return jres(result);
-    }
     sql = neon(connStr);
     result.steps.push({ name: "neon() init", ok: true });
   } catch (e) {
@@ -48,28 +41,26 @@ export default async function handler(req) {
     return jres(result);
   }
 
-  /* Test 1: simple SELECT 1 */
   try {
     const r = await db.execute(drizzleSql`SELECT 1 as one`);
     result.steps.push({ name: "SELECT 1", ok: true, rows: r?.rows ?? r });
   } catch (e) {
-    result.steps.push({ name: "SELECT 1", ok: false, error: e?.message, stack: e?.stack?.split("\n").slice(0, 5) });
+    result.steps.push({ name: "SELECT 1", ok: false, error: e?.message });
   }
 
-  /* Test 2: list columns of uploaded_notes */
   try {
     const r = await db.execute(drizzleSql`
-      SELECT column_name, data_type
+      SELECT column_name
       FROM information_schema.columns
       WHERE table_name = 'uploaded_notes'
       ORDER BY ordinal_position
     `);
-    result.steps.push({ name: "uploaded_notes columns", ok: true, columns: (r?.rows || r || []).map((row) => row.column_name) });
+    const cols = (r?.rows || r || []).map((row) => row.column_name);
+    result.steps.push({ name: "uploaded_notes columns", ok: true, columns: cols });
   } catch (e) {
     result.steps.push({ name: "uploaded_notes columns", ok: false, error: e?.message });
   }
 
-  /* Test 3: ALTER TABLE ADD COLUMN IF NOT EXISTS */
   try {
     await db.execute(drizzleSql`
       ALTER TABLE uploaded_notes
@@ -87,7 +78,6 @@ export default async function handler(req) {
     result.steps.push({ name: "ALTER uploaded_notes", ok: false, error: e?.message });
   }
 
-  /* Test 4: ALTER user_profiles */
   try {
     await db.execute(drizzleSql`
       ALTER TABLE user_profiles
@@ -115,3 +105,7 @@ function jres(d) {
 }
 
 export const config = {};
+
+
+
+
