@@ -1,6 +1,13 @@
 import { neon } from "@netlify/neon";
 import { drizzle } from "drizzle-orm/neon-http";
 
+/**
+ * Lazy initialization: a drizzle() csak akkor fut le, amikor először
+ * használjuk a `db`-t (nem modul betöltéskor).
+ *
+ * A Netlify Neon extension régebbi verzió `NETLIFY_DB_URL`-t,
+ * újabb pedig `NETLIFY_DATABASE_URL`-t használ — mindkettőt elfogadjuk.
+ */
 function resolveConnectionString() {
   return (
     process.env.NETLIFY_DATABASE_URL ||
@@ -15,7 +22,10 @@ function getDb() {
   if (!_db) {
     const connStr = resolveConnectionString();
     if (!connStr) {
-      throw new Error("DB connection string missing");
+      throw new Error(
+        "Adatbázis kapcsolati string hiányzik. Várt env változó: " +
+          "NETLIFY_DATABASE_URL, NETLIFY_DB_URL, DATABASE_URL vagy NEON_DATABASE_URL."
+      );
     }
     const sql = neon(connStr);
     _db = drizzle(sql);
@@ -23,10 +33,13 @@ function getDb() {
   return _db;
 }
 
-export const db = new Proxy({}, {
-  get(_target, prop) {
-    const instance = getDb();
-    const value = instance[prop];
-    return typeof value === "function" ? value.bind(instance) : value;
+export const db = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const instance = getDb();
+      const value = instance[prop];
+      return typeof value === "function" ? value.bind(instance) : value;
+    }
   }
-});
+);
