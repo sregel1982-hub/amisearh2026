@@ -13,7 +13,7 @@
   :root {
     --primary: #6C5CE7;
     --primary-dark: #5A4BD1;
-    --secondary: #A29BFE;
+    --secondary: #A29BFaE;
     --dark: #2D3436;
     --light: #F9FAFB;
   }
@@ -1691,7 +1691,12 @@
       }
       const regData = await regResp.json();
 
-      /* 4) Index dokumentum (await — plágium pontszám miatt) */
+      /* 4) PONT JUTALOM AZONNAL — előbb mint az indexelés, hogy biztos járjon */
+      if (window.userProfile) {
+        try { await window.awardPoints('document_upload'); } catch (e) { console.warn('awardPoints failed:', e); }
+      }
+
+      /* 5) Index dokumentum (await — plágium pontszám miatt) */
       setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('indexing'));
       let plagScore = 0;
       let similar = [];
@@ -1708,11 +1713,10 @@
         }
       } catch (e) { console.warn('Index error (nem kritikus):', e); }
 
-      /* 5) Frontend cache + pont jutalom */
+      /* 6) Frontend cache */
       if (file.type === 'text/plain') {
         try { window.uploadedNotes += '\n[Fájl feltöltve: ' + file.name + '](' + publicUrl + ')\n' + (await file.text()); } catch {}
       }
-      if (window.userProfile) await window.awardPoints('document_upload');
 
       /* 6) Eredmény üzenet */
       let msg = '<i class="fa-solid fa-check-circle mr-2"></i><b>' + t('ok') + '</b>';
@@ -2352,23 +2356,38 @@
     const lang = window.currentLang === 'hu' ? 'hu' : 'en';
     if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>...'; }
     try {
-      // Lekérjük a jegyzetet
       const noteResp = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders({}) });
       const all = await noteResp.json();
-      const note = (Array.isArray(all) ? all : []).find(n => n.id === noteId);
-      if (!note || !note.textContent) {
-        alert(lang === 'hu' ? 'A jegyzet szöveges tartalma még nem indexelt.' : 'Note text is not indexed yet.');
+      let note = (Array.isArray(all) ? all : []).find(n => n.id === noteId);
+      if (!note) {
+        alert(lang === 'hu' ? 'A jegyzet nem található.' : 'Note not found.');
         return;
       }
-      // Beletoljuk a chat-be: a chat történet alapján AI összefoglal
-      const dashChatBtn = document.querySelector('[data-testid="open-chat-from-dashboard"]');
+      /* Ha nincs textContent, próbáljunk most indexelni */
+      if (!note.textContent) {
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>' + (lang === 'hu' ? 'Indexelés...' : 'Indexing...');
+        try {
+          await fetch('/.netlify/functions/index-document', {
+            method: 'POST',
+            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ noteId: note.id, fileName: note.fileName })
+          });
+          /* Frissítjük a note-ot */
+          const r2 = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders({}) });
+          const all2 = await r2.json();
+          note = (Array.isArray(all2) ? all2 : []).find(n => n.id === noteId);
+        } catch (e) { console.warn('Reindex error:', e); }
+      }
+      if (!note || !note.textContent) {
+        alert(lang === 'hu' ? 'Nem sikerült szöveget kinyerni a jegyzetből. (Lehet PPTX/kép — még nem támogatott.)' : 'Could not extract text. (Maybe PPTX/image — not yet supported.)');
+        return;
+      }
       const chatInput = document.getElementById('chatInput');
       if (chatInput) {
         chatInput.value = (lang === 'hu'
           ? 'Készíts részletes összefoglalót az alábbi jegyzetből (' + (note.title || note.originalName) + '). Strukturált felsorolással, kulcsfogalmakkal és példákkal. Szöveg:\n\n'
           : 'Create a detailed summary of the following note (' + (note.title || note.originalName) + '). Structured with bullet points, key concepts and examples. Text:\n\n')
           + note.textContent.slice(0, 8000);
-        // Chat dialog megnyitás ha létezik
         const chatModal = document.getElementById('aiChatModal') || document.getElementById('aiTutorModal');
         if (chatModal) window.openModal(chatModal.id);
         await window.sendMessage();
