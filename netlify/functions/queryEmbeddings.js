@@ -28,10 +28,10 @@ export default async function handler(req) {
   }
 
   try {
-    // Generate embedding for the query text
+    // JAVÍTVA: helyes modellnév + helyes contents formátum
     const queryResult = await ai.models.embedContent({
-      model: "gemini-embedding-exp",
-      contents: query
+      model: "text-embedding-004",
+      contents: [{ parts: [{ text: query }] }]
     });
 
     const queryEmbedding = queryResult.embeddings?.[0]?.values;
@@ -65,18 +65,15 @@ export default async function handler(req) {
 }
 
 function cosineSimilarity(a, b) {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-
+  if (!a?.length || !b?.length || a.length !== b.length) return 0;
+  let dot = 0, normA = 0, normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
     normB += b[i] * b[i];
   }
-
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
 }
 
 export const config = {};
-
