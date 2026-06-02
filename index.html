@@ -3027,33 +3027,51 @@
     }
   }
 
-  // --- Logout ---
-  window.handleLogout = async function() {
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (supabase) await supabase.auth.signOut();
-    } catch (e) {}
-    updateAuthUI(null);
-  }
+<!-- --- Logout --- -->
+<script>
+window.handleLogout = async function() {
+  try {
+    const supabase = getSupabase() || await getSupabase();
+    if (supabase) await supabase.auth.signOut();
+  } catch (e) {}
+  updateAuthUI(null);
+}
 
-  // --- Forgot Password ---
-  window.handleForgotPassword = async function() {
-    const email = document.getElementById('loginEmail').value;
-    if (!email) {
-      window.showLoginMsg('loginError', window.currentLang === 'hu' ? 'Add meg az email címed a jelszó visszaállításhoz.' : 'Enter your email for password recovery.');
-      return;
-    }
-    window.hideLoginMsgs();
-    try {
-      const supabase = getSupabase() || await waitForSupabase();
-      if (!supabase) throw new Error(authServiceMessage());
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
-      window.showLoginMsg('loginSuccess', window.currentLang === 'hu' ? 'Jelszó-visszaállító email elküldve!' : 'Password recovery email sent!');
-    } catch (error) {
-      window.showLoginMsg('loginError', error.message || 'Error');
-    }
+window.handleForgotPassword = async function() {
+  const email = document.getElementById('email').value;
+  if (!email) {
+    window.showLoginMsg('loginError', window.loginErrorMsg);
+    return;
   }
+  window.hideLoginMsgs();
+  try {
+    const supabase = getSupabase() || await getSupabase();
+    if (!supabase) throw new Error(authSupabaseError);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+    window.showLoginMsg('loginSuccess', window.loginSuccessMsg);
+  } catch (error) {
+    window.showLoginMsg('loginError', error.message);
+  }
+}
+
+window.searchSupabaseDocuments = async function(query) {
+  try {
+    const response = await fetch("/.netlify/functions/queryEmbeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    return data.results || [];
+  } catch (err) {
+    console.error("SearchSupabaseDocuments failed:", err);
+    return [];
+  }
+};
 </script>
 
 </body>
