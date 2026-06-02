@@ -3027,8 +3027,9 @@
     }
   }
 
-<!-- --- Logout --- -->
-<script>
+
+    <script>
+// --- Logout ---
 window.handleLogout = async function() {
   try {
     const supabase = getSupabase() || await getSupabase();
@@ -3037,6 +3038,7 @@ window.handleLogout = async function() {
   updateAuthUI(null);
 }
 
+// --- Forgot Password ---
 window.handleForgotPassword = async function() {
   const email = document.getElementById('email').value;
   if (!email) {
@@ -3055,6 +3057,7 @@ window.handleForgotPassword = async function() {
   }
 }
 
+// --- Notes Search (NEW) ---
 window.searchSupabaseDocuments = async function(query) {
   try {
     const response = await fetch("/.netlify/functions/queryEmbeddings", {
