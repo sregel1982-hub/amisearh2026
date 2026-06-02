@@ -11,14 +11,7 @@ export default async function handler(req) {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    body = {};
-  }
-
-  const { query, embeddings } = body;
+  const { query, embeddings } = await req.json().catch(() => ({}));
 
   if (!query || !Array.isArray(embeddings)) {
     return new Response(JSON.stringify({ error: "Invalid input" }), {
@@ -28,7 +21,6 @@ export default async function handler(req) {
   }
 
   try {
-    // JAVÍTVA: helyes modellnév + helyes contents formátum
     const queryResult = await ai.models.embedContent({
       model: "text-embedding-004",
       contents: [{ parts: [{ text: query }] }]
@@ -43,7 +35,6 @@ export default async function handler(req) {
       });
     }
 
-    // Cosine similarity ranking
     const results = embeddings.map((item) => {
       const similarity = cosineSimilarity(queryEmbedding, item.embedding);
       return { ...item, similarity };
