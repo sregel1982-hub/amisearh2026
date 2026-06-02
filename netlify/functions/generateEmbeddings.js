@@ -11,14 +11,7 @@ export default async function handler(req) {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    body = {};
-  }
-
-  const { text } = body;
+  const { text } = await req.json().catch(() => ({}));
 
   if (!text || typeof text !== "string") {
     return new Response(JSON.stringify({ error: "Text is required" }), {
@@ -29,8 +22,8 @@ export default async function handler(req) {
 
   try {
     const result = await ai.models.embedContent({
-      model: "gemini-embedding-exp",
-      contents: text
+      model: "text-embedding-004",
+      contents: [{ parts: [{ text }] }]
     });
 
     const embedding = result.embeddings?.[0]?.values;
