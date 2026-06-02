@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 const ai = new GoogleGenAI({
   apiKey:
@@ -6,21 +7,28 @@ const ai = new GoogleGenAI({
     process.env.GEMINI_API_KEY
 });
 
+// Supabase init
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
 export default async function handler(req) {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const { query, embeddings } = await req.json().catch(() => ({}));
+  const { query } = await req.json().catch(() => ({}));
 
-  if (!query || !Array.isArray(embeddings)) {
-    return new Response(JSON.stringify({ error: "Invalid input" }), {
+  if (!query) {
+    return new Response(JSON.stringify({ error: "Missing query" }), {
       status: 400,
       headers: { "Content-Type": "application/json" }
     });
   }
 
   try {
+    // 1) Generate embedding for the query
     const queryResult = await ai.models.embedContent({
       model: "text-embedding-004",
       contents: [{ parts: [{ text: query }] }]
@@ -35,7 +43,20 @@ export default async function handler(req) {
       });
     }
 
-    const results = embeddings.map((item) => {
+    // 2) Fetch all embeddings from DB
+    const { data: notes, error } = await supabase
+      .from("uploaded_notes")
+      .select("id, file_path, text_content, embedding");
+
+    if (error) {
+      return new Response(JSON.stringify({ error: "DB fetch failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // 3) Cosine similarity
+    const results = notes.map((item) => {
       const similarity = cosineSimilarity(queryEmbedding, item.embedding);
       return { ...item, similarity };
     });
@@ -47,7 +68,7 @@ export default async function handler(req) {
       headers: { "Content-Type": "application/json" }
     });
   } catch (error) {
-    console.error("Query embedding failed:", error);
+    console.error("Query failed:", error);
     return new Response(JSON.stringify({ error: "Query failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
