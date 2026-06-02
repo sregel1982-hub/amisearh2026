@@ -1834,6 +1834,29 @@
     return html;
   }
 
+  // --- Build AI (semantic) note results HTML from queryEmbeddings ---
+  window.buildAiNoteResultsHtml = function(results, lang) {
+    const isHu = lang === 'hu';
+    if (!results || results.length === 0) {
+      return '<div class="text-gray-400 text-sm">' + (isHu ? 'Nincs releváns találat a jegyzetekben.' : 'No relevant matches found in the notes.') + '</div>';
+    }
+    let html = '';
+    for (const r of results) {
+      const fileName = (r.file_path || '').split('/').pop() || (isHu ? 'Jegyzet' : 'Note');
+      const score = typeof r.similarity === 'number' ? Math.round(r.similarity * 100) : null;
+      const content = (r.text_content || '').trim();
+      const snippet = content.slice(0, 300);
+      html += '<div class="mb-3 pb-3 border-b border-gray-100 last:border-0 last:mb-0 last:pb-0">';
+      html += '<div class="flex items-center justify-between mb-1">';
+      html += '<span class="font-semibold text-sm truncate mr-2">' + escapeHtml(fileName) + '</span>';
+      if (score !== null) html += '<span class="text-xs text-[#6C5CE7] whitespace-nowrap">' + score + '%</span>';
+      html += '</div>';
+      if (snippet) html += '<p class="text-sm text-gray-600">' + escapeHtml(snippet) + (content.length > 300 ? '…' : '') + '</p>';
+      html += '</div>';
+    }
+    return html;
+  }
+
   // --- Dashboard search handler ---
   window._externalSearchState = { query: '', lang: 'hu', includeForeign: false, page: 1, target: null };
 
@@ -1988,20 +2011,14 @@
     }
 
     try {
-      const response = await window.fetchWithTimeout('/.netlify/functions/search', {
+      const response = await window.fetchWithTimeout('/.netlify/functions/queryEmbeddings', {
         method: 'POST',
         headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
+        body: JSON.stringify({ query: query }),
       }, 45000);
-      if (response.ok && response.body) {
-        aiResults.innerHTML = '';
-        var aiText = await window.readTextStream(response, function(text) {
-          aiText = text;
-          aiResults.innerHTML = typeof marked !== 'undefined' ? marked.parse(aiText) : escapeHtml(aiText);
-        });
-        if (!aiText) {
-          aiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
-        }
+      if (response.ok) {
+        const data = await response.json().catch(function() { return {}; });
+        aiResults.innerHTML = window.buildAiNoteResultsHtml(data.results, lang);
       } else {
         aiResults.innerHTML = '<div class="text-gray-400 text-sm">' + escapeHtml(await window.getAiErrorMessage(response, lang)) + '</div>';
       }
@@ -2732,20 +2749,14 @@
     }
 
     try {
-      const response = await window.fetchWithTimeout('/.netlify/functions/search', {
+      const response = await window.fetchWithTimeout('/.netlify/functions/queryEmbeddings', {
         method: 'POST',
         headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
+        body: JSON.stringify({ query: query }),
       }, 45000);
-      if (response.ok && response.body) {
-        heroAiResults.innerHTML = '';
-        var aiText = await window.readTextStream(response, function(text) {
-          aiText = text;
-          heroAiResults.innerHTML = typeof marked !== 'undefined' ? marked.parse(aiText) : escapeHtml(aiText);
-        });
-        if (!aiText) {
-          heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
-        }
+      if (response.ok) {
+        const data = await response.json().catch(function() { return {}; });
+        heroAiResults.innerHTML = window.buildAiNoteResultsHtml(data.results, lang);
       } else {
         heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + escapeHtml(await window.getAiErrorMessage(response, lang)) + '</div>';
       }
