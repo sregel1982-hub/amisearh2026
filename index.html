@@ -2287,7 +2287,7 @@
     const lang = window.currentLang === 'hu' ? 'hu' : 'en';
     container.innerHTML = '<div class="flex items-center gap-2 text-gray-400 text-sm"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Jegyzetek betöltése...' : 'Loading notes...') + '</span></div>';
     try {
-      const resp = await fetch('/.netlify/functions/notes', {
+      const resp = await fetch("/.netlify/functions/queryEmbeddings", {
         method: 'GET',
         headers: await window.getAuthHeaders({})
       });
