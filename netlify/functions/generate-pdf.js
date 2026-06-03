@@ -1,38 +1,18 @@
-import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
-
 export const handler = async (event) => {
   try {
-    const { html } = JSON.parse(event.body);
+    const { html, title } = JSON.parse(event.body);
 
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    });
-
-    const page = await browser.newPage();
-
-    await page.setContent(html, {
-      waitUntil: "networkidle0",
-    });
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-    });
-
-    await browser.close();
-
+    // Return the HTML content - client will render to PDF using jsPDF/print
     return {
       statusCode: 200,
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": "attachment; filename=feladat.pdf",
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: pdfBuffer.toString("base64"),
-      isBase64Encoded: true,
+      body: JSON.stringify({ 
+        html: html,
+        title: title || "feladat"
+      }),
     };
   } catch (error) {
     return {
