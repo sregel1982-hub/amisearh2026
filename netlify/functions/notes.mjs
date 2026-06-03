@@ -28,19 +28,12 @@ async function ensureSchema() {
     console.log("[notes] ensureSchema OK");
   } catch (e) {
     console.error("[notes] ensureSchema failed:", e?.message);
-    /* nem dobunk hibát — a kéréskezelés próbálja meg amúgy is */
   }
 }
 
 /**
  * /.netlify/functions/notes
- *  - GET   ?q=...           : keresés saját + nyilvános jegyzetekben
- *  - POST  { fileName, originalName, publicUrl, fileSize, fileHash,
- *            title, subject, language }
- *           : új jegyzet regisztrálása. Hash-alapú dedupe a feltöltőnél.
- *  - DELETE ?id=...         : saját jegyzet törlése
  */
-
 export default async function handler(req) {
   try {
     await ensureSchema();
@@ -100,7 +93,7 @@ export default async function handler(req) {
       if (!fileHash)
         return jerr("fileHash kötelező (kliens oldalon SHA-256).", 400);
 
-      /* Per-user dedupe — ugyanazt a fájlt nem lehet kétszer feltölteni */
+      /* Per-user dedupe */
       let existing = [];
       try {
         existing = await db
@@ -115,7 +108,6 @@ export default async function handler(req) {
           .limit(1);
       } catch (e) {
         console.error("[notes] dedupe query failed:", e?.message || e);
-        // Ha a file_hash oszlop még nem létezik → folytatjuk dedupe nélkül
         if (!/column .* does not exist/i.test(String(e?.message))) {
           return jerr(
             "Adatbázis hiba a dedupe ellenőrzés alatt: " + (e?.message || e),
@@ -137,8 +129,9 @@ export default async function handler(req) {
       }
 
       /* Mentés */
+      let inserted;
       try {
-        const [inserted] = await db
+        [inserted] = await db
           .insert(uploadedNotes)
           .values({
             fileName,
@@ -152,15 +145,27 @@ export default async function handler(req) {
             fileHash
           })
           .returning();
-        return jok(inserted, 201);
       } catch (e) {
         console.error("[notes] insert failed:", e?.message || e);
         return jerr(
-          "Mentési hiba: " + (e?.message || String(e)) +
-            ". (Lehet hogy a Neon migráció nem futott le? Lásd: 0002_metadata_and_plagiarism.sql)",
+          "Mentési hiba: " + (e?.message || String(e)),
           500
         );
       }
+
+      /* ───────────────────────  OCR TRIGGER  ─────────────────────── */
+      try {
+        await fetch("https://amisearch2026.netlify.app/.netlify/functions/OCR", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ noteId: inserted.id })
+        });
+        console.log("[notes] OCR trigger OK for note", inserted.id);
+      } catch (e) {
+        console.error("[notes] OCR trigger failed:", e?.message || e);
+      }
+
+      return jok(inserted, 201);
     }
 
     /* ───────────────────────  DELETE (saját) ───────────────────────── */
