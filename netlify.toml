@@ -9,14 +9,6 @@
 [functions]
   node_bundler = "esbuild"
 
-# FONTOS: A function hívásokat KIVÉTELEZZÜK a SPA redirectből!
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
-# SPA fallback - minden MÁS kérést az index.html-re irányít
 [[redirects]]
   from = "/*"
   to = "/index.html"
