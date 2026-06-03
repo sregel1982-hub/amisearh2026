@@ -11,9 +11,7 @@
     "drizzle-orm": "^0.40.1",
     "pdf-parse": "^1.1.1",
     "mammoth": "^1.9.0",
-    "file-type": "^18.7.0",
-    "@sparticuz/chromium": "^119.0.0",
-    "puppeteer-core": "^22.0.0"
+    "file-type": "^18.7.0"
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.4"
