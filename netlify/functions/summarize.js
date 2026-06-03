@@ -35,13 +35,13 @@ export default async function handler(req) {
 
   const { data, error } = await supabase
     .from("uploaded_notes")
-    .select("textContent")
+    .select("text_content")
     .eq("id", noteId)
     .single();
 
   if (error || !data) return jsonError("Note not found", 404, "note_not_found");
 
-  const content = data.textContent || "";
+  const content = data.text_content || "";
 
   try {
     const prompt = `
