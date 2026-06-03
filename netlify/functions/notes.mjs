@@ -15,7 +15,7 @@ export default async function handler(req) {
   // ---------------------------
   if (req.method === "GET") {
     const { data, error: fetchErr } = await supabase
-      .from("uploaded_notes")
+      .from("jegyzetek")
       .select("id, file_path, text_content, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -40,7 +40,7 @@ export default async function handler(req) {
 
     // Insert
     const { data: inserted, error: insertErr } = await supabase
-      .from("uploaded_notes")
+      .from("jegyzetek")
       .insert({
         user_id: user.id,
         file_path: publicUrl,
