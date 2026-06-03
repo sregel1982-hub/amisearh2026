@@ -13,13 +13,9 @@ export default async function handler(req) {
     return jsonError("Method not allowed", 405, "method_not_allowed");
   }
 
-  // --- User check ---
   const user = await getSupabaseUser(req);
-  if (!user) {
-    return jsonError("Unauthorized", 401, "unauthorized");
-  }
+  if (!user) return jsonError("Unauthorized", 401, "unauthorized");
 
-  // --- Parse body ---
   let body;
   try {
     body = await req.json();
@@ -27,13 +23,9 @@ export default async function handler(req) {
     return jsonError("Invalid JSON body", 400, "invalid_json");
   }
 
-  const { noteId, text, lang = "hu" } = body;
+  const { noteId, lang = "hu" } = body;
+  if (!noteId) return jsonError("noteId required", 400, "missing_noteId");
 
-  if (!noteId && !text) {
-    return jsonError("noteId or text is required", 400, "missing_input");
-  }
-
-  // --- Supabase init ---
   const supabase = await import("@supabase/supabase-js").then((m) =>
     m.createClient(
       Netlify.env.get("SUPABASE_URL"),
@@ -41,23 +33,16 @@ export default async function handler(req) {
     )
   );
 
-  // --- Fetch note text if noteId provided ---
-  let content = text;
-  if (noteId) {
-    const { data, error } = await supabase
-      .from("jegyzetek")
-      .select("content")
-      .eq("id", noteId)
-      .single();
+  const { data, error } = await supabase
+    .from("uploaded_notes")
+    .select("textContent")
+    .eq("id", noteId)
+    .single();
 
-    if (error || !data) {
-      return jsonError("Note not found", 404, "note_not_found");
-    }
+  if (error || !data) return jsonError("Note not found", 404, "note_not_found");
 
-    content = data.content;
-  }
+  const content = data.textContent || "";
 
-  // --- AI summarization ---
   try {
     const prompt = `
 Készíts egy tömör, jól strukturált összefoglalót a következő jegyzetből.
@@ -91,3 +76,5 @@ ${content}
     return jsonError(err.message, 500, "ai_error");
   }
 }
+
+export const config = {};
