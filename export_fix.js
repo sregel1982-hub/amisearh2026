@@ -38,6 +38,10 @@ function toSubscript(str) {
 
 function extractTextLines(el) {
   const clone = el.cloneNode(true);
+  // Toolbar eltávolítása ha van
+  const tb = clone.querySelector('[data-ai-dl-toolbar]');
+  if (tb) tb.remove();
+  // KaTeX → Unicode
   clone.querySelectorAll('.katex').forEach(k => {
     const latex = k.querySelector('annotation')?.textContent || k.innerText || '';
     k.replaceWith(document.createTextNode(latexToUnicode(latex)));
@@ -48,12 +52,9 @@ function extractTextLines(el) {
   return (clone.innerText || clone.textContent || '');
 }
 
-window.downloadPracticePdf = function(topicName) {
-  const target = document.getElementById('practiceContent');
-  if (!target) return;
-
+function buildPdf(title, subtitle, textLines) {
   const { jsPDF } = window.jspdf || {};
-  if (!jsPDF) { alert('jsPDF hiányzik.'); return; }
+  if (!jsPDF) { alert('jsPDF hiányzik.'); return null; }
 
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -68,11 +69,10 @@ window.downloadPracticePdf = function(topicName) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('AMISEARCH — ' + topicName + ' — Feladatok', margin, 10);
+  doc.text(title, margin, 10);
   doc.setTextColor(40, 40, 40);
 
-  const rawText = extractTextLines(target);
-  const lines = rawText.split('\n').filter(l => l.trim());
+  const lines = textLines.split('\n').filter(l => l.trim());
 
   lines.forEach(line => {
     const t = line.trim();
@@ -112,21 +112,25 @@ window.downloadPracticePdf = function(topicName) {
     doc.text(new Date().toLocaleDateString('hu-HU'), margin, pageH - 6);
   }
 
-  doc.save((topicName || 'feladatok') + '-feladatok.pdf');
-};
+  return doc;
+}
 
-window.downloadPracticeWord = function(topicName) {
-  const target = document.getElementById('practiceContent');
-  if (!target) return;
-
-  const rawText = extractTextLines(target);
-  const lines = rawText.split('\n').filter(l => l.trim());
+function buildRtf(title, textLines) {
+  const lines = textLines.split('\n').filter(l => l.trim());
 
   let rtf = '{\\rtf1\\ansi\\ansicpg1250\\deff0\n';
   rtf += '{\\fonttbl{\\f0\\froman\\fcharset238 Times New Roman;}{\\f1\\fswiss\\fcharset238 Arial;}}\n';
   rtf += '{\\colortbl;\\red108\\green92\\blue231;\\red60\\green130\\blue60;\\red40\\green40\\blue40;}\n';
   rtf += '\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n';
-  rtf += '{\\header\\pard\\qr\\f1\\fs16\\cf3 AMISEARCH — ' + (topicName||'Feladatok') + '\\par}\n';
+  rtf += '{\\header\\pard\\qr\\f1\\fs16\\cf3 AMISEARCH\\par}\n';
+
+  // Cím
+  const escapedTitle = title.split('').map(c => {
+    const code = c.charCodeAt(0);
+    if (code > 127) return '\\u' + code + '?';
+    return c;
+  }).join('');
+  rtf += '\\pard\\sb200\\sa100\\f1\\fs28\\b\\cf1 ' + escapedTitle + '\\b0\\par\n';
 
   lines.forEach(line => {
     const t = line.trim();
@@ -144,13 +148,30 @@ window.downloadPracticeWord = function(topicName) {
     const isH = /^#{1,3}\s/.test(t) || /^[0-9]+\.\s*(Feladat|Task|Problem)/i.test(t);
     const isSol = /^#{3,4}\s*(Megoldás|Solution)/i.test(t);
 
-    if (isH)      rtf += '\\pard\\sb200\\sa80\\f1\\fs24\\b\\cf1 ' + esc + '\\b0\\par\n';
+    if (isH)        rtf += '\\pard\\sb200\\sa80\\f1\\fs24\\b\\cf1 ' + esc + '\\b0\\par\n';
     else if (isSol) rtf += '\\pard\\sb60\\sa60\\f1\\fs20\\i\\cf2 ' + esc + '\\i0\\par\n';
     else            rtf += '\\pard\\sb40\\sa40\\f0\\fs20\\cf3 ' + esc + '\\par\n';
   });
 
   rtf += '}';
+  return rtf;
+}
 
+// ── FELADAT GENERÁTOR ────────────────────────────────────────
+
+window.downloadPracticePdf = function(topicName) {
+  const target = document.getElementById('practiceContent');
+  if (!target) return;
+  const title = 'AMISEARCH — ' + (topicName||'Feladatok') + ' — Feladatok';
+  const doc = buildPdf(title, '', extractTextLines(target));
+  if (doc) doc.save((topicName||'feladatok') + '-feladatok.pdf');
+};
+
+window.downloadPracticeWord = function(topicName) {
+  const target = document.getElementById('practiceContent');
+  if (!target) return;
+  const title = 'AMISEARCH — ' + (topicName||'Feladatok') + ' — Feladatok';
+  const rtf = buildRtf(title, extractTextLines(target));
   const blob = new Blob([rtf], { type: 'application/rtf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -159,4 +180,30 @@ window.downloadPracticeWord = function(topicName) {
   a.click();
   URL.revokeObjectURL(url);
 };
-           
+
+// ── AI CHAT ──────────────────────────────────────────────────
+
+window.downloadAiAnswerPdf = async function(btn) {
+  const bubble = btn.closest('.bg-white');
+  if (!bubble) return;
+  const q = btn.getAttribute('data-q') || 'ai-valasz';
+  const title = 'AMISEARCH — AI válasz';
+  const doc = buildPdf(title, '', extractTextLines(bubble));
+  if (doc) doc.save((window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.pdf');
+};
+
+window.downloadAiAnswerWord = async function(btn) {
+  const bubble = btn.closest('.bg-white');
+  if (!bubble) return;
+  const q = btn.getAttribute('data-q') || 'ai-valasz';
+  const title = 'AMISEARCH — AI válasz';
+  const rtf = buildRtf(title, extractTextLines(bubble));
+  const blob = new Blob([rtf], { type: 'application/rtf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.rtf';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+  
