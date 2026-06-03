@@ -1,6 +1,6 @@
 function latexToUnicode(text) {
   return text
-    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2')
     .replace(/\^{([^}]*)}/g, (_, e) => toSuperscript(e))
     .replace(/\^(\d)/g, (_, e) => toSuperscript(e))
     .replace(/_{([^}]*)}/g, (_, e) => toSubscript(e))
@@ -206,4 +206,5 @@ window.downloadAiAnswerWord = async function(btn) {
   a.click();
   URL.revokeObjectURL(url);
 };
+  
   
