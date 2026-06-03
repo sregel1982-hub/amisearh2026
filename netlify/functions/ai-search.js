@@ -1,5 +1,4 @@
-
-    import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
 const ai = new GoogleGenAI({
@@ -41,10 +40,10 @@ export default async function handler(req) {
       });
     }
 
-    // 2) Jegyzetek lekérése
+    // 2) Jegyzetek lekérése — HELYES MEZŐNEVEK
     const { data: notes, error } = await supabase
       .from("uploaded_notes")
-      .select("id, textContent, embedding");
+      .select("id, file_path, text_content, embedding");
 
     if (error) {
       return new Response(JSON.stringify({ error: "DB fetch failed" }), {
@@ -90,3 +89,5 @@ function cosineSimilarity(a, b) {
 }
 
 export const config = {};
+
+    
