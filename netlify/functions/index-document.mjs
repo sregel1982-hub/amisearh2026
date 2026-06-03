@@ -2,7 +2,7 @@
 import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { db } from "../../db/index.js";
-import { uploadedNotes } from "../../db/schema.js";
+import { jegyzetek } from "../../db/schema.js";   // ← ÁTÍRVA
 import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import pdfParse from "pdf-parse";
@@ -13,7 +13,7 @@ import { fileTypeFromBuffer } from "file-type";
 // Gemini init
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Supabase init
+// Supabase init (service role)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -49,42 +49,30 @@ async function extractText(buffer, filePath) {
   const type = await fileTypeFromBuffer(buffer);
   const ext = (type?.ext || filePath.split(".").pop()).toLowerCase();
 
-  // TXT
-  if (ext === "txt") {
-    return buffer.toString("utf8");
-  }
+  if (ext === "txt") return buffer.toString("utf8");
 
-  // DOCX
   if (ext === "docx") {
     const result = await mammoth.extractRawText({ buffer });
     return (result.value || "").trim();
   }
 
-  // PDF → pdf-parse → ha üres → OCR
   if (ext === "pdf") {
+    try {
+       if (ext === "pdf") {
     try {
       const parsed = await pdfParse(buffer);
       const text = (parsed.text || "").trim();
-
-      if (text && text.length > 30) {
-        return text;
-      }
-    } catch (e) {}
-
+      if (text && text.length > 30) return text;
+    } catch {}
     return await ocrWithGemini(buffer);
   }
 
-  // PPTX → OCR fallback
-  if (ext === "pptx") {
-    return await ocrWithGemini(buffer);
-  }
+  if (ext === "pptx") return await ocrWithGemini(buffer);
 
-  // Képek → OCR
   if (["jpg", "jpeg", "png", "webp"].includes(ext)) {
     return await ocrWithGemini(buffer);
   }
 
-  // Minden más → OCR fallback
   return await ocrWithGemini(buffer);
 }
 
@@ -157,15 +145,15 @@ export const handler = async (event) => {
 
     const embedding = embeddingJson.embedding.values;
 
-    // Save to DB
+    // Save to DB — ÁTÍRVA JEGYZETEK TÁBLÁRA
     await db
-      .update(uploadedNotes)
+      .update(jegyzetek)
       .set({
         text_content: textContent,
         text_hash: textHash,
         embedding
       })
-      .where(eq(uploadedNotes.id, noteId));
+      .where(eq(jegyzetek.id, noteId));
 
     return {
       statusCode: 200,
