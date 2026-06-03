@@ -1,4 +1,4 @@
-function latexToUnicode(text) {
+ window.addEventListener('load', function() {
   return text
     .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
     .replace(/\^{([^}]*)}/g, (_, e) => toSuperscript(e))
