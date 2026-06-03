@@ -9,10 +9,18 @@
 [functions]
   node_bundler = "esbuild"
 
+# FONTOS: A function hívásokat KIVÉTELEZZÜK a SPA redirectből!
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+
+# SPA fallback - minden MÁS kérést az index.html-re irányít
 [[redirects]]
   from = "/*"
-  status = 200
   to = "/index.html"
+  status = 200
 
 [[headers]]
   for = "/*"
@@ -21,4 +29,3 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Content-Type-Options = "nosniff"
-
