@@ -59,12 +59,9 @@ function normalizeText(text) {
     .replace(/âˆ¼/g, "∼")
     .replace(/Â/g, "");
 }
-
 // OCR with Gemini Vision — Netlify‑kompatibilis verzió
 async function ocrWithGemini(buffer) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  constash" });
 
   const result = await model.generateContent({
     contents: [
@@ -118,7 +115,6 @@ async function extractText(buffer, filePath) {
 
   return await ocrWithGemini(buffer);
 }
-
 // Main handler
 export const handler = async (event) => {
   try {
