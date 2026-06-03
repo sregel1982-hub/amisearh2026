@@ -42,7 +42,7 @@ export default async function handler(req) {
 
     // 2) Jegyzetek lekérése — HELYES MEZŐNEVEK
     const { data: notes, error } = await supabase
-      .from("uploaded_notes")
+      .from("jegyzetek")
       .select("id, file_path, text_content, embedding");
 
     if (error) {
