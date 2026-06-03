@@ -1,95 +1,79 @@
 import { getSupabaseUser } from "./auth-helper.mjs";
-import { db } from "../../db/index.js";
-import { uploadedNotes } from "../../db/schema.js";
-import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
+import { createClient } from "@supabase/supabase-js";
 
-let _schemaEnsured = false;
-async function ensureSchema() {
-  if (_schemaEnsured) return;
-  try {
-    await db.execute(sql`
-      ALTER TABLE uploaded_notes
-        ADD COLUMN IF NOT EXISTS textContent TEXT,
-        ADD COLUMN IF NOT EXISTS embedding JSONB
-    `);
-    _schemaEnsured = true;
-  } catch (e) {
-    console.error("[notes] ensureSchema failed:", e?.message);
-  }
-}
+// Supabase kliens (anon kulcs a feltöltéshez)
+const supabase = createClient(
+  Netlify.env.get("SUPABASE_URL"),
+  Netlify.env.get("SUPABASE_ANON_KEY")
+);
 
 export default async function handler(req) {
-  try {
-    await ensureSchema();
-    const user = await getSupabaseUser(req);
-    if (!user) return jerr("Unauthorized", 401);
-
-    const url = new URL(req.url);
-
-    if (req.method === "POST") {
-      let body;
-      try {
-        body = await req.json();
-      } catch {
-        return jerr("Invalid JSON body", 400);
-      }
-
-      const {
-        fileName, originalName, publicUrl, fileSize,
-        fileHash, title, subject, language
-      } = body || {};
-
-      if (!fileName || !originalName || !publicUrl)
-        return jerr("fileName, originalName, publicUrl required", 400);
-
-      let inserted;
-      try {
-        [inserted] = await db
-          .insert(uploadedNotes)
-          .values({
-            fileName,
-            originalName,
-            publicUrl,
-            fileSize: fileSize || 0,
-            uploaderIdentityId: user.id,
-            title,
-            subject,
-            language,
-            fileHash
-          })
-          .returning();
-      } catch (e) {
-        return jerr("Insert failed: " + e?.message, 500);
-      }
-
-      // OCR trigger
-      try {
-        await fetch("https://amisearch.org/.netlify/functions/OCR", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ noteId: inserted.id })
-        });
-      } catch (e) {
-        console.error("[notes] OCR trigger failed:", e?.message);
-      }
-
-      return jok(inserted, 201);
-    }
-
-    return jerr("Method not allowed", 405);
-
-  } catch (err) {
-    return jerr("Server error: " + err?.message, 500);
+  if (req.method !== "POST") {
+    return error("Method not allowed", 405);
   }
+
+  // --- User ellenőrzés ---
+  const user = await getSupabaseUser(req);
+  if (!user) return error("Unauthorized", 401);
+
+  // --- JSON body ---
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return error("Invalid JSON body", 400);
+  }
+
+  const { fileName, publicUrl, fileSize } = body || {};
+
+  if (!fileName || !publicUrl) {
+    return error("fileName és publicUrl kötelező", 400);
+  }
+
+  // --- Jegyzet beszúrása ---
+  const { data: inserted, error: insertErr } = await supabase
+    .from("uploaded_notes")
+    .insert({
+      user_id: user.id,
+      file_path: publicUrl,     // ← EZ A HELYES MEZŐ
+      text_content: null,       // OCR fogja kitölteni
+      text_hash: null,
+      embedding: null,
+      created_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (insertErr) {
+    return error("Insert failed: " + insertErr.message, 500);
+  }
+
+  // --- OCR trigger ---
+  try {
+    await fetch("https://amisearch.org/.netlify/functions/OCR", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        noteId: inserted.id,
+        fileUrl: publicUrl
+      })
+    });
+  } catch (e) {
+    console.error("[notes] OCR trigger failed:", e.message);
+  }
+
+  return ok(inserted);
 }
 
-function jok(data, status = 200) {
+// --- Helper válaszok ---
+function ok(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json" }
   });
 }
-function jerr(msg, status = 400) {
+
+function error(msg, status = 400) {
   return new Response(JSON.stringify({ error: msg }), {
     status,
     headers: { "Content-Type": "application/json" }
