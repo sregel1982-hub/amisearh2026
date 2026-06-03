@@ -1,6 +1,6 @@
-import { getSupabaseUser } from "./auth-helper.js";
-import { GoogleGenAI } from "@google/genai";
-import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
+
+    import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 const ai = new GoogleGenAI({
   apiKey:
@@ -8,69 +8,85 @@ const ai = new GoogleGenAI({
     process.env.GEMINI_API_KEY
 });
 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
 export default async function handler(req) {
   if (req.method !== "POST") {
-    return jsonError("Method not allowed", 405, "method_not_allowed");
+    return new Response("Method not allowed", { status: 405 });
   }
 
-  const user = await getSupabaseUser(req);
-  if (!user) {
-    return jsonError("Unauthorized", 401, "unauthorized");
+  const { query } = await req.json().catch(() => ({}));
+  if (!query) {
+    return new Response(JSON.stringify({ error: "Missing query" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
   }
-
-  if (!isAiConfigured()) {
-    return aiUnavailableResponse();
-  }
-
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    body = {};
-  }
-
-  const { query, notes, lang } = body;
-
-  if (!query || typeof query !== "string") {
-    return jsonError("Query is required", 400, "missing_query");
-  }
-
-  let prompt = query;
-  if (notes) {
-    prompt += "\n\nFeltöltött jegyzet kontextus:\n" + notes;
-  }
-
-  const isHungarian = lang !== "en";
-
-  const systemInstruction = isHungarian
-    ? "Te egy tudásalapú keresőmotor vagy az AMISEARCH tanulási platformon. " +
-      "A weben keresel online szakkönyvekben, jegyzetekben, előadásokban és dolgozol a feltöltött jegyzetekből is. " +
-      "Válaszolj tömören, informatívan, MAGYARUL. " +
-      "Ha a felhasználó gondolattérképet kér, készíts egyet a Mermaid 'mindmap' szintaxissal. " +
-      "FONTOS: 1) Első sor: 'mindmap'. 2) Gyökér: '  root((Tema))'. 3) Ágak: minden szint +2 szóköz. " +
-      "4) Ne használj speciális karaktereket: { } [ ] | < >. 5) Max 3 szint mélység."
-    : "You are a knowledge-based search engine on the AMISEARCH learning platform. " +
-      "Search online textbooks, notes, lectures and work with uploaded notes too. " +
-      "Answer concisely and informatively in ENGLISH. " +
-      "If the user requests a mind map, create one using Mermaid 'mindmap' syntax. " +
-      "IMPORTANT: 1) First line: 'mindmap'. 2) Root: '  root((Topic))'. 3) Branches: each level +2 spaces. " +
-      "4) Don't use special characters: { } [ ] | < >. 5) Max 3 levels depth.";
 
   try {
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash-preview-05-20", // ← JAVÍTVA
-      contents: prompt,
-      config: {
-        systemInstruction,
-        tools: [{ googleSearch: {} }]
-      }
+    // 1) Embedding a lekérdezéshez
+    const queryResult = await ai.models.embedContent({
+      model: "text-embedding-004",
+      contents: [{ parts: [{ text: query }] }]
     });
 
-    return streamText(stream);
-  } catch (error) {
-    console.error("Search AI generation failed:", error);
-    return aiUnavailableResponse();
+    const queryEmbedding = queryResult.embeddings?.[0]?.values;
+    if (!queryEmbedding) {
+      return new Response(JSON.stringify({ error: "Embedding failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // 2) Jegyzetek lekérése
+    const { data: notes, error } = await supabase
+      .from("uploaded_notes")
+      .select("id, textContent, embedding");
+
+    if (error) {
+      return new Response(JSON.stringify({ error: "DB fetch failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // 3) Hasonlóság számítás
+    const results = notes
+      .filter((n) => n.embedding)
+      .map((n) => ({
+        ...n,
+        similarity: cosineSimilarity(queryEmbedding, n.embedding)
+      }))
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+
+    return new Response(JSON.stringify({ results }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+
+  } catch (err) {
+    console.error("Search failed:", err);
+    return new Response(JSON.stringify({ error: "Search failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
   }
+}
+
+function cosineSimilarity(a, b) {
+  if (!a?.length || !b?.length || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom === 0 ? 0 : dot / denom;
 }
 
 export const config = {};
