@@ -2,13 +2,17 @@ import { createClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";   // ← új, konzisztens library
 import { fileTypeFromBuffer } from "file-type";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const getEnv = (key) => 
+  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+
+const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
+
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY
+  getEnv("SUPABASE_URL"),
+  getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
 );
 
 function hashText(text) {
@@ -23,17 +27,22 @@ function normalizeText(text) {
 }
 
 async function ocrWithGemini(buffer, mimeType = "image/png") {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const result = await model.generateContent({
-    contents: [{
-      role: "user",
-      parts: [
-        { inlineData: { data: buffer.toString("base64"), mimeType } },
-        { text: "Olvasd ki a képen látható szöveget és képleteket. Csak a nyers szöveget add vissza." }
-      ]
-    }]
-  });
-  return result.response.text();
+  try {
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent({
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { data: buffer.toString("base64"), mimeType } },
+          { text: "Olvasd ki a képen látható szöveget és képleteket. Csak a nyers szöveget add vissza, ne magyarázz." }
+        ]
+      }]
+    });
+    return result.response.text();
+  } catch (e) {
+    console.error("OCR failed:", e);
+    return "";
+  }
 }
 
 async function extractText(buffer, filePath) {
@@ -50,18 +59,18 @@ async function extractText(buffer, filePath) {
       const parsed = await pdfParse(buffer);
       const text = (parsed.text || "").trim();
       if (text && text.length > 30) return text;
-    } catch {}
+    } catch (e) { console.log("PDF parse failed, trying OCR") }
     return await ocrWithGemini(buffer, "application/pdf");
   }
   if (ext === "pptx") return await ocrWithGemini(buffer, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-  if (["jpg", "jpeg"].includes(ext)) return await ocrWithGemini(buffer, "image/jpeg");
-  if (ext === "png") return await ocrWithGemini(buffer, "image/png");
+  if (["jpg", "jpeg", "png"].includes(ext)) return await ocrWithGemini(buffer, `image/${ext}`);
+  
   return await ocrWithGemini(buffer);
 }
 
 export const handler = async (event) => {
   try {
-    const { noteId, filePath } = JSON.parse(event.body);
+    const { noteId, filePath } = JSON.parse(event.body || "{}");
     if (!noteId || !filePath) {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing noteId or filePath" }) };
     }
@@ -77,43 +86,55 @@ export const handler = async (event) => {
     const buffer = Buffer.from(await fileData.arrayBuffer());
     let textContent = (await extractText(buffer, filePath)).trim();
 
-    if (!textContent || textContent.length < 10) {
+    if (!textContent || textContent.length < 20) {
       return { statusCode: 400, body: JSON.stringify({ error: "No extractable text found" }) };
     }
 
     textContent = normalizeText(textContent);
     const textHash = hashText(textContent);
 
-    const embeddingResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/text-embedding-004",
-          content: { parts: [{ text: textContent }] }
-        })
-      }
-    );
+    // === Javított Embedding generálás ===
+    const embedResult = await ai.models.embedContent({
+      model: "text-embedding-004",
+      contents: [{ parts: [{ text: textContent }] }]
+    });
 
-    const embeddingJson = await embeddingResponse.json();
-    const embedding = embeddingJson?.embedding?.values;
+    const embedding = embedResult.embeddings?.[0]?.values;
 
-    if (!embedding) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Embedding failed", detail: embeddingJson }) };
+    if (!embedding || embedding.length < 100) {
+      return { statusCode: 500, body: JSON.stringify({ error: "Embedding generation failed" }) };
     }
 
     const { error: updateErr } = await supabase
       .from("jegyzetek")
-      .update({ text_content: textContent, text_hash: textHash, embedding })
+      .update({ 
+        text_content: textContent, 
+        text_hash: textHash, 
+        embedding 
+      })
       .eq("id", noteId);
 
     if (updateErr) {
-      return { statusCode: 500, body: JSON.stringify({ error: "DB update failed: " + updateErr.message }) };
+      console.error("DB update error:", updateErr);
+      return { statusCode: 500, body: JSON.stringify({ error: "DB update failed" }) };
     }
 
-    return { statusCode: 200, body: JSON.stringify({ success: true }) };
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ success: true, textLength: textContent.length }) 
+    };
+
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    console.error("Processing error:", err);
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: err.message }) 
+    };
   }
 };
+
+
+
+
+
+    
