@@ -7,21 +7,23 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     button { padding: 12px 20px; font-size: 16px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; }
-    pre { background: #f4f4f4; padding: 15px; border-radius: 6px; overflow: auto; margin-top: 20px; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 6px; overflow: auto; margin-top: 20px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>Embedding + Supabase Diagnosztika</h1>
+  <p><strong>Oldal:</strong> https://amisearch.org</p>
+  
   <button onclick="runTest()">🚀 Diagnózis futtatása</button>
   <pre id="result">Kattints a gombra...</pre>
 
   <script>
     async function runTest() {
       const resultDiv = document.getElementById("result");
-      resultDiv.textContent = "Teszt fut...";
+      resultDiv.textContent = "Teszt fut... Kérlek várj...";
 
       try {
-        const res = await fetch("/.netlify/functions/test-embedding", {
+        const res = await fetch("https://amisearch.org/.netlify/functions/test-embedding", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({})
@@ -29,8 +31,9 @@
 
         const data = await res.json();
         resultDiv.textContent = JSON.stringify(data, null, 2);
+        
       } catch (err) {
-        resultDiv.textContent = "Hiba: " + err.message;
+        resultDiv.textContent = "Hiba történt:\n" + err.message;
       }
     }
   </script>
