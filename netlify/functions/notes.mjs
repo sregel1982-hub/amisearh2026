@@ -2,17 +2,15 @@ import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  Netlify.env.get("SUPABASE_URL"),
-  Netlify.env.get("SUPABASE_ANON_KEY")
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
 );
 
 export default async function handler(req) {
   const user = await getSupabaseUser(req);
-  if (!user) return error("Unauthorized", 401);
+  if (!user) return errorRes("Unauthorized", 401);
 
-  // ---------------------------
-  // 1) GET – Saját jegyzetek listázása
-  // ---------------------------
+  // GET – Saját jegyzetek listázása
   if (req.method === "GET") {
     const { data, error: fetchErr } = await supabase
       .from("jegyzetek")
@@ -20,25 +18,22 @@ export default async function handler(req) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (fetchErr) return error("Fetch failed: " + fetchErr.message, 500);
+    if (fetchErr) return errorRes("Fetch failed: " + fetchErr.message, 500);
     return ok(data);
   }
 
-  // ---------------------------
-  // 2) POST – Jegyzet feltöltése
-  // ---------------------------
+  // POST – Jegyzet feltöltése
   if (req.method === "POST") {
     let body;
     try {
       body = await req.json();
     } catch {
-      return error("Invalid JSON body", 400);
+      return errorRes("Invalid JSON body", 400);
     }
 
-    const { publicUrl } = body || {};
-    if (!publicUrl) return error("publicUrl required", 400);
+    const { publicUrl, filePath } = body || {};
+    if (!publicUrl) return errorRes("publicUrl required", 400);
 
-    // Insert
     const { data: inserted, error: insertErr } = await supabase
       .from("jegyzetek")
       .insert({
@@ -52,31 +47,23 @@ export default async function handler(req) {
       .select()
       .single();
 
-    if (insertErr) return error("Insert failed: " + insertErr.message, 500);
+    if (insertErr) return errorRes("Insert failed: " + insertErr.message, 500);
 
-    // OCR trigger
-    try {
-      await fetch("https://amisearch.org/.netlify/functions/OCR", {
+    // index-document trigger (aszinkron, nem blokkoló)
+    if (filePath) {
+      fetch("https://amisearch.org/.netlify/functions/index-document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          noteId: inserted.id,
-          fileUrl: publicUrl
-        })
-      });
-    } catch (e) {
-      console.error("OCR trigger failed:", e.message);
+        body: JSON.stringify({ noteId: inserted.id, filePath })
+      }).catch(e => console.error("index-document trigger failed:", e.message));
     }
 
     return ok(inserted);
   }
 
-  return error("Method not allowed", 405);
+  return errorRes("Method not allowed", 405);
 }
 
-// ---------------------------
-// Helper functions
-// ---------------------------
 function ok(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -84,7 +71,7 @@ function ok(data, status = 200) {
   });
 }
 
-function error(msg, status = 400) {
+function errorRes(msg, status = 400) {
   return new Response(JSON.stringify({ error: msg }), {
     status,
     headers: { "Content-Type": "application/json" }
