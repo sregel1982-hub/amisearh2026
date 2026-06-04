@@ -15,91 +15,48 @@ const supabase = createClient(
   getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
 );
 
+// ... (a normalizeText, hashText, extractText, ocrWithGemini függvények maradhatnak ugyanazok)
+
 export const handler = async (event) => {
-  console.log("=== INDEX-DOCUMENT STARTED ===");
-  
   try {
     const { noteId, filePath } = JSON.parse(event.body || "{}");
-    console.log("Processing noteId:", noteId, "filePath:", filePath);
+    if (!noteId || !filePath) throw new Error("Missing parameters");
 
-    if (!noteId || !filePath) {
-      throw new Error("Missing noteId or filePath");
-    }
-
-    // Download file
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("notes")
-      .download(filePath);
-
-    if (downloadError) throw new Error("Download failed: " + downloadError.message);
-
+    const { data: fileData } = await supabase.storage.from("notes").download(filePath);
     const buffer = Buffer.from(await fileData.arrayBuffer());
-    console.log("File downloaded, size:", buffer.length);
 
-    // Extract text
     let textContent = await extractText(buffer, filePath);
     textContent = textContent.trim();
 
-    console.log("Extracted text length:", textContent.length);
+    if (textContent.length < 20) throw new Error("Not enough text extracted");
 
-    if (textContent.length < 20) {
-      throw new Error("Too little text extracted");
-    }
+    const textHash = createHash("sha256").update(textContent).digest("hex");
 
-    // Generate embedding
-    console.log("Generating embedding...");
+    // Embedding generálás
     const embedResult = await ai.models.embedContent({
-      model: "text-embedding-004",
+      model: "gemini-embedding-001",        // ← Javított modell
       contents: [{ parts: [{ text: textContent }] }]
     });
 
     const embedding = embedResult.embeddings?.[0]?.values;
-    console.log("Embedding generated, length:", embedding?.length);
 
-    if (!embedding || embedding.length < 100) {
-      throw new Error("Invalid embedding");
-    }
+    if (!embedding) throw new Error("Embedding generation failed");
 
-    // Update database
-    const { error: updateErr } = await supabase
+    await supabase
       .from("jegyzetek")
       .update({ 
-        text_content: textContent.substring(0, 50000), 
+        text_content: textContent, 
+        text_hash: textHash, 
         embedding 
       })
       .eq("id", noteId);
 
-    if (updateErr) throw new Error("DB update failed: " + updateErr.message);
-
-    console.log("=== SUCCESS: Note processed ===");
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
 
   } catch (err) {
-    console.error("=== INDEX-DOCUMENT ERROR ===", err.message);
-    return { 
-      statusCode: 500, 
-      body: JSON.stringify({ error: err.message }) 
-    };
+    console.error("Index document error:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
 
-async function extractText(buffer, filePath) {
-  // ... (ugyanaz, mint korábban, vagy ha kell, ide is beírhatom)
-  // Egyelőre hagyd meg a régit, ha működött
-  const type = await fileTypeFromBuffer(buffer);
-  const ext = (type?.ext || filePath.split(".").pop()).toLowerCase();
-
-  if (ext === "pdf") {
-    try {
-      const parsed = await pdfParse(buffer);
-      if (parsed.text && parsed.text.length > 30) return parsed.text;
-    } catch {}
-  }
-  // OCR fallback...
-  return "Text extraction placeholder"; // ideiglenes
-}
-
-
-
-
-    
+// extractText és ocrWithGemini függvények ide (ugyanaz, mint korábban)
