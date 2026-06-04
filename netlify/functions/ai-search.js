@@ -25,45 +25,37 @@ export default async function handler(req) {
   }
 
   try {
-    // Query embedding
     const queryResult = await ai.models.embedContent({
       model: "text-embedding-004",
       contents: [{ parts: [{ text: query }] }]
     });
 
     const queryEmbedding = queryResult.embeddings?.[0]?.values;
-    if (!queryEmbedding) throw new Error("Embedding generation failed");
 
-    // Összes jegyzet lekérése debug célból
     const { data: notes, error } = await supabase
       .from("jegyzetek")
       .select("id, cim, text_content, embedding");
 
     if (error) throw error;
 
-    const totalNotes = notes?.length || 0;
-    const notesWithEmbedding = notes?.filter(n => n.embedding && Array.isArray(n.embedding)).length || 0;
+    const notesWithEmbedding = notes?.filter(n => n.embedding && Array.isArray(n.embedding) && n.embedding.length > 100) || [];
 
-    // Hasonlóság számítás
-    const results = notes
-      .filter(n => n.embedding && Array.isArray(n.embedding))
+    const results = notesWithEmbedding
       .map(n => ({
-        id: n.id,
         cim: n.cim,
-        text_preview: n.text_content ? n.text_content.substring(0, 150) + "..." : "",
         similarity: cosineSimilarity(queryEmbedding, n.embedding)
       }))
-      .filter(n => n.similarity > 0.6)
+      .filter(n => n.similarity > 0.5)
       .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 5);
+      .slice(0, 3);
 
     return new Response(JSON.stringify({ 
       results,
       debug: {
-        totalNotes,
-        notesWithEmbedding,
-        queryLength: query.length,
-        hasResults: results.length > 0
+        totalNotes: notes?.length || 0,
+        notesWithEmbedding: notesWithEmbedding.length,
+        sampleEmbeddingLength: notesWithEmbedding[0]?.embedding?.length || 0,
+        message: notesWithEmbedding.length === 0 ? "Nincsenek embeddingek az adatbázisban" : "Embeddingek megtalálva"
       }
     }), {
       status: 200,
@@ -71,20 +63,15 @@ export default async function handler(req) {
     });
 
   } catch (err) {
-    console.error("Search failed:", err);
     return new Response(JSON.stringify({ 
-      error: err.message,
-      debug: "Hiba történt a keresés során"
-    }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+      error: "Search failed", 
+      message: err.message 
+    }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }
 
 function cosineSimilarity(a, b) {
   if (!a?.length || !b?.length || a.length !== b.length) return 0;
-  
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
