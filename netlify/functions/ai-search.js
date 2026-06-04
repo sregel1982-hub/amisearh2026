@@ -26,7 +26,7 @@ export default async function handler(req) {
 
   try {
     const queryResult = await ai.models.embedContent({
-      model: "text-embedding-004",
+      model: "gemini-embedding-001",           // ← Javított modell
       contents: [{ parts: [{ text: query }] }]
     });
 
@@ -38,35 +38,29 @@ export default async function handler(req) {
 
     if (error) throw error;
 
-    const notesWithEmbedding = notes?.filter(n => n.embedding && Array.isArray(n.embedding) && n.embedding.length > 100) || [];
-
-    const results = notesWithEmbedding
+    const results = notes
+      .filter(n => n.embedding && Array.isArray(n.embedding))
       .map(n => ({
+        id: n.id,
         cim: n.cim,
+        text_preview: n.text_content?.substring(0, 120) + "...",
         similarity: cosineSimilarity(queryEmbedding, n.embedding)
       }))
-      .filter(n => n.similarity > 0.5)
+      .filter(n => n.similarity > 0.65)
       .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 3);
+      .slice(0, 5);
 
-    return new Response(JSON.stringify({ 
-      results,
-      debug: {
-        totalNotes: notes?.length || 0,
-        notesWithEmbedding: notesWithEmbedding.length,
-        sampleEmbeddingLength: notesWithEmbedding[0]?.embedding?.length || 0,
-        message: notesWithEmbedding.length === 0 ? "Nincsenek embeddingek az adatbázisban" : "Embeddingek megtalálva"
-      }
-    }), {
+    return new Response(JSON.stringify({ results }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
 
   } catch (err) {
-    return new Response(JSON.stringify({ 
-      error: "Search failed", 
-      message: err.message 
-    }), { status: 500, headers: { "Content-Type": "application/json" } });
+    console.error("Search failed:", err);
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 500, 
+      headers: { "Content-Type": "application/json" } 
+    });
   }
 }
 
@@ -81,3 +75,4 @@ function cosineSimilarity(a, b) {
   const denom = Math.sqrt(na) * Math.sqrt(nb);
   return denom === 0 ? 0 : dot / denom;
 }
+  
