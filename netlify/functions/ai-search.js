@@ -17,7 +17,7 @@ export default async function handler(req) {
   }
 
   const { query } = await req.json().catch(() => ({}));
-  if (!query || typeof query !== "string") {
+  if (!query) {
     return new Response(JSON.stringify({ error: "Missing query" }), { 
       status: 400, 
       headers: { "Content-Type": "application/json" } 
@@ -25,7 +25,7 @@ export default async function handler(req) {
   }
 
   try {
-    // 1. Query embedding
+    // Query embedding
     const queryResult = await ai.models.embedContent({
       model: "text-embedding-004",
       contents: [{ parts: [{ text: query }] }]
@@ -34,30 +34,38 @@ export default async function handler(req) {
     const queryEmbedding = queryResult.embeddings?.[0]?.values;
     if (!queryEmbedding) throw new Error("Embedding generation failed");
 
-    // 2. Jegyzetek lekérése a megfelelő mezőkkel
+    // Összes jegyzet lekérése debug célból
     const { data: notes, error } = await supabase
       .from("jegyzetek")
-      .select("id, cim, file_path, fajl_url, text_content, embedding");
+      .select("id, cim, text_content, embedding");
 
     if (error) throw error;
 
-    console.log(`Összes jegyzet: ${notes?.length || 0}`);
+    const totalNotes = notes?.length || 0;
+    const notesWithEmbedding = notes?.filter(n => n.embedding && Array.isArray(n.embedding)).length || 0;
 
-    // 3. Hasonlóság számítás
+    // Hasonlóság számítás
     const results = notes
       .filter(n => n.embedding && Array.isArray(n.embedding))
       .map(n => ({
         id: n.id,
         cim: n.cim,
-        file_path: n.file_path || n.fajl_url,
-        text_content: n.text_content,
+        text_preview: n.text_content ? n.text_content.substring(0, 150) + "..." : "",
         similarity: cosineSimilarity(queryEmbedding, n.embedding)
       }))
-      .filter(n => n.similarity > 0.65)     // állíthatod
+      .filter(n => n.similarity > 0.6)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, 5);
 
-    return new Response(JSON.stringify({ results }), {
+    return new Response(JSON.stringify({ 
+      results,
+      debug: {
+        totalNotes,
+        notesWithEmbedding,
+        queryLength: query.length,
+        hasResults: results.length > 0
+      }
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
@@ -65,8 +73,8 @@ export default async function handler(req) {
   } catch (err) {
     console.error("Search failed:", err);
     return new Response(JSON.stringify({ 
-      error: "Search failed", 
-      message: err.message 
+      error: err.message,
+      debug: "Hiba történt a keresés során"
     }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
