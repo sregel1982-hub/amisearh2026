@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embedding Diagnosztika</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+    button { padding: 15px 25px; font-size: 18px; background: #0066ff; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    pre { background: #111; color: #0f0; padding: 15px; border-radius: 6px; overflow: auto; max-height: 80vh; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Embedding + Supabase Diagnosztika</h1>
+  <button onclick="runTest()">Diagnózis futtatása</button>
+  <pre id="result">Várakozás...</pre>
+
+  <script>
+    async function runTest() {
+      const resultDiv = document.getElementById("result");
+      resultDiv.textContent = "⏳ Teszt fut...";
+
+      try {
+        const response = await fetch("https://amisearch.org/.netlify/functions/test-embedding", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+        resultDiv.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultDiv.textContent = "❌ Hiba:\n" + err.message + "\n\nPróbáld meg később vagy ellenőrizd a Function logokat.";
+      }
+    }
+  </script>
+</body>
+</html>
