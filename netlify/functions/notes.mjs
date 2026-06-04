@@ -3,14 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY
 );
 
 export default async function handler(req) {
   const user = await getSupabaseUser(req);
   if (!user) return errorRes("Unauthorized", 401);
 
-  // GET – Saját jegyzetek listázása
   if (req.method === "GET") {
     const { data, error: fetchErr } = await supabase
       .from("jegyzetek")
@@ -22,14 +21,9 @@ export default async function handler(req) {
     return ok(data);
   }
 
-  // POST – Jegyzet feltöltése
   if (req.method === "POST") {
     let body;
-    try {
-      body = await req.json();
-    } catch {
-      return errorRes("Invalid JSON body", 400);
-    }
+    try { body = await req.json(); } catch { return errorRes("Invalid JSON body", 400); }
 
     const { publicUrl, filePath } = body || {};
     if (!publicUrl) return errorRes("publicUrl required", 400);
@@ -49,7 +43,6 @@ export default async function handler(req) {
 
     if (insertErr) return errorRes("Insert failed: " + insertErr.message, 500);
 
-    // index-document trigger (aszinkron, nem blokkoló)
     if (filePath) {
       fetch("https://amisearch.org/.netlify/functions/index-document", {
         method: "POST",
@@ -65,17 +58,11 @@ export default async function handler(req) {
 }
 
 function ok(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
+  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
 }
 
 function errorRes(msg, status = 400) {
-  return new Response(JSON.stringify({ error: msg }), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
+  return new Response(JSON.stringify({ error: msg }), { status, headers: { "Content-Type": "application/json" } });
 }
 
 export const config = {};
