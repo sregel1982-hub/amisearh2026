@@ -1,13 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
-// Segédfüggvény a Netlify + process.env kompatibilitáshoz
 const getEnv = (key) => 
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
 
-const ai = new GoogleGenAI({
-  apiKey: getEnv("GEMINI_API_KEY")
-});
+const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
 const supabase = createClient(
   getEnv("SUPABASE_URL"),
@@ -20,11 +17,10 @@ export default async function handler(req) {
   }
 
   const { query } = await req.json().catch(() => ({}));
-
   if (!query || typeof query !== "string") {
-    return new Response(JSON.stringify({ error: "Missing or invalid query" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" }
+    return new Response(JSON.stringify({ error: "Missing query" }), { 
+      status: 400, 
+      headers: { "Content-Type": "application/json" } 
     });
   }
 
@@ -36,31 +32,28 @@ export default async function handler(req) {
     });
 
     const queryEmbedding = queryResult.embeddings?.[0]?.values;
-    if (!queryEmbedding) {
-      throw new Error("Failed to generate embedding");
-    }
+    if (!queryEmbedding) throw new Error("Embedding generation failed");
 
-    // 2. Jegyzetek lekérése
+    // 2. Jegyzetek lekérése a megfelelő mezőkkel
     const { data: notes, error } = await supabase
       .from("jegyzetek")
-      .select("id, file_path, text_content, embedding");
+      .select("id, cim, file_path, fajl_url, text_content, embedding");
 
     if (error) throw error;
-    if (!notes || notes.length === 0) {
-      return new Response(JSON.stringify({ results: [] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
 
-    // 3. Hasonlóság számítás + rendezés
+    console.log(`Összes jegyzet: ${notes?.length || 0}`);
+
+    // 3. Hasonlóság számítás
     const results = notes
-      .filter((n) => n.embedding && Array.isArray(n.embedding))
-      .map((n) => ({
-        ...n,
+      .filter(n => n.embedding && Array.isArray(n.embedding))
+      .map(n => ({
+        id: n.id,
+        cim: n.cim,
+        file_path: n.file_path || n.fajl_url,
+        text_content: n.text_content,
         similarity: cosineSimilarity(queryEmbedding, n.embedding)
       }))
-      .filter((n) => n.similarity > 0.6)           // opcionális: alacsony hasonlóság szűrése
+      .filter(n => n.similarity > 0.65)     // állíthatod
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, 5);
 
@@ -83,7 +76,7 @@ export default async function handler(req) {
 
 function cosineSimilarity(a, b) {
   if (!a?.length || !b?.length || a.length !== b.length) return 0;
-
+  
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
