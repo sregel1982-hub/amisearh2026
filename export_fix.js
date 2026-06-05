@@ -38,10 +38,8 @@ function toSubscript(str) {
 
 function extractTextLines(el) {
   const clone = el.cloneNode(true);
-  // Toolbar eltávolítása ha van
   const tb = clone.querySelector('[data-ai-dl-toolbar]');
   if (tb) tb.remove();
-  // KaTeX → Unicode
   clone.querySelectorAll('.katex').forEach(k => {
     const latex = k.querySelector('annotation')?.textContent || k.innerText || '';
     k.replaceWith(document.createTextNode(latexToUnicode(latex)));
@@ -52,7 +50,53 @@ function extractTextLines(el) {
   return (clone.innerText || clone.textContent || '');
 }
 
-function buildPdf(title, subtitle, textLines) {
+// Magyar és speciális karakterek biztonságos kódolása PDF-hez
+function safeChar(c) {
+  const code = c.charCodeAt(0);
+  if (code < 128) return c;
+  // Latin Extended-A és B (magyar ékezetes betűk)
+  const map = {
+    'á':'á','é':'é','í':'í','ó':'ó','ö':'ö','ő':'ő','ú':'ú','ü':'ü','ű':'ű',
+    'Á':'Á','É':'É','Í':'Í','Ó':'Ó','Ö':'Ö','Ő':'Ő','Ú':'Ú','Ü':'Ü','Ű':'Ű',
+    'α':'α','β':'β','γ':'γ','δ':'δ','ε':'ε','θ':'θ','λ':'λ','μ':'μ',
+    'π':'π','σ':'σ','ω':'ω','φ':'φ','Δ':'Δ','Σ':'Σ','Ω':'Ω','∞':'inf',
+    '·':'*','×':'x','÷':'/','±':'+-','≤':'<=','≥':'>=','≠':'!=','≈':'~=',
+    '√':'sqrt','∫':'int','∂':'d','∇':'nabla',
+    '⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9',
+    '₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9',
+  };
+  return map[c] || c;
+}
+
+function encodeLine(str) {
+  return str.split('').map(safeChar).join('');
+}
+
+async function mermaidSvgToPngDataUrl(svgEl) {
+  return new Promise((resolve) => {
+    try {
+      const svgData = new XMLSerializer().serializeToString(svgEl);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width || 800;
+        canvas.height = img.height || 400;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    } catch(e) { resolve(null); }
+  });
+}
+
+async function buildPdf(title, subtitle, textLines, sourceEl) {
   const { jsPDF } = window.jspdf || {};
   if (!jsPDF) { alert('jsPDF hiányzik.'); return null; }
 
@@ -69,8 +113,27 @@ function buildPdf(title, subtitle, textLines) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, margin, 10);
+  doc.text(encodeLine(title), margin, 10);
   doc.setTextColor(40, 40, 40);
+
+  // Mermaid SVG képek begyűjtése
+  const mermaidImages = [];
+  if (sourceEl) {
+    const svgEls = sourceEl.querySelectorAll('.mermaid svg, [data-processed="true"] svg');
+    for (const svgEl of svgEls) {
+      const pngUrl = await mermaidSvgToPngDataUrl(svgEl);
+      if (pngUrl) mermaidImages.push(pngUrl);
+    }
+  }
+
+  // Ha van Mermaid kép, képként szúrjuk be először
+  for (const imgUrl of mermaidImages) {
+    if (y > pageH - margin) { doc.addPage(); y = margin; }
+    const imgW = maxW;
+    const imgH = 80; // fix magasság, arányos
+    doc.addImage(imgUrl, 'PNG', margin, y, imgW, imgH);
+    y += imgH + 5;
+  }
 
   const lines = textLines.split('\n').filter(l => l.trim());
 
@@ -81,7 +144,11 @@ function buildPdf(title, subtitle, textLines) {
 
     const isH = /^#{1,3}\s/.test(t) || /^[0-9]+\.\s*(Feladat|Task|Problem)/i.test(t);
     const isSol = /^#{3,4}\s*(Megoldás|Solution)/i.test(t);
-    const clean = t.replace(/\*\*/g,'').replace(/^#+\s*/,'');
+    // Mermaid szöveges blokkokat hagyjuk ki (csak az SVG képet vesszük)
+    const isMermaid = /^```mermaid/.test(t) || /^mindmap/.test(t) || /^graph/.test(t) || /^flowchart/.test(t);
+    if (isMermaid && mermaidImages.length > 0) return;
+
+    const clean = encodeLine(t.replace(/\*\*/g,'').replace(/^#+\s*/,''));
 
     if (isH) {
       y += 3;
@@ -124,7 +191,6 @@ function buildRtf(title, textLines) {
   rtf += '\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n';
   rtf += '{\\header\\pard\\qr\\f1\\fs16\\cf3 AMISEARCH\\par}\n';
 
-  // Cím
   const escapedTitle = title.split('').map(c => {
     const code = c.charCodeAt(0);
     if (code > 127) return '\\u' + code + '?';
@@ -148,9 +214,9 @@ function buildRtf(title, textLines) {
     const isH = /^#{1,3}\s/.test(t) || /^[0-9]+\.\s*(Feladat|Task|Problem)/i.test(t);
     const isSol = /^#{3,4}\s*(Megoldás|Solution)/i.test(t);
 
-    if (isH)        rtf += '\\pard\\sb200\\sa80\\f1\\fs24\\b\\cf1 ' + esc + '\\b0\\par\n';
+    if (isH) rtf += '\\pard\\sb200\\sa80\\f1\\fs24\\b\\cf1 ' + esc + '\\b0\\par\n';
     else if (isSol) rtf += '\\pard\\sb60\\sa60\\f1\\fs20\\i\\cf2 ' + esc + '\\i0\\par\n';
-    else            rtf += '\\pard\\sb40\\sa40\\f0\\fs20\\cf3 ' + esc + '\\par\n';
+    else rtf += '\\pard\\sb40\\sa40\\f0\\fs20\\cf3 ' + esc + '\\par\n';
   });
 
   rtf += '}';
@@ -159,11 +225,11 @@ function buildRtf(title, textLines) {
 
 // ── FELADAT GENERÁTOR ────────────────────────────────────────
 
-window.downloadPracticePdf = function(topicName) {
+window.downloadPracticePdf = async function(topicName) {
   const target = document.getElementById('practiceContent');
   if (!target) return;
   const title = 'AMISEARCH — ' + (topicName||'Feladatok') + ' — Feladatok';
-  const doc = buildPdf(title, '', extractTextLines(target));
+  const doc = await buildPdf(title, '', extractTextLines(target), target);
   if (doc) doc.save((topicName||'feladatok') + '-feladatok.pdf');
 };
 
@@ -188,7 +254,7 @@ window.downloadAiAnswerPdf = async function(btn) {
   if (!bubble) return;
   const q = btn.getAttribute('data-q') || 'ai-valasz';
   const title = 'AMISEARCH — AI válasz';
-  const doc = buildPdf(title, '', extractTextLines(bubble));
+  const doc = await buildPdf(title, '', extractTextLines(bubble), bubble);
   if (doc) doc.save((window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.pdf');
 };
 
@@ -206,5 +272,3 @@ window.downloadAiAnswerWord = async function(btn) {
   a.click();
   URL.revokeObjectURL(url);
 };
-  
-  
