@@ -1,14 +1,14 @@
-import { GoogleGenAI } from "@google/genai";
+ import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
-const getEnv = (key) => 
+const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
 
 const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
 const supabase = createClient(
   getEnv("SUPABASE_URL"),
-  getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY") || getEnv("SUPABASE_ANON_KEY")
+  getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
 );
 
 export default async function handler(req) {
@@ -18,9 +18,9 @@ export default async function handler(req) {
 
   const { query } = await req.json().catch(() => ({}));
   if (!query) {
-    return new Response(JSON.stringify({ error: "Missing query" }), { 
-      status: 400, 
-      headers: { "Content-Type": "application/json" } 
+    return new Response(JSON.stringify({ error: "Missing query" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
     });
   }
 
@@ -57,9 +57,9 @@ export default async function handler(req) {
 
   } catch (err) {
     console.error("Search failed:", err);
-    return new Response(JSON.stringify({ error: err.message }), { 
-      status: 500, 
-      headers: { "Content-Type": "application/json" } 
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
     });
   }
 }
