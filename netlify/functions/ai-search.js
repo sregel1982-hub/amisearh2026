@@ -8,7 +8,7 @@ const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
 const supabase = createClient(
   getEnv("SUPABASE_URL"),
-  getEnv("SUPABASE_ANON_KEY")
+  getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY") || getEnv("SUPABASE_ANON_KEY")
 );
 
 export default async function handler(req) {
@@ -26,7 +26,7 @@ export default async function handler(req) {
 
   try {
     const queryResult = await ai.models.embedContent({
-      model: "gemini-embedding-001",           // ← Javított modell
+      model: "text-embedding-004",
       contents: [{ parts: [{ text: query }] }]
     });
 
@@ -46,7 +46,7 @@ export default async function handler(req) {
         text_preview: n.text_content?.substring(0, 120) + "...",
         similarity: cosineSimilarity(queryEmbedding, n.embedding)
       }))
-      .filter(n => n.similarity > 0.65)
+      .filter(n => n.similarity > 0.55)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, 5);
 
@@ -75,4 +75,3 @@ function cosineSimilarity(a, b) {
   const denom = Math.sqrt(na) * Math.sqrt(nb);
   return denom === 0 ? 0 : dot / denom;
 }
-  
