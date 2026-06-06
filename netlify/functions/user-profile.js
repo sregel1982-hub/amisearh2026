@@ -51,7 +51,7 @@ export default async function handler(req) {
           email: email || user.email || "",
           status: status || "student",
           points: 0,
-          plan: "Free"
+          plan: "free"
         })
         .returning();
       return new Response(JSON.stringify({ profile: inserted[0] }), { status: 201 });
