@@ -12,7 +12,6 @@ const supabase = createClient(
   getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
 );
 
-/* ───────── Szöveg normalizálás ───────── */
 function normalizeText(t) {
   return (t || "")
     .replace(/\r\n/g, "\n")
@@ -21,7 +20,6 @@ function normalizeText(t) {
     .trim();
 }
 
-/* ───────── Gemini Vision OCR (kép / scannelt PDF) ───────── */
 async function ocrWithGemini(buffer, mimeType = "image/png") {
   const result = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -38,16 +36,13 @@ async function ocrWithGemini(buffer, mimeType = "image/png") {
   return result.text || "";
 }
 
-/* ───────── Szövegkinyerés fájltípus szerint ───────── */
 async function extractText(buffer, pathOrName) {
   const ext = (pathOrName.split(".").pop() || "").toLowerCase();
 
-  // TXT / MD
   if (ext === "txt" || ext === "md" || ext === "csv") {
     return buffer.toString("utf8");
   }
 
-  // PDF — pdf-parse v2 API (PDFParse class)
   if (ext === "pdf") {
     try {
       const { PDFParse } = await import("pdf-parse");
@@ -59,7 +54,6 @@ async function extractText(buffer, pathOrName) {
     } catch (e) {
       console.warn("pdf-parse failed, trying OCR:", e.message);
     }
-    // Scannelt PDF → OCR
     try {
       return await ocrWithGemini(buffer, "application/pdf");
     } catch (e) {
@@ -68,20 +62,17 @@ async function extractText(buffer, pathOrName) {
     }
   }
 
-  // DOCX
   if (ext === "docx") {
     const mammoth = (await import("mammoth")).default;
     const result = await mammoth.extractRawText({ buffer });
     return normalizeText(result.value || "");
   }
 
-  // Képek
   if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext)) {
     const mime = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
     return await ocrWithGemini(buffer, mime);
   }
 
-  // PPTX / egyéb → OCR fallback
   try {
     return await ocrWithGemini(buffer, "application/pdf");
   } catch {
@@ -89,7 +80,6 @@ async function extractText(buffer, pathOrName) {
   }
 }
 
-/* ───────── Handler ───────── */
 export const handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
@@ -105,11 +95,10 @@ export const handler = async (event) => {
     if (dlErr || !fileData) throw new Error("File download failed: " + (dlErr?.message || "no data"));
 
     const buffer = Buffer.from(await fileData.arrayBuffer());
-
     let textContent = normalizeText(await extractText(buffer, filePath));
 
     if (textContent.length < 20) {
-      throw new Error("Not enough text extracted (maybe scanned without OCR support)");
+      throw new Error("Not enough text extracted");
     }
 
     const textHash = createHash("sha256").update(textContent).digest("hex");
@@ -122,16 +111,12 @@ export const handler = async (event) => {
       });
       embedding = embedResult.embeddings?.[0]?.values || null;
     } catch (e) {
-      console.warn("Embedding generation failed (continuing without):", e.message);
+      console.warn("Embedding generation failed:", e.message);
     }
 
     const { error: updErr } = await supabase
       .from("jegyzetek")
-      .update({
-        text_content: textContent,
-        text_hash: textHash,
-        embedding
-      })
+      .update({ text_content: textContent, text_hash: textHash, embedding })
       .eq("id", noteId);
 
     if (updErr) throw new Error("DB update failed: " + updErr.message);
@@ -150,3 +135,4 @@ export const handler = async (event) => {
     };
   }
 };
+    
