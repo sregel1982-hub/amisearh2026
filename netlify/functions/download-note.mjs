@@ -1,15 +1,9 @@
 import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
-import { db } from "../../db/index.js";
-import { uploadedNotes } from "../../db/schema.js";
-import { eq } from "drizzle-orm";
 
-/**
- * /.netlify/functions/download-note?id=NOTE_ID
- *
- *  Bejelentkezett user → kap egy 5 perces signed URL-t a saját jegyzetéhez.
- *  Működik akkor is, ha a `jegyzetek` bucket PRIVATE.
- */
+const getEnv = (key) =>
+  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+
 export default async function handler(req) {
   if (req.method !== "GET") return jerr("Method not allowed", 405);
 
@@ -20,38 +14,25 @@ export default async function handler(req) {
   const noteId = Number(url.searchParams.get("id"));
   if (!noteId) return jerr("id kötelező", 400);
 
-  /* Note lekérése */
-  const [note] = await db
-    .select()
-    .from(uploadedNotes)
-    .where(eq(uploadedNotes.id, noteId))
-    .limit(1);
+  const supabaseUrl = getEnv("SUPABASE_URL");
+  const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
 
-  if (!note) return jerr("Note not found", 404);
-
-  /* (opcionális) tulajdonos check — most engedjük bárki letöltse */
-  // if (note.uploaderIdentityId !== user.id) return jerr("Forbidden", 403);
-
-  const supabaseUrl =
-    (typeof Netlify !== "undefined" && Netlify.env.get("SUPABASE_URL")) ||
-    process.env.SUPABASE_URL;
-  const serviceRoleKey =
-    (typeof Netlify !== "undefined" &&
-      (Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-        Netlify.env.get("SERVICE_ROLE_KEY"))) ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey)
-    return jerr("Supabase config missing", 500);
+  if (!supabaseUrl || !serviceRoleKey) return jerr("Supabase config missing", 500);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  /* fileName a storage path-ban — pl. 1780123_kelet_es_nyugat.docx */
-  const filePath = note.fileName;
+  const { data: note, error: noteErr } = await supabase
+    .from("jegyzetek")
+    .select("id, file_path, original_name, user_id")
+    .eq("id", noteId)
+    .single();
+
+  if (noteErr || !note) return jerr("Note not found", 404);
+
+  const filePath = note.file_path;
   const { data, error } = await supabase.storage
     .from("jegyzetek")
-    .createSignedUrl(filePath, 300); /* 5 perc */
+    .createSignedUrl(filePath, 300);
 
   if (error || !data?.signedUrl) {
     console.error("[download-note] signed URL error:", error);
@@ -59,7 +40,7 @@ export default async function handler(req) {
   }
 
   return new Response(
-    JSON.stringify({ url: data.signedUrl, originalName: note.originalName }),
+    JSON.stringify({ url: data.signedUrl, originalName: note.original_name }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 }
