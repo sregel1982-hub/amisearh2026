@@ -1,4 +1,4 @@
-import { getSupabaseUser } from "./auth-helper.mjs";
+  import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const getEnv = (key) =>
@@ -12,7 +12,7 @@ const supabase = createClient(
 function mapRow(row) {
   return {
     id: row.id,
-    title: row.cim || row.title || row.original_name || "Névtelen jegyzet",
+    title: row.cim || row.original_name || "Névtelen jegyzet",
     cim: row.cim,
     subject: row.subject || null,
     language: row.language || null,
@@ -47,20 +47,11 @@ export default async function handler(req) {
     let body;
     try { body = await req.json(); } catch { return errorRes("Invalid JSON body", 400); }
 
-    const {
-      publicUrl,
-      fileName,
-      originalName,
-      fileSize,
-      cim,
-      title,
-      subject,
-      language
-    } = body || {};
-
+    const { publicUrl, fileName, originalName, fileSize, cim, title, subject, language } = body || {};
     const storagePath = fileName || body.filePath;
+
     if (!publicUrl) return errorRes("publicUrl required", 400);
-    if (!storagePath) return errorRes("fileName (storage path) required", 400);
+    if (!storagePath) return errorRes("fileName required", 400);
 
     const { data: inserted, error: insertErr } = await supabase
       .from("jegyzetek")
@@ -82,7 +73,6 @@ export default async function handler(req) {
       .single();
 
     if (insertErr) return errorRes("Insert failed: " + insertErr.message, 500);
-
     return ok(mapRow(inserted));
   }
 
