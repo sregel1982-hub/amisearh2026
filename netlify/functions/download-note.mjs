@@ -28,12 +28,10 @@ export default async function handler(req) {
 
   if (noteErr || !note) return jerr("Note not found", 404);
 
-  // 1) Publikus URL — ha van, ez a legbiztosabb
   if (note.public_url) {
     return jok({ url: note.public_url, originalName: note.original_name });
   }
 
-  // 2) Signed URL — privát buckethez
   let storagePath = note.file_path || "";
   const marker = "/jegyzetek/";
   if (storagePath.includes(marker)) {
@@ -45,7 +43,6 @@ export default async function handler(req) {
     .createSignedUrl(storagePath, 300);
 
   if (error || !data?.signedUrl) {
-    console.error("[download-note] signed URL error:", error);
     return jerr("Nem sikerült letöltési linket generálni: " + (error?.message || "ismeretlen hiba"), 500);
   }
 
@@ -53,11 +50,17 @@ export default async function handler(req) {
 }
 
 function jok(d, s = 200) {
-  return new Response(JSON.stringify(d), { status: s, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(d), {
+    status: s,
+    headers: { "Content-Type": "application/json" }
+  });
 }
 
 function jerr(m, s = 400) {
-  return new Response(JSON.stringify({ error: m }), { status: s, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ error: m }), {
+    status: s,
+    headers: { "Content-Type": "application/json" }
+  });
 }
 
 export const config = {};
