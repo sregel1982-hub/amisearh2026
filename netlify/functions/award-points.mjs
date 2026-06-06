@@ -119,7 +119,7 @@ export default async function handler(req) {
   const newPoints = (profile.points || 0) + awarded;
   updates.points = newPoints;
 
-  /* Auto-upgrade to pro at 500 pts (csak ha még free) */
+    /* Auto-upgrade to pro at 500 pts (csak ha még free) */
   let upgraded = false;
   if (profile.plan === "free" && newPoints >= 500) {
     updates.plan = "pro";
