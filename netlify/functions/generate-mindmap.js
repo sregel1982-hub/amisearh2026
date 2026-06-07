@@ -24,19 +24,14 @@ export default async function handler(req) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `
-Te egy oktatási segéd vagy. Készíts egy részletes, logikus gondolattérképet a következő témáról: ${topic}.
+Te egy oktatási segéd vagy. Készíts egy gondolattérképet: ${topic}.
 A kimenet KIZÁRÓLAG érvényes Mermaid.js 'mindmap' szintaxis legyen.
-Ne használj markdown kódblokkokat (pl. \`\`\`mermaid), csak a tiszta kódot.
-Használj gyökér elemet így: root((Téma)).
-A szinteket behúzással jelöld.
-Nyelv: ${lang === 'hu' ? 'Magyar' : 'Angol'}.
+MINDEN szöveget tegyél dupla idézőjelbe a hibák elkerülése végett!
 Példa:
 mindmap
-  root((Matematika))
-    Algebra
-      Egyenletek
-    Geometria
-      Háromszögek
+  root(("${topic}"))
+    "${lang === 'hu' ? 'Első ág' : 'First branch'}"
+      "${lang === 'hu' ? 'Részlet' : 'Detail'}"
 `;
 
   try {
@@ -44,8 +39,13 @@ mindmap
     const response = await result.response;
     let text = response.text().trim();
 
-    // Tisztítás, ha az AI mégis tenne bele kódblokk jelölőt
+    // Tisztítás
     text = text.replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
+    
+    // Biztonsági ellenőrzés: ha az AI elfelejtené a mindmap kulcsszót
+    if (!text.startsWith("mindmap")) {
+      text = "mindmap\n" + text;
+    }
 
     return new Response(JSON.stringify({ code: text }), {
       headers: { "Content-Type": "application/json" }
