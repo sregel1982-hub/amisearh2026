@@ -2,7 +2,7 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 import { createClient } from "@supabase/supabase-js";
-import { latexToUnicode } from "./export_fix.js";   // ← Fontos import!
+import { latexToUnicode } from "./utils.js";   // ← Ez a fontos sor
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -37,7 +37,7 @@ export default async function handler(req) {
     return jsonError("Query is required", 400, "missing_query");
   }
 
-  // === JEGYZETEK TISZTÍTÁSA ===
+  // Jegyzetek tisztítása
   let notesContext = "";
 
   if (notes && typeof notes === "string") {
@@ -70,19 +70,16 @@ export default async function handler(req) {
 
   const useGrounding = !notesContext;
 
-  // === ERŐSÍTETT SYSTEM PROMPT ===
   const baseInstruction =
     (lang === "hu"
       ? "Te egy kiváló magyar matematika és tanulási asszisztens vagy az AMISEARCH platformon. "
       : "You are a helpful AI study assistant on the AMISEARCH platform. ") +
     "Válaszolj mindig MAGYARUL, érthető, lépésről lépésre magyarázatokkal. " +
-    "Soha ne használj nyersen LaTeX parancsokat (\\quad, \\frac, \\_, \\begin stb.). " +
-    "Törteket írj így: 3 1/4 vagy 5/6. " +
-    "Szorzás: ×   Osztás: ÷   " +
-    "Használj markdown-t listákhoz, táblázatokhoz és kiemelésekhez.";
+    "Soha ne használj nyersen LaTeX parancsokat (\\quad, \\frac, \\_, stb.). " +
+    "Törteket írj így: 3 1/4 vagy 5/6. Szorzás: ×   Osztás: ÷. ";
 
   const notesInstruction = notesContext
-    ? " A felhasználó FELTÖLTÖTT JEGYZETEIT lásd a '=== FELTÖLTÖTT JEGYZETEK ===' részben. Elsősorban ezek alapján válaszolj, hivatkozz rájuk konkrétan."
+    ? " A felhasználó FELTÖLTÖTT JEGYZETEIT lásd a '=== FELTÖLTÖTT JEGYZETEK ===' részben. Elsősorban ezek alapján válaszolj."
     : " Nincs feltöltött jegyzet — használj általános tudást és internetes keresést.";
 
   let promptText = query;
@@ -127,4 +124,4 @@ export default async function handler(req) {
   }
 }
 
-export const config = {};       
+export const config = {};
