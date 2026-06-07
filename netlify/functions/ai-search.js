@@ -1,6 +1,9 @@
  import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
+// Importáld a cleanup függvényt (ha külön fájlban van)
+import { latexToUnicode } from "./export_fix.js";   // <-- ezt add hozzá
+
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
 
@@ -25,9 +28,12 @@ export default async function handler(req) {
   }
 
   try {
+    // Query tisztítása is
+    const cleanQuery = latexToUnicode(query);
+
     const queryResult = await ai.models.embedContent({
       model: "text-embedding-004",
-      contents: [{ parts: [{ text: query }] }]
+      contents: [{ parts: [{ text: cleanQuery }] }]
     });
 
     const queryEmbedding = queryResult.embeddings?.[0]?.values;
@@ -40,12 +46,18 @@ export default async function handler(req) {
 
     const results = notes
       .filter(n => n.embedding && Array.isArray(n.embedding))
-      .map(n => ({
-        id: n.id,
-        cim: n.cim,
-        text_preview: n.text_content?.substring(0, 120) + "...",
-        similarity: cosineSimilarity(queryEmbedding, n.embedding)
-      }))
+      .map(n => {
+        // Fontos: a jegyzet szövegét is tisztítjuk!
+        const cleanText = latexToUnicode(n.text_content || "");
+        
+        return {
+          id: n.id,
+          cim: n.cim,
+          text_preview: cleanText.substring(0, 180) + "...",
+          similarity: cosineSimilarity(queryEmbedding, n.embedding),
+          clean_content: cleanText   // opcionális: visszaadhatod a tisztított verziót
+        };
+      })
       .filter(n => n.similarity > 0.55)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, 5);
