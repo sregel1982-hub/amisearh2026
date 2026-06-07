@@ -1,5 +1,14 @@
 function latexToUnicode(text) {
   return text
+    // === JAVÍTÁS: \quad és egyéb LaTeX maradékok eltávolítása ===
+    .replace(/\\quad_?/g, ' ')           // \quad és \quad_
+    .replace(/\\qquad/g, '  ')           // nagyobb térköz
+    .replace(/\\_/g, ' ')                // aláhúzás maradék
+    .replace(/\\hspace\{[^}]+\}/g, ' ')  // egyéb térköz parancsok
+    .replace(/\\par/g, '\n')             // bekezdés
+    .replace(/\\[a-zA-Z]+/g, ' ')        // minden egyéb LaTeX parancs → szóköz
+
+    // Eredeti függvények (megtartva)
     .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2')
     .replace(/\^{([^}]*)}/g, (_, e) => toSuperscript(e))
     .replace(/\^(\d)/g, (_, e) => toSuperscript(e))
@@ -20,8 +29,8 @@ function latexToUnicode(text) {
     .replace(/\\sqrt\{([^}]*)\}/g,'√($1)')
     .replace(/\\sum/g,'Σ').replace(/\\int/g,'∫')
     .replace(/\\partial/g,'∂').replace(/\\nabla/g,'∇')
-    .replace(/\\[a-zA-Z]+/g,'').replace(/[{}]/g,'')
-    .replace(/\$\$([^$]+)\$\$/g,'$1').replace(/\$([^$]+)\$/g,'$1')
+    .replace(/[{}]/g,'')
+    .replace(/\$\\( ([^ \)]+)\$\$/g,'$1').replace(/\\( ([^ \)]+)\$/g,'$1')
     .replace(/\\\[/g,'').replace(/\\\]/g,'')
     .replace(/\\\(/g,'').replace(/\\\)/g,'');
 }
@@ -47,7 +56,7 @@ async function elementToPdf(el, filename, title) {
   const toolbar = el.querySelector('[data-ai-dl-toolbar]');
   if (toolbar) toolbar.style.display = 'none';
 
-  // KaTeX annotation cleanup (hogy ne duplázódjon a szöveg)
+  // KaTeX annotation cleanup
   el.querySelectorAll('.katex-html').forEach(k => { k.style.display = 'none'; });
 
   const canvas = await html2canvas(el, {
@@ -81,13 +90,11 @@ async function elementToPdf(el, filename, title) {
   const startY = 15;
   const imgW = contentW;
   const imgH = (canvas.height / canvas.width) * imgW;
-  const availH = pageH - startY - 8; // lábléc helye
+  const availH = pageH - startY - 8;
 
   if (imgH <= availH) {
-    // Elfér egy oldalon
     doc.addImage(imgData, 'PNG', margin, startY, imgW, imgH);
   } else {
-    // Több oldalra tördelés
     const ratio = canvas.width / imgW;
     let srcY = 0;
     let pageNum = 0;
