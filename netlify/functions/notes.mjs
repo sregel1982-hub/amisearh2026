@@ -1,4 +1,4 @@
-  import { getSupabaseUser } from "./auth-helper.mjs";
+import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const getEnv = (key) =>
@@ -33,12 +33,21 @@ export default async function handler(req) {
   if (!user) return errorRes("Unauthorized", 401);
 
   if (req.method === "GET") {
-    const { data, error: fetchErr } = await supabase
+    const url = new URL(req.url);
+    const queryParam = url.searchParams.get("q");
+
+    let dbQuery = supabase
       .from("jegyzetek")
       .select("id, cim, subject, language, file_path, original_name, public_url, file_size, text_content, user_id, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
+    // Ha van keresési kifejezés, szűrünk a címre vagy a tartalomra
+    if (queryParam) {
+      dbQuery = dbQuery.or(`cim.ilike.%${queryParam}%,text_content.ilike.%${queryParam}%`);
+    }
+
+    const { data, error: fetchErr } = await dbQuery;
     if (fetchErr) return errorRes("Fetch failed: " + fetchErr.message, 500);
     return ok((data || []).map(mapRow));
   }
@@ -46,7 +55,6 @@ export default async function handler(req) {
   if (req.method === "POST") {
     let body;
     try { body = await req.json(); } catch { return errorRes("Invalid JSON body", 400); }
-
     const { publicUrl, fileName, originalName, fileSize, cim, title, subject, language } = body || {};
     const storagePath = fileName || body.filePath;
 
