@@ -2,6 +2,7 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 import { createClient } from "@supabase/supabase-js";
+import { latexToUnicode } from "./export_fix.js";   // ← Fontos import!
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -36,7 +37,12 @@ export default async function handler(req) {
     return jsonError("Query is required", 400, "missing_query");
   }
 
-  let notesContext = (notes && typeof notes === "string") ? notes.substring(0, 100000) : "";
+  // === JEGYZETEK TISZTÍTÁSA ===
+  let notesContext = "";
+
+  if (notes && typeof notes === "string") {
+    notesContext = latexToUnicode(notes.substring(0, 100000));
+  }
 
   if (!notesContext) {
     try {
@@ -50,7 +56,10 @@ export default async function handler(req) {
 
       if (allNotes && allNotes.length > 0) {
         notesContext = allNotes
-          .map((n, i) => `=== Jegyzet ${i + 1}: ${n.cim || n.original_name || "ismeretlen"} ===\n${n.text_content}`)
+          .map((n, i) => {
+            const clean = latexToUnicode(n.text_content || "");
+            return `=== Jegyzet ${i + 1}: \( {n.cim || n.original_name || "ismeretlen"} ===\n \){clean}`;
+          })
           .join("\n\n")
           .substring(0, 100000);
       }
@@ -61,16 +70,20 @@ export default async function handler(req) {
 
   const useGrounding = !notesContext;
 
+  // === ERŐSÍTETT SYSTEM PROMPT ===
   const baseInstruction =
     (lang === "hu"
-      ? "Te egy segítőkész AI tanulási asszisztens vagy az AMISEARCH platformon. Válaszolj MAGYARUL, érthető, jól strukturált magyarázatokkal. "
-      : "You are a helpful AI study assistant on the AMISEARCH platform. Answer clearly with well-structured explanations. ") +
-    "Használhatsz LaTeX formulákat ($...$ vagy $$...$$). Listák, fejezetek és táblázatok markdown-nal. " +
-    "Ha a felhasználó gondolattérképet kér, készíts egyet Mermaid 'mindmap' szintaxissal (első sor 'mindmap', gyökér root((Téma)), 2 szóköz indent, MAX 3 szint). ";
+      ? "Te egy kiváló magyar matematika és tanulási asszisztens vagy az AMISEARCH platformon. "
+      : "You are a helpful AI study assistant on the AMISEARCH platform. ") +
+    "Válaszolj mindig MAGYARUL, érthető, lépésről lépésre magyarázatokkal. " +
+    "Soha ne használj nyersen LaTeX parancsokat (\\quad, \\frac, \\_, \\begin stb.). " +
+    "Törteket írj így: 3 1/4 vagy 5/6. " +
+    "Szorzás: ×   Osztás: ÷   " +
+    "Használj markdown-t listákhoz, táblázatokhoz és kiemelésekhez.";
 
   const notesInstruction = notesContext
-    ? "A felhasználónak vannak FELTÖLTÖTT JEGYZETEI (lásd lent). Elsősorban ezekből válaszolj, hivatkozz konkrét részekre. Ha nincs benne válasz, egészítsd ki általános tudásoddal."
-    : "Nincs feltöltött jegyzet — keress széles körben a témában és add meg a forrásokat a válasz végén (Források: szekció).";
+    ? " A felhasználó FELTÖLTÖTT JEGYZETEIT lásd a '=== FELTÖLTÖTT JEGYZETEK ===' részben. Elsősorban ezek alapján válaszolj, hivatkozz rájuk konkrétan."
+    : " Nincs feltöltött jegyzet — használj általános tudást és internetes keresést.";
 
   let promptText = query;
   if (notesContext) {
@@ -114,5 +127,4 @@ export default async function handler(req) {
   }
 }
 
-export const config = {};
-    
+export const config = {};       
