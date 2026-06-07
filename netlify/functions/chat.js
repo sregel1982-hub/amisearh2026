@@ -2,6 +2,7 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 import { createClient } from "@supabase/supabase-js";
+import { latexToUnicode } from "./utils.js";
 
 const ai = new GoogleGenAI({
   apiKey:
@@ -20,13 +21,9 @@ export default async function handler(req) {
   }
 
   const user = await getSupabaseUser(req);
-  if (!user) {
-    return jsonError("Unauthorized", 401, "unauthorized");
-  }
+  if (!user) return jsonError("Unauthorized", 401, "unauthorized");
 
-  if (!isAiConfigured()) {
-    return aiUnavailableResponse();
-  }
+  if (!isAiConfigured()) return aiUnavailableResponse();
 
   let body;
   try { body = await req.json(); } catch { body = {}; }
@@ -37,8 +34,12 @@ export default async function handler(req) {
     return jsonError("Message is required", 400, "missing_message");
   }
 
-  // Ha noteId jön, betöltjük a szöveget az adatbázisból
-  let notesContext = (notes && typeof notes === "string") ? notes.substring(0, 200000) : "";
+  // Jegyzetek betöltése + tisztítása
+  let notesContext = "";
+
+  if (notes && typeof notes === "string") {
+    notesContext = latexToUnicode(notes.substring(0, 200000));
+  }
 
   if (noteId && !notesContext) {
     const { data: noteRow } = await supabase
@@ -48,11 +49,10 @@ export default async function handler(req) {
       .single();
 
     if (noteRow?.text_content) {
-      notesContext = noteRow.text_content.substring(0, 200000);
+      notesContext = latexToUnicode(noteRow.text_content.substring(0, 200000));
     }
   }
 
-  // Ha nincs noteId se notes, betöltjük a felhasználó összes jegyzetét
   if (!notesContext) {
     const { data: allNotes } = await supabase
       .from("jegyzetek")
@@ -64,14 +64,16 @@ export default async function handler(req) {
 
     if (allNotes && allNotes.length > 0) {
       notesContext = allNotes
-        .map((n, i) => `=== Jegyzet ${i + 1}: ${n.file_path?.split("/").pop() || "ismeretlen"} ===\n${n.text_content}`)
+        .map((n, i) => {
+          const clean = latexToUnicode(n.text_content || "");
+          return `=== Jegyzet ${i + 1}: \( {n.file_path?.split("/").pop() || "ismeretlen"} ===\n \){clean}`;
+        })
         .join("\n\n")
         .substring(0, 200000);
     }
   }
 
-  // Internetes keresés Gemini grounding-gal
-  const useGrounding = !notesContext; // Ha nincs saját jegyzet, interneten keres
+  const useGrounding = !notesContext;
 
   const contents = [];
   if (Array.isArray(history)) {
@@ -87,41 +89,20 @@ export default async function handler(req) {
 
   let promptText = message;
   if (notesContext) {
-    promptText =
-      "=== FELTÖLTÖTT JEGYZETEK ===\n" +
-      notesContext +
-      "\n=== JEGYZETEK VÉGE ===\n\n" +
-      "Felhasználó kérdése: " + message;
+    promptText = "=== FELTÖLTÖTT JEGYZETEK ===\n" + notesContext + "\n=== JEGYZETEK VÉGE ===\n\nFelhasználó kérdése: " + message;
   }
 
   contents.push({ role: "user", parts: [{ text: promptText }] });
 
-  const baseInstruction =
-    "Te egy segítőkész AI tutor vagy az AMISEARCH tanulási platformon, egyetemistáknak segítesz tanulni. " +
-    "Válaszolj MAGYARUL, érthető magyarázatokkal. " +
-    "Használhatsz LaTeX formulákat a $...$ vagy $$...$$ szintaxissal. " +
-    "Listák, fejezetek és táblázatok markdown-nal. " +
-    "Ha a felhasználó gondolattérképet kér, készíts egyet a Mermaid 'mindmap' szintaxissal " +
-    "(első sor 'mindmap', gyökér root((Téma)), ágak 2 szóköz indent, MAX 3 szint). " +
-    "Ha internetes forrásokból válaszolsz, a válasz VÉGÉN mindig adj meg egy 'Források:' szekciót " +
-    "ahol felsorolod a hivatkozott weboldalakat, cikkeket, forrásokat markdown linkként.";
+  const baseInstruction = "Te egy kiváló magyar matematika tutor vagy az AMISEARCH platformon. Mindig tiszta, LaTeX-parancsok NÉLKÜLI magyar szöveget adj. Törteket írj így: 3 1/4 vagy 5/6. Szorzás: ×  Osztás: ÷. Válaszolj érthetően, lépésről lépésre.";
 
-  const notesInstruction = notesContext
-    ? " A felhasználó FELTÖLTÖTT JEGYZETE(KE)T (lásd '=== FELTÖLTÖTT JEGYZETEK ===' szekciót). " +
-      "ELSŐSORBAN ezekből a jegyzetekből válaszolj. Hivatkozz konkrét részekre a megfelelő jegyzet nevével. " +
-      "Ha a kérdésre a jegyzetekben nincs válasz, jelezd ezt, és egészítsd ki általános tudásoddal + internetes forrásokkal."
-    : " Nincs feltöltött jegyzet — széles körben keress a témában interneten és tudásbázisodban. " +
-      "Adj részletes, pontos választ, és a végén mindig sorolj fel forrásokat (Források: szekció).";
+  const notesInstruction = notesContext 
+    ? " Elsősorban a feltöltött jegyzetek alapján válaszolj." 
+    : " Nincs feltöltött jegyzet, használj általános tudást.";
 
   try {
-    const config = {
-      systemInstruction: baseInstruction + notesInstruction
-    };
-
-    // Grounding bekapcsolása ha nincs saját jegyzet
-    if (useGrounding) {
-      config.tools = [{ googleSearch: {} }];
-    }
+    const config = { systemInstruction: baseInstruction + notesInstruction };
+    if (useGrounding) config.tools = [{ googleSearch: {} }];
 
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
@@ -131,22 +112,7 @@ export default async function handler(req) {
 
     return streamText(stream);
   } catch (error) {
-    console.error("Chat AI generation failed:", error);
-
-    // Ha a grounding hibát okoz, próbáljuk grounding nélkül
-    if (useGrounding) {
-      try {
-        const stream = await ai.models.generateContentStream({
-          model: "gemini-2.5-flash",
-          contents,
-          config: { systemInstruction: baseInstruction + notesInstruction }
-        });
-        return streamText(stream);
-      } catch (e) {
-        console.error("Fallback also failed:", e);
-      }
-    }
-
+    console.error("Chat AI failed:", error);
     return aiUnavailableResponse();
   }
 }
