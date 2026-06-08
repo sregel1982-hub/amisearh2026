@@ -12,27 +12,36 @@ export default async function handler(req) {
  const { topic, lang = "hu" } = body;
  if (!topic) return new Response("Missing topic", { status: 400 });
 
- // JAVÍTÁS: GoogleGenAI használata (ugyanaz, mint a chat.js)
  const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
+ // JAVÍTÁS: Egyszerűbb prompt, ami Mermaid-kompatibilis szintaxist ad vissza
  const prompt = `
-Te egy oktatási segéd vagy. Készíts egy színes, látványos gondolattérképet: ${topic}.
-A kimenet KIZÁRÓLAG érvényes Mermaid.js 'mindmap' szintaxis legyen.
-MINDEN szöveget tegyél dupla idézőjelbe!
-Használj különböző osztályokat a színekhez (pl. ::icon(fa fa-star) vagy stílusok nélkül, de logikusan tagolva).
-Fontos: A Mermaid mindmap szintaxist használd!
-Példa:
+Készíts egy gondolattérképet a következő témáról: ${topic}
+
+A kimenet KIZÁRÓLAG érvényes Mermaid.js "mindmap" szintaxis legyen.
+
+FONTOS SZABÁLYOK:
+1. Csak "mindmap" típust használj!
+2. NE használj classDef-et, stílusdefiníciót, színeket!
+3. Csak egyszerű fa-struktúrát: root -> ágak -> levelek
+4. Minden szöveget tegyél dupla idézőjelbe: "szöveg"
+5. A root legyen: root(("${topic}"))
+6. Az ágak legyenek: (( "ág neve" ))
+7. A levelek legyenek: "levél neve"
+
+Példa helyes szintaxisra:
 mindmap
- root(("${topic}"))
- (( "Első ág" ))
- "Részlet 1"
- "Részlet 2"
- (( "Második ág" ))
- "Részlet 3"
-`;
+  root(("Matematika"))
+    (( "Algebra" ))
+      "Lineáris algebra"
+      "Absztrakt algebra"
+    (( "Analízis" ))
+      "Valós analízis"
+      "Komplex analízis"
+
+Készíts részletes, jól strukturált gondolattérképet!`;
 
  try {
-  // JAVÍTÁS: GoogleGenAI API hívás (ugyanaz, mint a chat.js)
   const result = await ai.models.generateContent({
    model: "gemini-2.5-flash",
    contents: [{ role: "user", parts: [{ text: prompt }] }]
@@ -40,8 +49,19 @@ mindmap
 
   let text = result.text || "";
   text = text.trim();
+  
+  // Tisztítjuk a kódot
   text = text.replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
+  text = text.replace(/^```\n?/, "").replace(/```$/, "").trim();
+  
   if (!text.startsWith("mindmap")) text = "mindmap\n" + text;
+
+  // Eltávolítjuk a classDef-eket, ha vannak
+  text = text.replace(/classDef\s+\w+\s+[^;]+;/g, "");
+  text = text.replace(/:::\w+/g, ""); // class hivatkozások eltávolítása
+  
+  // Tisztítjuk a felesleges üres sorokat
+  text = text.replace(/\n\s*\n/g, "\n").trim();
 
   const siteUrl = getEnv("URL") || "https://amisearh.org";
   const mindmapUrl = `${siteUrl}/mindmap.html?topic=${encodeURIComponent(topic)}`;
@@ -54,10 +74,8 @@ mindmap
    headers: { "Content-Type": "application/json" }
   });
  } catch (error) {
-  // Részletes hibaüzenet visszaadása
   return new Response(JSON.stringify({ 
-   error: "Generation failed: " + (error.message || error),
-   stack: error.stack || "No stack trace"
+   error: "Generation failed: " + (error.message || error)
   }), {
    status: 500,
    headers: { "Content-Type": "application/json" }
