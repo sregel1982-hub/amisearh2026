@@ -1,83 +1,44 @@
-export function jsonError(message, status, code = "request_failed") {
-  return new Response(
-    JSON.stringify({ error: message, code }),
-    {
-      status,
-      headers: { "Content-Type": "application/json" }
-    }
-  );
+const getEnv = (key) => (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+
+export function isAiConfigured() {
+  const apiKey = getEnv("GEMINI_API_KEY");
+  if (!apiKey) {
+    console.error("isAiConfigured: GEMINI_API_KEY hiányzik.");
+    return false;
+  }
+  return true;
 }
 
 export function aiUnavailableResponse() {
-  return jsonError(
-    "AI service is not configured or unavailable.",
-    503,
-    "ai_unavailable"
-  );
+  return new Response(JSON.stringify({ error: "AI szolgáltatás jelenleg nincs beállítva vagy nem elérhető." }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" }
+  });
 }
 
-export function isAiConfigured() {
-  return Boolean(
-    (typeof Netlify !== "undefined" && Netlify.env.get("GEMINI_API_KEY")) ||
-    process.env.GEMINI_API_KEY ||
-    (typeof Netlify !== "undefined" && Netlify.env.get("NETLIFY_AI_GATEWAY_KEY")) ||
-    process.env.NETLIFY_AI_GATEWAY_KEY
-  );
+export function jsonError(message, status = 400, code = "error") {
+  return new Response(JSON.stringify({ error: message, code }), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
 }
 
-export async function streamText(chunks) {
-  const encoder = new TextEncoder();
-
-  return new Response(
-    new ReadableStream({
-      async start(controller) {
-        // Forrásokat gyűjtjük a stream közben (duplikátum nélkül)
-        const sources = new Map();
-
-        const collectSources = (chunk) => {
-          const meta = chunk?.candidates?.[0]?.groundingMetadata;
-          const grounding = meta?.groundingChunks;
-          if (!Array.isArray(grounding)) return;
-          for (const g of grounding) {
-            const uri = g?.web?.uri;
-            const title = g?.web?.title || uri;
-            if (!uri) continue;
-            // Wikipédia kiszűrése
-            if (/wikipedia\.org/i.test(uri) || /wikipedia\.org/i.test(title)) continue;
-            if (!sources.has(uri)) sources.set(uri, title);
-          }
-        };
-
-        try {
-          for await (const chunk of chunks) {
-            if (chunk.text) {
-              controller.enqueue(encoder.encode(chunk.text));
-            }
-            collectSources(chunk);
-          }
-
-          // A válasz végén kattintható forrásjegyzék
-          if (sources.size > 0) {
-            let footer = "\n\n---\n**Források:**\n";
-            let i = 1;
-            for (const [uri, title] of sources) {
-              footer += `${i}. [${title}](${uri})\n`;
-              i++;
-            }
-            controller.enqueue(encoder.encode(footer));
-          }
-
-          controller.close();
-        } catch (error) {
-          controller.error(error);
+export async function streamText(stream) {
+  const reader = stream.stream.getReader();
+  const customStream = new ReadableStream({
+    async start(controller) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
         }
+        controller.enqueue(new TextDecoder().decode(value));
       }
-    }),
-    {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-store"
-      }
-    }
-  );
+      controller.close();
+    },
+  });
+
+  return new Response(customStream, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
 }
