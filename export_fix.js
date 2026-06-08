@@ -1,210 +1,107 @@
-// ==================== export_fix.js ====================
+(function() {
+    // 1. SZÍNVÁLASZTÓ ÉS STÍLUSOK (A gyerek ötlete)
+    const themes = {
+        blue: { primary: '#3B82F6', hover: '#2563EB', light: '#DBEAFE' },
+        purple: { primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF' },
+        emerald: { primary: '#10B981', hover: '#059669', light: '#D1FAE5' },
+        orange: { primary: '#F59E0B', hover: '#D97706', light: '#FEF3C7' }
+    };
 
-function latexToUnicode(text) {
- if (!text || typeof text !== 'string') return '';
+    window.changeSiteTheme = function(themeName) {
+        const theme = themes[themeName];
+        if (!theme) return;
+        let styleTag = document.getElementById('dynamic-theme-style') || document.createElement('style');
+        styleTag.id = 'dynamic-theme-style';
+        styleTag.innerHTML = `
+            :root { --primary-color: ${theme.primary} !important; }
+            .bg-indigo-600, .bg-\\[\\#6C5CE7\\], .btn-primary, button[type="submit"] { background-color: ${theme.primary} !important; }
+            .text-indigo-600, .text-\\[\\#6C5CE7\\] { color: ${theme.primary} !important; }
+            .bg-indigo-50 { background-color: ${theme.light} !important; }
+        `;
+        if (!styleTag.parentElement) document.head.appendChild(styleTag);
+        localStorage.setItem('amisearch-theme', themeName);
+    };
 
- return text
- // === ERŐS TISZTÍTÁS (LaTeX maradékok) ===
- .replace(/\\quad_?/g, ' ')
- .replace(/\\qquad/g, ' ')
- .replace(/\\_/g, ' ')
- .replace(/\\hspace\{[^}]+\}/g, ' ')
- .replace(/\\par/g, '\n\n')
- .replace(/\\[a-zA-Z]+\{[^}]*\}/g, ' ') // pl. \frac{1}{2}
- .replace(/\\[a-zA-Z]+/g, ' ') // minden maradék LaTeX parancs
+    // 2. NÉV JAVÍTÁSA ÉS SZÍNVÁLASZTÓ MEGJELENÍTÉSE
+    function initExtra() {
+        // Név javítása (Amisearh/Amisrarh -> Amisearch)
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while(node = walker.nextNode()) {
+            node.nodeValue = node.nodeValue.replace(/Amisearh|Amisrarh/g, 'Amisearch');
+        }
 
- // Tört számok javítása
- .replace(/(\d+)\\frac\{(\d+)\}\{(\d+)\}/g, '$1 $2/$3')
- .replace(/\\frac\{(\d+)\}\{(\d+)\}/g, '$1/$2')
- .replace(/1\\frac\{(\d+)\}\{(\d+)\}/g, '1 $1/$2')
- .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1/$2')
+        // Színválasztó körök
+        const picker = document.createElement('div');
+        picker.id = 'amisearch-color-picker';
+        picker.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:10000; background:white; padding:10px; border-radius:30px; display:flex; gap:10px; box-shadow:0 4px 15px rgba(0,0,0,0.2); border:2px solid #6C5CE7;';
+        
+        Object.keys(themes).forEach(name => {
+            const circle = document.createElement('div');
+            circle.style.cssText = `width:25px; height:25px; border-radius:50%; background:${themes[name].primary}; cursor:pointer; border:2px solid white;`;
+            circle.onclick = () => window.changeSiteTheme(name);
+            picker.appendChild(circle);
+        });
+        if (!document.getElementById('amisearch-color-picker')) {
+            document.body.appendChild(picker);
+        }
 
- // Matematikai szimbólumok
- .replace(/\\times/g, '×')
- .replace(/\\div/g, '÷')
- .replace(/\\pm/g, '±')
- .replace(/\\leq/g, '≤')
- .replace(/\\geq/g, '≥')
- .replace(/\\neq/g, '≠')
- .replace(/\\approx/g, '≈')
- .replace(/\\cdot/g, '·')
+        const saved = localStorage.getItem('amisearch-theme');
+        if (saved) window.changeSiteTheme(saved);
+    }
 
- // KaTeX maradékok eltávolítása
- .replace(/\$\$\( ([^ \)]+)\$\$/g, '$1')
- .replace(/\\\( ([^ \)]+)\$/g, '$1')
- .replace(/[{}\[\]]/g, '')
- .replace(/\\\\\[/g, '').replace(/\\\\\]/g, '')
- .replace(/\\\\\(/g, '').replace(/\\\\\)/g, '')
+    // 3. VALÓDI SZÖVEGES PDF ÉS WORD EXPORT (NEM KÉP)
+    window.downloadAiAnswerPdf = function(btn) {
+        const bubble = btn.closest('.ai-bubble, .bg-white, .message');
+        if (!bubble) return;
+        
+        // Tisztítás: bevezető szöveg levágása
+        let content = bubble.innerText || bubble.textContent;
+        content = content.replace(/^(Rendben|Íme|Tessék|Oké|Szia).+?\n/i, "").trim();
 
- // Többszörös szóközök és sorvégek tisztítása
- .replace(/\s+/g, ' ')
- .trim();
-}
+        // Megnyitunk egy új ablakot a tiszta tartalommal a PDF mentéshez
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html><head><title>Amisearch Export</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+                .header { background: #6C5CE7; color: white; padding: 20px; text-align: center; margin-bottom: 30px; }
+                .content { white-space: pre-wrap; }
+            </style></head><body>
+            <div class="header"><h1>Amisearch</h1></div>
+            <div class="content">${content}</div>
+            <script>window.onload = function() { window.print(); }</script>
+            </body></html>
+        `);
+        win.document.close();
+    };
 
-function toSuperscript(str) {
- const m = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','n':'ⁿ'};
- return str.split('').map(c => m[c] || c).join('');
-}
+    window.downloadAiAnswerWord = function(btn) {
+        const bubble = btn.closest('.ai-bubble, .bg-white, .message');
+        if (!bubble) return;
+        
+        let content = bubble.innerText || bubble.textContent;
+        content = content.replace(/^(Rendben|Íme|Tessék|Oké|Szia).+?\n/i, "").trim();
 
-function toSubscript(str) {
- const m = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
- return str.split('').map(c => m[c] || c).join('');
-}
+        const html = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head><meta charset='utf-8'><style>body{font-family:Arial;}</style></head>
+            <body><div style="background:#6C5CE7;color:white;padding:20px;text-align:center"><h1>Amisearch</h1></div>
+            <p>${content.replace(/\n/g, '<br>')}</p></body></html>
+        `;
 
-// ==================== PDF export (html2canvas + jsPDF) ====================
+        const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'amisearch-export.doc';
+        a.click();
+    };
 
-// === JAVÍTÁS: Több oldalas PDF színes fejléccel ===
-async function elementToPdf(el, filename, title = 'AmiSearch') {
- const { jsPDF } = window.jspdf || {};
- if (!jsPDF) { alert('jsPDF nem elérhető.'); return; }
- if (typeof html2canvas === 'undefined') { alert('html2canvas nem elérhető.'); return; }
-
- // JAVÍTÁS: "Rendben, adok..." szöveg eltávolítása
- const clone = el.cloneNode(true);
- const paragraphs = clone.querySelectorAll('p, div');
- paragraphs.forEach(p => {
-  const text = p.textContent || '';
-  if (text.toLowerCase().includes('rendben') && 
-      (text.toLowerCase().includes('adok') || text.toLowerCase().includes('feladatot'))) {
-   p.remove();
-  }
- });
-
- const canvas = await html2canvas(clone, {
-  scale: 2,
-  useCORS: true,
-  backgroundColor: '#ffffff',
-  logging: false
- });
-
- const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
- const pageW = doc.internal.pageSize.getWidth();
- const pageH = doc.internal.pageSize.getHeight();
- const margin = 10;
- const contentW = pageW - margin * 2;
- const headerH = 20; // Fejléc magassága
-
- // === JAVÍTÁS: Színes fejléc ===
- doc.setFillColor(108, 92, 231); // #6C5CE7 lila
- doc.rect(0, 0, pageW, headerH, 'F');
- 
- // Fejléc szöveg
- doc.setTextColor(255, 255, 255); // Fehér szöveg
- doc.setFont('helvetica', 'bold');
- doc.setFontSize(16);
- doc.text('AmiSearch', margin + 5, 13);
- 
- doc.setFont('helvetica', 'normal');
- doc.setFontSize(10);
- doc.text('AI Tutor - Feladatgenerátor', margin + 5, 18);
-
- // Dátum
- const date = new Date().toLocaleDateString('hu-HU');
- doc.setFontSize(8);
- doc.text(date, pageW - margin - 30, 13);
-
- // === JAVÍTÁS: Több oldalas kép ===
- const imgData = canvas.toDataURL('image/png');
- const imgW = contentW;
- const imgH = (canvas.height / canvas.width) * imgW;
- 
- // Ha a kép magasabb, mint az oldal, több oldalra bontjuk
- const availableH = pageH - headerH - margin - 10; // Maradék hely a fejléc után
- let position = 0;
- let pageNum = 1;
-
- while (position < imgH) {
-  // Új oldal (az elsőn már van fejléc)
-  if (pageNum > 1) {
-   doc.addPage();
-   // Minden oldalon színes fejléc
-   doc.setFillColor(108, 92, 231);
-   doc.rect(0, 0, pageW, 12, 'F');
-   doc.setTextColor(255, 255, 255);
-   doc.setFont('helvetica', 'bold');
-   doc.setFontSize(10);
-   doc.text('AmiSearch', margin + 5, 8);
-   doc.setFontSize(8);
-   doc.text('- ' + pageNum + '. oldal', pageW - margin - 25, 8);
-  }
-
-  // Kép részlet hozzáadása
-  const sourceY = (position / imgH) * canvas.height;
-  const sourceH = Math.min((availableH / imgH) * canvas.height, canvas.height - sourceY);
-  const destH = (sourceH / canvas.height) * imgH;
-
-  if (destH > 0) {
-   doc.addImage(
-    imgData, 'PNG',
-    margin, pageNum === 1 ? headerH + 5 : 15, // y pozíció
-    imgW, destH,
-    undefined, 'FAST',
-    0,
-    sourceY / canvas.height // sourceY
-   );
-  }
-
-  position += availableH;
-  pageNum++;
- }
-
- doc.save((filename || 'amisearch') + '.pdf');
-}
-
-// ==================== Word / RTF export ====================
-
-function extractTextLines(el) {
- const clone = el.cloneNode(true);
- 
- // JAVÍTÁS: "Rendben, adok..." szöveg eltávolítása
- const paragraphs = clone.querySelectorAll('p, div');
- paragraphs.forEach(p => {
-  const text = p.textContent || '';
-  if (text.toLowerCase().includes('rendben') && 
-      (text.toLowerCase().includes('adok') || text.toLowerCase().includes('feladatot'))) {
-   p.remove();
-  }
- });
- 
- clone.querySelectorAll('.katex').forEach(k => {
-  const latex = k.querySelector('annotation')?.textContent || k.textContent || '';
-  k.replaceWith(document.createTextNode(latexToUnicode(latex)));
- });
- return (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ');
-}
-
-function buildRtf(title, text) {
- let rtf = '{\\rtf1\\ansi\\ansicpg1250\\deff0\n';
- rtf += '{\\fonttbl{\\f0\\froman Times New Roman;}{\\f1\\fswiss Arial;}}\n';
- rtf += '\\paperw11906\\paperh16838\\margl1440\\margr1440\\margt1440\\margb1440\n';
- rtf += '\\pard\\sb200\\sa100\\f1\\fs28\\b ' + title + '\\b0\\par\n';
- rtf += text.split('\n').map(line => '\\pard\\sa80 ' + line + '\\par\n').join('');
- rtf += '}';
- return rtf;
-}
-
-// ==================== Export funkciók ====================
-
-window.downloadAiAnswerPdf = async function(btn) {
- const bubble = btn.closest('.ai-bubble, .bg-white, .message');
- if (!bubble) return;
- const q = btn.getAttribute('data-q') || 'valasz';
- await elementToPdf(bubble, q);
-};
-
-window.downloadAiAnswerWord = function(btn) {
- const bubble = btn.closest('.ai-bubble, .bg-white, .message');
- if (!bubble) return;
- const q = btn.getAttribute('data-q') || 'valasz';
- const text = extractTextLines(bubble);
- const rtf = buildRtf('AmiSearch AI Válasz', text);
- const blob = new Blob([rtf], { type: 'application/rtf' });
- const url = URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.href = url;
- a.download = q + '.rtf';
- a.click();
- URL.revokeObjectURL(url);
-};
-
-console.log('✅ export_fix.js loaded with improved LaTeX cleanup and multi-page PDF');
+    // Inicializálás
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initExtra);
+    } else {
+        initExtra();
+    }
+})();
