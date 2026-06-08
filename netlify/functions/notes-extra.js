@@ -1,232 +1,137 @@
-(function() {
-// Helyi törölt jegyzetek tárolása localStorage-ban
-  const HIDDEN_KEY = 'amisearch_hidden_notes';
+import { getSupabaseUser } from "./auth-helper.mjs";
+import { createClient } from "@supabase/supabase-js";
 
-  function getHidden() {
-    try { return JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'); }
-    catch { return []; }
+const getEnv = (key) =>
+ (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+
+const supabase = createClient(
+ getEnv("SUPABASE_URL"),
+ getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
+);
+
+function mapRow(row) {
+ return {
+ id: row.id,
+ title: row.cim || row.original_name || "Névtelen jegyzet",
+ cim: row.cim,
+ subject: row.subject || null,
+ language: row.language || null,
+ file_name: row.file_path,
+ fileName: row.file_path,
+ original_name: row.original_name,
+ originalName: row.original_name,
+ public_url: row.public_url,
+ file_size: row.file_size || 0,
+ uploaderIdentityId: row.user_id,
+ textContent: row.text_content || null,
+ created_at: row.created_at
+ };
+}
+
+// === JAVÍTÁS: Háttérben elindítja a szöveg kinyerését ===
+async function triggerIndexDocument(noteId, filePath) {
+ try {
+  // Megvárjuk egy kicsit, hogy a fájl biztosan elérhető legyen a storage-ban
+  await new Promise(r => setTimeout(r, 2000));
+  
+  const resp = await fetch(
+   (getEnv("URL") || "") + "/.netlify/functions/index-document",
+   {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ noteId, filePath })
+   }
+  );
+  
+  if (!resp.ok) {
+   console.warn("Index document trigger failed:", resp.status);
+  } else {
+   const result = await resp.json();
+   console.log("Index document result:", result);
+  }
+ } catch (e) {
+  console.error("Index document trigger error:", e);
+  // Nem dobjuk el a hibát, hogy a feltöltés ne essen el
+ }
+}
+
+export default async function handler(req) {
+ const user = await getSupabaseUser(req);
+ if (!user) return errorRes("Unauthorized", 401);
+
+ if (req.method === "GET") {
+  const url = new URL(req.url);
+  const queryParam = url.searchParams.get("q");
+
+  let dbQuery = supabase
+   .from("jegyzetek")
+   .select("id, cim, subject, language, file_path, original_name, public_url, file_size, text_content, user_id, created_at")
+   .eq("user_id", user.id)
+   .order("created_at", { ascending: false });
+
+  if (queryParam) {
+   dbQuery = dbQuery.or(`cim.ilike.%${queryParam}%,text_content.ilike.%${queryParam}%`);
   }
 
-  function saveHidden(arr) {
-    localStorage.setItem(HIDDEN_KEY, JSON.stringify(arr));
-  }
+  const { data, error: fetchErr } = await dbQuery;
+  if (fetchErr) return errorRes("Fetch failed: " + fetchErr.message, 500);
+  return ok((data || []).map(mapRow));
+ }
 
-  function hideNote(noteId) {
-    const hidden = getHidden();
-    if (!hidden.includes(noteId)) hidden.push(noteId);
-    saveHidden(hidden);
-  }
+ if (req.method === "POST") {
+  let body;
+  try { body = await req.json(); } catch { return errorRes("Invalid JSON body", 400); }
+  const { publicUrl, fileName, originalName, fileSize, cim, title, subject, language } = body || {};
+  const storagePath = fileName || body.filePath;
 
-  function unhideNote(noteId) {
-    saveHidden(getHidden().filter(id => id !== noteId));
-  }
+  if (!publicUrl) return errorRes("publicUrl required", 400);
+  if (!storagePath) return errorRes("fileName required", 400);
 
-  function isHidden(noteId) {
-    return getHidden().includes(noteId);
-  }
+  const { data: inserted, error: insertErr } = await supabase
+   .from("jegyzetek")
+   .insert({
+    user_id: user.id,
+    cim: cim || title || originalName || "Névtelen jegyzet",
+    original_name: originalName || storagePath,
+    file_path: storagePath,
+    public_url: publicUrl,
+    file_size: fileSize || 0,
+    subject: subject || null,
+    language: language || null,
+    text_content: null,
+    text_hash: null,
+    embedding: null,
+    created_at: new Date().toISOString()
+   })
+   .select()
+   .single();
 
-  // === JAVÍTÁS 1: Hiányzó letöltés függvény ===
-  window.downloadNote = async function(noteId) {
-    try {
-      const resp = await fetch(`/.netlify/functions/download-note?id=${noteId}`, {
-        headers: await window.getAuthHeaders({})
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Ismeretlen hiba' }));
-        throw new Error(err.error || 'Letöltési hiba');
-      }
-      const data = await resp.json();
-      if (data.url) {
-        window.open(data.url, '_blank');
-      } else {
-        throw new Error('Nincs letöltési link');
-      }
-    } catch (e) {
-      alert('Letöltési hiba: ' + e.message);
-      console.error('downloadNote error:', e);
-    }
-  };
+  if (insertErr) return errorRes("Insert failed: " + insertErr.message, 500);
+  
+  // === JAVÍTÁS: Háttérben elindítjuk a szöveg kinyerését ===
+  // Nem várjuk meg, hogy a válasz gyors legyen
+  const noteId = inserted.id;
+  const filePath = inserted.file_path;
+  triggerIndexDocument(noteId, filePath).catch(console.error);
+  
+  return ok(mapRow(inserted));
+ }
 
-  // === JAVÍTÁS 2: Hiányzó összefoglaló függvény ===
-  window.summarizeNote = async function(noteId, btn) {
-    const originalHtml = btn.innerHTML;
-    try {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Feldolgozás...';
+ return errorRes("Method not allowed", 405);
+}
 
-      const resp = await fetch('/.netlify/functions/summarize', {
-        method: 'POST',
-        headers: await window.getAuthHeaders({'Content-Type': 'application/json'}),
-        body: JSON.stringify({ noteId, lang: window.currentLang === 'hu' ? 'hu' : 'en' })
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Ismeretlen hiba' }));
-        throw new Error(err.error || 'Összefoglaló hiba');
-      }
-      const data = await resp.json();
+function ok(data, status = 200) {
+ return new Response(JSON.stringify(data), {
+  status,
+  headers: { "Content-Type": "application/json" }
+ });
+}
 
-      // Megjelenítés egy egyszerű modal-ban
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-      modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-900">${window.currentLang === 'hu' ? 'Összefoglaló' : 'Summary'}</h3>
-            <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
-              <i class="fa-solid fa-times text-xl"></i>
-            </button>
-          </div>
-          <div class="prose max-w-none text-gray-700 whitespace-pre-wrap">${(data.summary || 'Nincs összefoglaló').replace(/</g, '&lt;')}</div>
-          <div class="mt-4 flex justify-end">
-            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-[#6C5CE7] text-white rounded-lg hover:bg-[#5A4BD1]">
-              ${window.currentLang === 'hu' ? 'Bezárás' : 'Close'}
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    } catch (e) {
-      alert('Hiba: ' + e.message);
-      console.error('summarizeNote error:', e);
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = originalHtml;
-    }
-  };
+function errorRes(msg, status = 400) {
+ return new Response(JSON.stringify({ error: msg }), {
+  status,
+  headers: { "Content-Type": "application/json" }
+ });
+}
 
-  // Az eredeti loadMyNotes felülírása
-  const _origLoad = window.loadMyNotes;
-
-  window.loadMyNotes = async function() {
-    const container = document.getElementById('myNotesList');
-    if (!container) return;
-    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
-
-    container.innerHTML = '<div class="flex items-center gap-2 text-gray-400 text-sm"><i class="fa-solid fa-spinner fa-spin"></i><span>' +
-      (lang === 'hu' ? 'Jegyzetek betöltése...' : 'Loading notes...') + '</span></div>';
-
-    try {
-      const resp = await fetch('/.netlify/functions/notes', {
-        method: 'GET',
-        headers: await window.getAuthHeaders({})
-      });
-      if (!resp.ok) {
-        container.innerHTML = '<div class="text-sm text-red-500">' +
-          (lang === 'hu' ? 'Hiba a lekéréskor.' : 'Failed to load.') + '</div>';
-        return;
-      }
-      const all = await resp.json();
-      const mine = Array.isArray(all)
-        ? all.filter(n => n.uploaderIdentityId === window.currentUser?.id)
-        : [];
-
-      if (!mine.length) {
-        container.innerHTML = '<div class="text-sm text-gray-500 italic">' +
-          (lang === 'hu' ? 'Még nincs feltöltött jegyzeted.' : 'No notes yet.') + '</div>';
-        return;
-      }
-
-      const hidden = getHidden();
-      const visible = mine.filter(n => !hidden.includes(String(n.id)));
-      const hiddenNotes = mine.filter(n => hidden.includes(String(n.id)));
-
-      let html = '<div class="space-y-2" id="notesVisibleList">';
-
-      visible.forEach(n => {
-        const safeTitle = escHtml(n.title || n.originalName || ('Note #' + n.id));
-        const subject = n.subject ? '<span class="text-xs text-gray-500 ml-2">' + escHtml(n.subject) + '</span>' : '';
-        html += `
-          <div class="flex items-center gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition" data-note-id="${n.id}">
-            <input type="checkbox" class="note-hide-cb w-4 h-4 rounded text-red-500 focus:ring-red-400 cursor-pointer flex-shrink-0"
-              title="${lang === 'hu' ? 'Elrejt (helyi)' : 'Hide locally'}"
-              onchange="window.toggleNoteHide('${n.id}', this.checked)">
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-gray-900 truncate">${safeTitle}${subject}</p>
-              <button onclick="window.downloadNote(${n.id})"
-                class="text-xs text-[#6C5CE7] hover:underline mt-1">
-                <i class="fa-solid fa-download mr-1"></i>${lang === 'hu' ? 'Letöltés' : 'Download'}
-              </button>
-            </div>
-            <button onclick="window.summarizeNote(${n.id}, this)"
-              class="text-xs px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap">
-              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>${lang === 'hu' ? 'Összefoglaló' : 'Summarize'}
-            </button>
-          </div>`;
-      });
-
-      html += '</div>';
-
-      // Rejtett jegyzetek
-      if (hiddenNotes.length > 0) {
-        html += `
-          <div class="mt-3">
-            <button onclick="window.toggleHiddenSection()" 
-              class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
-              <i class="fa-solid fa-eye-slash"></i>
-              ${lang === 'hu' ? hiddenNotes.length + ' elrejtett jegyzet' : hiddenNotes.length + ' hidden note(s)'}
-              <i class="fa-solid fa-chevron-down ml-1" id="hiddenChevron"></i>
-            </button>
-            <div id="hiddenNotesList" class="hidden mt-2 space-y-2 opacity-60">`;
-
-        hiddenNotes.forEach(n => {
-          const safeTitle = escHtml(n.title || n.originalName || ('Note #' + n.id));
-          html += `
-            <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg" data-note-id="${n.id}">
-              <input type="checkbox" class="note-hide-cb w-4 h-4 rounded text-[#6C5CE7] cursor-pointer flex-shrink-0"
-                checked
-                title="${lang === 'hu' ? 'Visszaállítás' : 'Restore'}"
-                onchange="window.toggleNoteHide('${n.id}', this.checked)">
-              <p class="text-xs text-gray-500 truncate flex-1">${safeTitle}</p>
-            </div>`;
-        });
-
-        html += '</div></div>';
-      }
-
-      // Összes visszaállítása gomb
-      if (hiddenNotes.length > 0) {
-        html += `
-          <button onclick="window.restoreAllNotes()"
-            class="mt-2 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition">
-            <i class="fa-solid fa-rotate-left mr-1"></i>
-            ${lang === 'hu' ? 'Összes visszaállítása' : 'Restore all'}
-          </button>`;
-      }
-
-      container.innerHTML = html;
-
-    } catch (e) {
-      container.innerHTML = '<div class="text-sm text-red-500">' +
-        (lang === 'hu' ? 'Hiba történt.' : 'An error occurred.') + '</div>';
-      console.error('loadMyNotes error:', e);
-    }
-  };
-
-  window.toggleNoteHide = function(noteId, isChecked) {
-    if (isChecked) {
-      hideNote(String(noteId));
-    } else {
-      unhideNote(String(noteId));
-    }
-    setTimeout(() => window.loadMyNotes(), 150);
-  };
-
-  window.toggleHiddenSection = function() {
-    const sec = document.getElementById('hiddenNotesList');
-    const chev = document.getElementById('hiddenChevron');
-    if (!sec) return;
-    sec.classList.toggle('hidden');
-    if (chev) chev.style.transform = sec.classList.contains('hidden') ? '' : 'rotate(180deg)';
-  };
-
-  window.restoreAllNotes = function() {
-    saveHidden([]);
-    window.loadMyNotes();
-  };
-
-  function escHtml(text) {
-    const d = document.createElement('div');
-    d.textContent = text;
-    return d.innerHTML;
-  }
-})();
+export const config = {};
