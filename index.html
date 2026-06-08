@@ -4,29 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AMISEARCH - Tanulj hatékonyabban</title>
-  <div style="position:relative;display:inline-block">
-  <button id="colorBtn" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:none;background:transparent;cursor:pointer;border-radius:8px;font-size:14px">
-
-    
-              🎨 <span>Szín</span>
-    
-              </button>
-        <div id="colorMenu" style="display:none;position:absolute;right:0;margin-top:8px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:12px;z-index:50">
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-        <button class="swatch" data-c="#8b5cf6" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#8b5cf6"></button>
-        <button class="swatch" data-c="#2563eb" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#2563eb"></button>
-        <button class="swatch" data-c="#10b981" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#10b981"></button>
-        <button class="swatch" data-c="#ef4444" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#ef4444"></button>
-        <button class="swatch" data-c="#f59e0b" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#f59e0b"></button>
-        <button class="swatch" data-c="#ec4899" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#ec4899"></button>
-        <button class="swatch" data-c="#06b6d4" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#06b6d4"></button>
-        <button class="swatch" data-c="#0f172a" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:#0f172a"></button>
-    </div>
-  </div>
-</div>
-
-<script>
-(function () {
+  (function () {
     var btn = document.getElementById("colorBtn");
     var menu = document.getElementById("colorMenu");
     function apply(c) {
