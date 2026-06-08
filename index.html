@@ -4,26 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AMISEARCH - Tanulj hatékonyabban</title>
-  (function () {
-    var btn = document.getElementById("colorBtn");
-    var menu = document.getElementById("colorMenu");
-    function apply(c) {
-    document.documentElement.style.setProperty("--primary", c);
-    document.documentElement.style.setProperty("--accent", c);
-    try { localStorage.setItem("baseColor", c); } catch (e) {}
-  }
-  var saved = null;
-  try { saved = localStorage.getItem("baseColor"); } catch (e) {}
-  if (saved) apply(saved);
-  btn.onclick = function (e) {
-    e.stopPropagation();
-    menu.style.display = menu.style.display === "none" ? "block" : "none";
-  };
-  document.addEventListener("click", function () { menu.style.display = "none"; });
-  menu.querySelectorAll(".swatch").forEach(function (s) {
-    s.onclick = function () { apply(s.getAttribute("data-c")); menu.style.display = "none"; };
-  });
-})();
+  
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
