@@ -36,16 +36,13 @@ async function ocrWithGemini(buffer, mimeType = "image/png") {
  return result.text || "";
 }
 
-// JAVÍTÁS: Letöltés URL-ről vagy storage-ból
 async function downloadFile(filePath) {
- // Ha URL (https://...), akkor HTTP-n keresztül töltjük le
  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
   const resp = await fetch(filePath);
   if (!resp.ok) throw new Error('HTTP download failed: ' + resp.status);
   return Buffer.from(await resp.arrayBuffer());
  }
 
- // Egyébként storage-ból töltjük le
  const { data: fileData, error: dlErr } = await supabase.storage
   .from("jegyzetek")
   .download(filePath);
@@ -75,12 +72,15 @@ async function extractText(buffer, pathOrName) {
  } catch (e) {
   console.warn("pdf-parse failed, trying OCR:", e.message);
  }
+ // JAVÍTÁS: Ha a PDF-ből nem sikerült szöveget kinyerni, OCR-rel próbáljuk
  try {
-  return await ocrWithGemini(buffer, "application/pdf");
+  const ocrText = await ocrWithGemini(buffer, "application/pdf");
+  if (ocrText.length > 20) return ocrText;
  } catch (e) {
   console.warn("PDF OCR failed:", e.message);
-  return "";
  }
+ // Ha minden próbálkozás sikertelen, üres stringet adunk vissza
+ return "";
  }
 
  if (ext === "docx") {
@@ -114,15 +114,13 @@ export default async function handler(req) {
    });
   }
 
-  // JAVÍTÁS: Letöltés URL-ről vagy storage-ból
   const buffer = await downloadFile(filePath);
   let textContent = normalizeText(await extractText(buffer, filePath));
 
+  // JAVÍTÁS: Ha nem sikerült szöveget kinyerni, fallback üzenet
   if (textContent.length < 20) {
-   return new Response(JSON.stringify({ error: "Not enough text extracted" }), {
-    status: 500,
-    headers: { "Content-Type": "application/json" }
-   });
+   const fileName = filePath.split('/').pop();
+   textContent = `Fájl: ${fileName}\n\nA fájl szövege nem volt kinyerhető automatikusan. Lehetséges okok:\n- Képes PDF (a szöveg képként van tárolva)\n- Képfájl (JPG, PNG)\n- Védett vagy beolvasott dokumentum\n\nKérlek másold be a szöveget manuálisan, ha szeretnéd, hogy az AI részletesen elmagyarázza a tartalmát.`;
   }
 
   const textHash = createHash("sha256").update(textContent).digest("hex");
@@ -153,7 +151,8 @@ export default async function handler(req) {
   return new Response(JSON.stringify({ 
    success: true, 
    length: textContent.length, 
-   embedded: !!embedding 
+   embedded: !!embedding,
+   isFallback: textContent.includes("nem volt kinyerhető")
   }), {
    status: 200,
    headers: { "Content-Type": "application/json" }
