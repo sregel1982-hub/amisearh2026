@@ -36,6 +36,27 @@ async function ocrWithGemini(buffer, mimeType = "image/png") {
  return result.text || "";
 }
 
+// JAVÍTÁS: Letöltés URL-ről vagy storage-ból
+async function downloadFile(filePath) {
+ // Ha URL (https://...), akkor HTTP-n keresztül töltjük le
+ if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+  const resp = await fetch(filePath);
+  if (!resp.ok) throw new Error('HTTP download failed: ' + resp.status);
+  return Buffer.from(await resp.arrayBuffer());
+ }
+
+ // Egyébként storage-ból töltjük le
+ const { data: fileData, error: dlErr } = await supabase.storage
+  .from("jegyzetek")
+  .download(filePath);
+
+ if (dlErr || !fileData) {
+  throw new Error('Storage download failed: ' + (dlErr?.message || 'no data'));
+ }
+
+ return Buffer.from(await fileData.arrayBuffer());
+}
+
 async function extractText(buffer, pathOrName) {
  const ext = (pathOrName.split(".").pop() || "").toLowerCase();
 
@@ -45,20 +66,20 @@ async function extractText(buffer, pathOrName) {
 
  if (ext === "pdf") {
  try {
- const { PDFParse } = await import("pdf-parse");
- const parser = new PDFParse({ data: new Uint8Array(buffer) });
- const result = await parser.getText();
- await parser.destroy?.();
- const text = normalizeText(result?.text || "");
- if (text.length > 50) return text;
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  const result = await parser.getText();
+  await parser.destroy?.();
+  const text = normalizeText(result?.text || "");
+  if (text.length > 50) return text;
  } catch (e) {
- console.warn("pdf-parse failed, trying OCR:", e.message);
+  console.warn("pdf-parse failed, trying OCR:", e.message);
  }
  try {
- return await ocrWithGemini(buffer, "application/pdf");
+  return await ocrWithGemini(buffer, "application/pdf");
  } catch (e) {
- console.warn("PDF OCR failed:", e.message);
- return "";
+  console.warn("PDF OCR failed:", e.message);
+  return "";
  }
  }
 
@@ -80,7 +101,6 @@ async function extractText(buffer, pathOrName) {
  }
 }
 
-// JAVÍTÁS: ES Module stílusú export
 export default async function handler(req) {
  try {
   const body = await req.json();
@@ -94,18 +114,8 @@ export default async function handler(req) {
    });
   }
 
-  const { data: fileData, error: dlErr } = await supabase.storage
-   .from("jegyzetek")
-   .download(filePath);
-
-  if (dlErr || !fileData) {
-   return new Response(JSON.stringify({ error: "File download failed: " + (dlErr?.message || "no data") }), {
-    status: 500,
-    headers: { "Content-Type": "application/json" }
-   });
-  }
-
-  const buffer = Buffer.from(await fileData.arrayBuffer());
+  // JAVÍTÁS: Letöltés URL-ről vagy storage-ból
+  const buffer = await downloadFile(filePath);
   let textContent = normalizeText(await extractText(buffer, filePath));
 
   if (textContent.length < 20) {
