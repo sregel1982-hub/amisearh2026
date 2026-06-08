@@ -2,7 +2,12 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 
-const getEnv = (key) => (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+const getEnv = (key) => {
+  const value = (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+  if (!value) console.error(`Környezeti változó hiányzik: ${key}`);
+  return value;
+};
+
 const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
 export default async function handler(req) {
@@ -11,11 +16,16 @@ export default async function handler(req) {
   const user = await getSupabaseUser(req);
   if (!user) return jsonError("Unauthorized", 401);
 
+  if (!isAiConfigured()) {
+    console.error("AI nincs konfigurálva chat.js-ben.");
+    return aiUnavailableResponse();
+  }
+
   let body;
   try { body = await req.json(); } catch { body = {}; }
   const { message } = body;
 
-  const systemInstruction = "Te egy segítőkész  AI tutor vagy. Válaszolj magyarul. A válaszod végén MINDIG készíts egy '=== FORRÁSOK ===' részt hiteles forrásokkal.";
+  const systemInstruction = "Te egy segítőkész magyar AI tutor vagy. Válaszolj magyarul. A válaszod végén MINDIG készíts egy '=== FORRÁSOK ===' részt hiteles forrásokkal.";
 
   try {
     const config = { 
