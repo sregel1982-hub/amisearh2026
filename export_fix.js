@@ -208,4 +208,3 @@ window.downloadAiAnswerWord = function(btn) {
 };
 
 console.log('✅ export_fix.js loaded with improved LaTeX cleanup and multi-page PDF');
-    
