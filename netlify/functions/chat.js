@@ -59,7 +59,6 @@ export default async function handler(req) {
   try {
    const siteUrl = (typeof Netlify !== "undefined" && Netlify.env.get("URL")) || "https://amisearh.org";
    
-   // Kinyerjük a témát a kérdésből
    let topic = message
     .replace(/gondolattérkép|gondolat térkép|gondolatterkep|mindmap|mind map|térkép|terkep|struktúra|struktura|vázlat|fogalomtérkép|fogalom térkép|ábra|vizualizáció|vizualizacio|áttekintés|attekintes/gi, "")
     .replace(/[?.,!]/g, "")
@@ -83,22 +82,39 @@ Ha szeretnéd, kérdezz tovább a témáról!`;
    });
   } catch (e) {
    console.error("Mindmap link error:", e);
-   // Ha hiba van, folytatjuk a normál válasszal
   }
  }
 
+ // === JAVÍTÁS: Automatikusan betöltjük a legutóbbi jegyzetet ===
  let notesContext = "";
  if (notes) notesContext = cleanText(notes);
 
- if (noteId && !notesContext) {
- const { data: noteRow } = await supabase
- .from("jegyzetek")
- .select("text_content")
- .eq("id", noteId)
- .single();
+ // Ha nincs noteId és nincs notesContext, lekérdezzük a legutóbbi jegyzetet
+ if (!noteId && !notesContext) {
+  const { data: latestNote, error: noteErr } = await supabase
+   .from("jegyzetek")
+   .select("id, text_content, cim")
+   .eq("user_id", user.id)
+   .order("created_at", { ascending: false })
+   .limit(1)
+   .single();
 
- if (noteRow?.text_content)
- notesContext = cleanText(noteRow.text_content);
+  if (!noteErr && latestNote?.text_content) {
+   notesContext = cleanText(latestNote.text_content);
+   console.log("Auto-loaded latest note:", latestNote.cim);
+  }
+ }
+
+ // Ha van noteId, de nincs notesContext, lekérdezzük a jegyzetet
+ if (noteId && !notesContext) {
+  const { data: noteRow } = await supabase
+  .from("jegyzetek")
+  .select("text_content")
+  .eq("id", noteId)
+  .single();
+
+  if (noteRow?.text_content)
+  notesContext = cleanText(noteRow.text_content);
  }
 
  const contents = [];
