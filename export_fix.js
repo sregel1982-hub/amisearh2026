@@ -6,8 +6,7 @@
         emerald: { primary: '#10B981', hover: '#059669', light: '#D1FAE5' },
         orange: { primary: '#F59E0B', hover: '#D97706', light: '#FEF3C7' }
     };
-
-    window.changeSiteTheme = function(themeName) {
+   window.changeSiteTheme = function(themeName) {
         const theme = themes[themeName];
         if (!theme) return;
         let styleTag = document.getElementById('dynamic-theme-style') || document.createElement('style');
