@@ -43,6 +43,10 @@ export default async function handler(req) {
 
   const content = data.text_content || "";
 
+  if (!content.trim()) {
+    return jsonError("A jegyzetnek nincs kinyert szövege.", 400, "empty_content");
+  }
+
   try {
     const prompt = `
 Készíts egy tömör, jól strukturált összefoglalót a következő jegyzetből.
@@ -58,14 +62,14 @@ Jegyzet szövege:
 ${content}
 `;
 
-    const result = await ai.models.generateText({
-      model: "gemini-1.5-flash",
-      prompt,
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
     });
 
     return new Response(
       JSON.stringify({
-        summary: result.response.text(),
+        summary: result.text,
       }),
       {
         headers: { "Content-Type": "application/json" },
