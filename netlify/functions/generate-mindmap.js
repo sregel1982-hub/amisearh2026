@@ -15,6 +15,7 @@ export default async function handler(req) {
  const genAI = new GoogleGenerativeAI(getEnv("GEMINI_API_KEY"));
  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
+ // JAVÍTÁS: Sima backtick, nem escape-elt
  const prompt = `
 Te egy oktatási segéd vagy. Készíts egy színes, látványos gondolattérképet: ${topic}.
 A kimenet KIZÁRÓLAG érvényes Mermaid.js 'mindmap' szintaxis legyen.
@@ -38,11 +39,11 @@ mindmap
  text = text.replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
  if (!text.startsWith("mindmap")) text = "mindmap\n" + text;
 
- // === JAVÍTÁS: Link a mindmap.html oldalra ===
+ // JAVÍTÁS: Link a mindmap.html oldalra
  const siteUrl = getEnv("URL") || "https://amisearh.org";
  const mindmapUrl = `${siteUrl}/mindmap.html?topic=${encodeURIComponent(topic)}`;
 
- return new Response(JSON.stringify({ 
+ return new Response(JSON.stringify({
   code: text,
   url: mindmapUrl,
   topic: topic
@@ -50,7 +51,7 @@ mindmap
   headers: { "Content-Type": "application/json" }
  });
  } catch (error) {
- return new Response(JSON.stringify({ error: "Generation failed" }), {
+ return new Response(JSON.stringify({ error: "Generation failed: " + error.message }), {
   status: 500,
   headers: { "Content-Type": "application/json" }
  });
