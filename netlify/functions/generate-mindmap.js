@@ -6,6 +6,8 @@ const getEnv = (key) => {
   return value;
 };
 
+const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
+
 export default async function handler(req) {
   console.log("✅ generate-mindmap.js fut.");
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
