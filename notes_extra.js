@@ -1,107 +1,61 @@
-// --- Amisearch Teljes Oldal Színváltó és Javítások ---
-
+// --- Amisearch Biztonsági Extra Fájl ---
 (function() {
-    // 1. Színstílusok definiálása
     const themes = {
-        blue: { primary: '#3B82F6', hover: '#2563EB', light: '#DBEAFE' }, // Alap kék
-        purple: { primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF' }, // Lila
-        emerald: { primary: '#10B981', hover: '#059669', light: '#D1FAE5' }, // Smaragd zöld
-        orange: { primary: '#F59E0B', hover: '#D97706', light: '#FEF3C7' }  // Narancs
+        blue: { primary: '#3B82F6', hover: '#2563EB', light: '#DBEAFE' },
+        purple: { primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF' },
+        emerald: { primary: '#10B981', hover: '#059669', light: '#D1FAE5' },
+        orange: { primary: '#F59E0B', hover: '#D97706', light: '#FEF3C7' }
     };
 
-    // 2. Függvény a szín átállítására
     window.changeSiteTheme = function(themeName) {
         const theme = themes[themeName];
         if (!theme) return;
-
-        // Létrehozunk egy stílus blokkot, ami felülírja a Tailwind színeket
-        let styleTag = document.getElementById('dynamic-theme-style');
-        if (!styleTag) {
-            styleTag = document.createElement('style');
-            styleTag.id = 'dynamic-theme-style';
-            document.head.appendChild(styleTag);
-        }
-
-        // Felülírjuk a fő színeket az oldalon
+        let styleTag = document.getElementById('dynamic-theme-style') || document.createElement('style');
+        styleTag.id = 'dynamic-theme-style';
         styleTag.innerHTML = `
-            :root {
-                --primary-color: ${theme.primary} !important;
-            }
-            .bg-indigo-600, .bg-\\[\\#6C5CE7\\], .btn-primary { 
-                background-color: ${theme.primary} !important; 
-            }
-            .text-indigo-600, .text-\\[\\#6C5CE7\\] { 
-                color: ${theme.primary} !important; 
-            }
-            .hover\\:bg-indigo-700:hover, .hover\\:bg-\\[\\#5A4BD1\\]:hover { 
-                background-color: ${theme.hover} !important; 
-            }
-            .bg-indigo-50, .bg-purple-50 { 
-                background-color: ${theme.light} !important; 
-            }
-            border-indigo-600, border-\\[\\#6C5CE7\\] {
-                border-color: ${theme.primary} !important;
-            }
+            :root { --primary-color: ${theme.primary} !important; }
+            .bg-indigo-600, .bg-\\[\\#6C5CE7\\], .btn-primary, button[type="submit"] { background-color: ${theme.primary} !important; }
+            .text-indigo-600, .text-\\[\\#6C5CE7\\] { color: ${theme.primary} !important; }
+            .bg-indigo-50 { background-color: ${theme.light} !important; }
         `;
-        
-        // Elmentjük a választást, hogy frissítés után is megmaradjon
+        if (!styleTag.parentElement) document.head.appendChild(styleTag);
         localStorage.setItem('amisearch-theme', themeName);
     };
 
-    // 3. Színválasztó gombok létrehozása az oldal alján
-    function createColorPicker() {
-        const container = document.createElement('div');
-        container.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:9999; background:white; padding:10px; border-radius:50px; shadow:0 4px 10px rgba(0,0,0,0.1); display:flex; gap:8px; border:1px solid #eee; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);';
+    function init() {
+        // Színválasztó létrehozása
+        const picker = document.createElement('div');
+        picker.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:10000; background:white; padding:10px; border-radius:30px; display:flex; gap:10px; box-shadow:0 4px 15px rgba(0,0,0,0.2); border:2px solid #6C5CE7;';
         
         Object.keys(themes).forEach(name => {
-            const btn = document.createElement('button');
-            btn.style.cssText = `width:25px; height:25px; border-radius:50%; background:${themes[name].primary}; border:2px solid white; cursor:pointer; transition: transform 0.2s;`;
-            btn.title = name;
-            btn.onclick = () => window.changeSiteTheme(name);
-            btn.onmouseover = () => btn.style.transform = 'scale(1.2)';
-            btn.onmouseout = () => btn.style.transform = 'scale(1)';
-            container.appendChild(btn);
+            const circle = document.createElement('div');
+            circle.style.cssText = `width:25px; height:25px; border-radius:50%; background:${themes[name].primary}; cursor:pointer; border:2px solid white;`;
+            circle.onclick = () => window.changeSiteTheme(name);
+            picker.appendChild(circle);
         });
+        document.body.appendChild(picker);
 
-        document.body.appendChild(container);
+        // Név javítása (Amisearh/Amisrarh -> Amisearch)
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while(node = walker.nextNode()) {
+            node.nodeValue = node.nodeValue.replace(/Amisearh|Amisrarh/g, 'Amisearch');
+        }
+
+        const saved = localStorage.getItem('amisearch-theme');
+        if (saved) window.changeSiteTheme(saved);
     }
 
-    // 4. Betöltéskor lefutó dolgok
-    document.addEventListener('DOMContentLoaded', () => {
-        // Név javítása
-        document.body.innerHTML = document.body.innerHTML.replace(/Amisearh/g, 'Amisearch');
-        
-        // Színválasztó létrehozása
-        createColorPicker();
-        
-        // Elmentett szín betöltése
-        const savedTheme = localStorage.getItem('amisearch-theme');
-        if (savedTheme) window.changeSiteTheme(savedTheme);
-    });
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 
-    // --- Gombok javítása ---
-    window.downloadNote = async function(noteId) {
-        try {
-            const resp = await fetch('/.netlify/functions/download-note?id=' + noteId, {
-                method: 'GET',
-                headers: await window.getAuthHeaders({})
-            });
-            const data = await resp.json();
-            if (data.url) window.open(data.url, '_blank');
-        } catch (e) { console.error(e); }
-    };
-
-    window.summarizeNote = async function(noteId, btn) {
-        const orig = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '...';
-        try {
-            await fetch('/.netlify/functions/summarize', {
-                method: 'POST',
-                headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ noteId: noteId })
-            });
-            alert('Kész!');
-        } catch (e) { alert('Hiba'); }
-        finally { btn.disabled = false; btn.innerHTML = orig; }
+    // Gombok javítása
+    window.downloadNote = async function(id) {
+        const resp = await fetch('/.netlify/functions/download-note?id=' + id, { headers: await window.getAuthHeaders({}) });
+        const d = await resp.json();
+        if (d.url) window.open(d.url, '_blank');
     };
 })();
