@@ -2,10 +2,11 @@ import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
 import { jsonError } from "./ai-response.js";
 
+const getEnv = (key) =>
+  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+
 const ai = new GoogleGenAI({
-  apiKey:
-    (typeof Netlify !== "undefined" && Netlify.env.get("GEMINI_API_KEY")) ||
-    process.env.GEMINI_API_KEY,
+  apiKey: getEnv("GEMINI_API_KEY"),
 });
 
 export default async function handler(req) {
@@ -28,38 +29,43 @@ export default async function handler(req) {
 
   const supabase = await import("@supabase/supabase-js").then((m) =>
     m.createClient(
-      Netlify.env.get("SUPABASE_URL"),
-      Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY")
+      getEnv("SUPABASE_URL"),
+      getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
     )
   );
 
+  // JAVÍTÁS: "jegyzetek" tábla az "uploaded_notes" helyett
   const { data, error } = await supabase
-    .from("uploaded_notes")
-    .select("text_content")
+    .from("jegyzetek")
+    .select("text_content, cim, original_name")
     .eq("id", noteId)
+    .eq("user_id", user.id)
     .single();
 
   if (error || !data) return jsonError("Note not found", 404, "note_not_found");
 
   const content = data.text_content || "";
+  const title = data.cim || data.original_name || "Jegyzet";
 
   if (!content.trim()) {
-    return jsonError("A jegyzetnek nincs kinyert szövege.", 400, "empty_content");
+    return jsonError("A jegyzetnek nincs kinyert szövege. Először feldolgozás szükséges.", 400, "empty_content");
   }
 
   try {
     const prompt = `
 Készíts egy tömör, jól strukturált összefoglalót a következő jegyzetből.
+Cím: ${title}
+
 Legyen:
 - rövid
 - lényegre törő
 - pontokba szedett
 - vizsgára alkalmas
 
-Nyelv: ${lang}
+Nyelv: ${lang === 'hu' ? 'magyar' : 'angol'}
 
 Jegyzet szövege:
-${content}
+${content.substring(0, 15000)}
 `;
 
     const result = await ai.models.generateContent({
@@ -70,6 +76,7 @@ ${content}
     return new Response(
       JSON.stringify({
         summary: result.text,
+        title: title,
       }),
       {
         headers: { "Content-Type": "application/json" },
@@ -77,6 +84,7 @@ ${content}
       }
     );
   } catch (err) {
+    console.error("Summarize error:", err);
     return jsonError(err.message, 500, "ai_error");
   }
 }
