@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 const getEnv = (key) =>
  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -12,10 +12,9 @@ export default async function handler(req) {
  const { topic, lang = "hu" } = body;
  if (!topic) return new Response("Missing topic", { status: 400 });
 
- const genAI = new GoogleGenerativeAI(getEnv("GEMINI_API_KEY"));
- const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+ // JAVÍTÁS: GoogleGenAI használata (ugyanaz, mint a chat.js)
+ const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
- // JAVÍTÁS: Sima backtick, nem escape-elt
  const prompt = `
 Te egy oktatási segéd vagy. Készíts egy színes, látványos gondolattérképet: ${topic}.
 A kimenet KIZÁRÓLAG érvényes Mermaid.js 'mindmap' szintaxis legyen.
@@ -33,27 +32,35 @@ mindmap
 `;
 
  try {
- const result = await model.generateContent(prompt);
- const response = await result.response;
- let text = response.text().trim();
- text = text.replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
- if (!text.startsWith("mindmap")) text = "mindmap\n" + text;
+  // JAVÍTÁS: GoogleGenAI API hívás (ugyanaz, mint a chat.js)
+  const result = await ai.models.generateContent({
+   model: "gemini-2.5-flash",
+   contents: [{ role: "user", parts: [{ text: prompt }] }]
+  });
 
- // JAVÍTÁS: Link a mindmap.html oldalra
- const siteUrl = getEnv("URL") || "https://amisearh.org";
- const mindmapUrl = `${siteUrl}/mindmap.html?topic=${encodeURIComponent(topic)}`;
+  let text = result.text || "";
+  text = text.trim();
+  text = text.replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
+  if (!text.startsWith("mindmap")) text = "mindmap\n" + text;
 
- return new Response(JSON.stringify({
-  code: text,
-  url: mindmapUrl,
-  topic: topic
- }), {
-  headers: { "Content-Type": "application/json" }
- });
+  const siteUrl = getEnv("URL") || "https://amisearh.org";
+  const mindmapUrl = `${siteUrl}/mindmap.html?topic=${encodeURIComponent(topic)}`;
+
+  return new Response(JSON.stringify({
+   code: text,
+   url: mindmapUrl,
+   topic: topic
+  }), {
+   headers: { "Content-Type": "application/json" }
+  });
  } catch (error) {
- return new Response(JSON.stringify({ error: "Generation failed: " + error.message }), {
-  status: 500,
-  headers: { "Content-Type": "application/json" }
- });
+  // Részletes hibaüzenet visszaadása
+  return new Response(JSON.stringify({ 
+   error: "Generation failed: " + (error.message || error),
+   stack: error.stack || "No stack trace"
+  }), {
+   status: 500,
+   headers: { "Content-Type": "application/json" }
+  });
  }
 }
