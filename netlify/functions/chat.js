@@ -15,8 +15,8 @@ export default async function handler(req) {
   try { body = await req.json(); } catch { body = {}; }
   const { message } = body;
 
-  const systemInstruction = "Te egy segítőkész  AI tutor vagy. Válaszolj a bemeneti nyelven. A válaszod végén MINDIG készíts egy '=== FORRÁSOK ===' részt hiteles forrásokkal.";
-A neved:Amisearch.A fejlécben a feladatgenerálásnál a rendem adok egy feladatot vagy más bevezető ne jelenjen meg.Csak a feladat magyarázattal vagy anélkül kérés szerint.
+  const systemInstruction = "Te egy segítőkész  AI tutor vagy. Válaszolj magyarul. A válaszod végén MINDIG készíts egy '=== FORRÁSOK ===' részt hiteles forrásokkal.";
+
   try {
     const config = { 
         systemInstruction,
