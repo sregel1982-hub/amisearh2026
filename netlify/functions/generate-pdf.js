@@ -1,47 +1,41 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { jsPDF } from "jspdf";
 
 export default async function handler(req) {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
-  const { text } = await req.json();
-  if (!text) {
-    return new Response("Missing text", { status: 400 });
-  }
+  let body;
+  try { body = await req.json(); } catch (e) { return new Response("Invalid JSON", { status: 400 }); }
 
-  const clean = text
-    .replace(/^Rendben.*?\n/i, "")
-    .replace(/^Természetesen.*?\n/i, "")
-    .replace(/^Íme.*?\n/i, "")
-    .replace(/^Oké.*?\n/i, "")
-    .trim();
+  const { title, content, lang = "hu" } = body;
+  
+  // Tisztítás: eltávolítjuk a bevezető szövegeket
+  const cleanContent = content.replace(/^(Rendben|Íme|Tessék|Oké).+?\n/i, "").trim();
 
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595, 842]); // A4
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const doc = new jsPDF();
+  
+  // Színes fejléc (Amisearch lila)
+  doc.setFillColor(108, 92, 231);
+  doc.rect(0, 0, 210, 20, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.text("Amisearch - " + (lang === 'hu' ? 'Tanulási Segéd' : 'Study Assistant'), 15, 13);
 
-  const fontSize = 12;
-  const maxWidth = 500;
-  const lineHeight = 16;
+  // Tartalom
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(18);
+  doc.text(title || (lang === 'hu' ? 'Feladatsor' : 'Exercise Set'), 15, 35);
+  
+  doc.setFontSize(12);
+  const splitText = doc.splitTextToSize(cleanContent, 180);
+  doc.text(splitText, 15, 45);
 
-  let y = 800;
+  const pdfOutput = doc.output("arraybuffer");
 
-  clean.split("\n").forEach((line) => {
-    const wrapped = font.splitTextIntoLines(line, maxWidth);
-    wrapped.forEach((l) => {
-      page.drawText(l, { x: 50, y, size: fontSize, font, color: rgb(0, 0, 0) });
-      y -= lineHeight;
-    });
-    y -= 8;
-  });
-
-  const pdfBytes = await pdfDoc.save();
-
-  return new Response(pdfBytes, {
+  return new Response(pdfOutput, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": "attachment; filename=feladat.pdf"
+      "Content-Disposition": `attachment; filename="amisearch-${Date.now()}.pdf"`
     }
   });
 }
