@@ -81,4 +81,38 @@ export default async function handler(req) {
       textContent = `Fájl: ${fn}\n\nAutomatikus szövegkinyerés nem sikerült megfelelően. Kérlek másold be manuálisan a szöveget, ha szeretnéd, hogy az AI dolgozzon vele.`;
     }
 
-    const textHash = createHash("sha256").update(textContent).
+    const textHash = createHash("sha256").update(textContent).digest("hex");
+
+    // Frissítés az adatbázisban
+    const { error: updateError } = await supabase
+      .from("jegyzetek")
+      .update({ 
+        text_content: textContent,
+        processed: true,
+        text_hash: textHash 
+      })
+      .eq("id", noteId);
+
+    if (updateError) {
+      console.error("Update failed:", updateError);
+      return new Response(JSON.stringify({ error: "Failed to save extracted text" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      textLength: textContent.length 
+    }), {
+      headers: { "Content-Type": "application/json" }
+    });
+
+  } catch (error) {
+    console.error("Index document error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
