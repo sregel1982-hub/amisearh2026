@@ -49,7 +49,8 @@ export default async function handler(req) {
           notesContext = allNotes
             .map((n, i) => {
               const clean = latexToUnicode(n.text_content || "");
-              return `=== Jegyzet ${i+1}: \( {n.cim || "Névtelen"} ===\n \){clean}`;
+              // JAVÍTVA: Helyes string interpoláció (${} használata \() helyett)
+              return `=== Jegyzet ${i+1}: ${n.cim || "Névtelen"} ===\n${clean}`;
             })
             .join("\n\n");
         }
@@ -65,9 +66,16 @@ export default async function handler(req) {
       "Használj unicode szimbólumokat ahol lehet (pl. √, ∑, ∞, ≥, ≤, ≠). " +
       "Legyél barátságos, motiváló és türelmes.";
 
-    const fullPrompt = `${baseInstruction}\n\nFelhasználó kérdése: \( {query}\n\n \){notesContext ? `Kapcsolódó jegyzeteim:\n${notesContext}` : ""}`;
+    // JAVÍTVA: Helyes sablonliterál összefűzés
+    const fullPrompt = `${baseInstruction}\n\nFelhasználó kérdése: ${query}\n\n${notesContext ? `Kapcsolódó jegyzeteim:\n${notesContext}` : ""}`;
 
-    return streamText(ai, fullPrompt);
+    // JAVÍTVA: Streaming indítása az új gemini-2.5-flash modellel és a hivatalos SDK struktúrával
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: fullPrompt }] }]
+    });
+
+    return streamText(stream);
 
   } catch (error) {
     console.error("AI Search error:", error);
