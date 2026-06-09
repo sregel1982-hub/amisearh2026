@@ -1,9 +1,8 @@
 [build]
-  command = "npm run build"
+  command = "vite build"
   publish = "dist"
   functions = "netlify/functions"
 
-# EZ A JAVÍTOTT ÁTIRÁNYÍTÁS: A SPA (Single Page Application) frontend útvonalakhoz kell
 [[redirects]]
   from = "/*"
   to = "/index.html"
