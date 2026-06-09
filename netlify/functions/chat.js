@@ -20,20 +20,24 @@ export default async function handler(req) {
 
     if (!message) return jsonError("Message required", 400);
 
-    // Egyszerű AI hívás hibavédelemmel
-    const stream = await ai.models.generateContentStream({
+    // === LEGEGYSZERŰBB MŰKÖDŐ VERZIÓ ===
+    const result = await ai.models.generateContent({
       model: "gemini-1.5-flash",
       contents: [{ role: "user", parts: [{ text: message }] }],
       config: { 
-        systemInstruction: "Te egy segítőkész magyar AI tutor vagy. Válaszolj magyarul." 
+        systemInstruction: "Te egy segítőkész magyar AI tutor vagy. Válaszolj röviden és magyarul." 
       }
     });
 
-    // streamText import használata
-    return streamText(stream);   // ha ez nincs, akkor lásd alul
+    const responseText = result.text ? result.text() : "Nem kaptam választ az AI-tól.";
+
+    return new Response(responseText, {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
 
   } catch (error) {
-    console.error("Chat handler FULL ERROR:", error);
+    console.error("Chat error:", error.message || error);
     return aiUnavailableResponse();
   }
 }
