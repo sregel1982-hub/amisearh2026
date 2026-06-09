@@ -35,11 +35,13 @@ A válaszod végén MINDIG készíts egy elkülönített '=== FORRÁSOK ===' ré
   try {
     const config = {
       systemInstruction: baseInstruction,
-      tools: [{ googleSearch: {} }]
+      tools: [{ googleSearch: {} }] // A Google Keresés eszköz továbbra is támogatott
     };
     console.log("AI kérés küldése search.js-ből.", config);
+    
+    // Frissítve gemini-2.5-flash modellre, a streaming hívás változatlan marad
     const stream = await ai.models.generateContentStream({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents,
       config
     });
