@@ -1,66 +1,54 @@
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError } from "./ai-response.js";
 
-const getEnv = (key) => {
-  const value = (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
-  if (!value) console.error(`Környezeti változó hiányzik: ${key}`);
-  return value;
-};
+const getEnv = (key) => 
+  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
 
 const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
 export default async function handler(req) {
-  console.log("✅ generate-mindmap.js fut.");
-  if (req.method !== "POST") return jsonError("Method not allowed", 405, "method_not_allowed");
-
-  if (!isAiConfigured()) {
-    console.error("AI nincs konfigurálva generate-mindmap.js-ben.");
-    return aiUnavailableResponse();
-  }
-
-  let body;
-  try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400, "invalid_json"); }
-
-  const { topic, lang = "hu" } = body;
-
-  const prompt = `Te egy oktatási segéd vagy. Készíts egy SZÍNES és VIDÁM gondolattérképet: ${topic}.
-A kimenet Mermaid.js 'mindmap' legyen.
-Minden ághoz rendelj egy egyedi színt vagy formát a Mermaid szintaxissal.
-Minden szöveget tegyél dupla idézőjelbe.
-Példa:
-mindmap
-  root(("${topic}"))
-    (( "Ág 1" ))
-      ::icon(fa fa-book)
-    {{ "Ág 2" }}
-    )) "Ág 3" ((`;
-
   try {
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.0-flash",
+    console.log("✅ generate-mindmap.js fut.");
+
+    if (req.method !== "POST") return jsonError("Method not allowed", 405);
+
+    if (!isAiConfigured()) return aiUnavailableResponse();
+
+    const body = await req.json().catch(() => ({}));
+    const { topic } = body;
+
+    if (!topic) return jsonError("Topic is required", 400);
+
+    const prompt = `Készíts egy szép, színes gondolattérképet a következő témáról: "${topic}".
+Használj Mermaid mindmap szintaxist.
+Legyen vidám, strukturált és könnyen olvasható.
+Minden szöveget tegyél dupla idézőjelbe.`;
+
+    const result = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { systemInstruction: "Te egy oktatási segéd vagy. Mermaid mindmap szintaxist generálsz." }
+      config: { 
+        systemInstruction: "Te egy Mermaid mindmap generátor vagy. Csak érvényes Mermaid kódot adj vissza, semmi mást." 
+      }
     });
 
-    let fullText = "";
-    for await (const chunk of stream.stream) {
-      for (const candidate of chunk.candidates || []) {
-        for (const part of candidate.content?.parts || []) {
-          if (part.text) fullText += part.text;
-        }
-      }
-    }
+    let text = result.text ? result.text() : "";
 
-    let text = fullText.trim().replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
-    if (!text.startsWith("mindmap")) text = "mindmap\n" + text;
+    text = text.trim()
+      .replace(/^```mermaid\n?/i, "")
+      .replace(/```$/i, "")
+      .trim();
+
+    if (!text.startsWith("mindmap")) {
+      text = "mindmap\n  root((\"" + topic + "\"))\n" + text;
+    }
 
     return new Response(JSON.stringify({ code: text }), {
       headers: { "Content-Type": "application/json" }
     });
+
   } catch (error) {
-    console.error("Mindmap generálás hiba generate-mindmap.js-ben:", error);
+    console.error("Mindmap generation error:", error);
     return aiUnavailableResponse();
   }
 }
-
-    
