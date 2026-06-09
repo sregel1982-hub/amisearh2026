@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
+import { aiUnavailableResponse, isAiConfigured, jsonError } from "./ai-response.js";
 
 const getEnv = (key) => {
   const value = (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -10,24 +11,19 @@ const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
 export default async function handler(req) {
   console.log("✅ generate-mindmap.js fut.");
-  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  if (req.method !== "POST") return jsonError("Method not allowed", 405, "method_not_allowed");
 
-  let body;
-  try { body = await req.json(); } catch (e) { return new Response("Invalid JSON", { status: 400 }); }
-
-  const { topic, lang = "hu" } = body;
-  
-  const apiKey = getEnv("GEMINI_API_KEY");
-  if (!apiKey) {
-    console.error("GEMINI_API_KEY hiányzik generate-mindmap.js-ben.");
-    return new Response(JSON.stringify({ error: "AI szolgáltatás nem elérhető: Hiányzó API kulcs." }), { status: 500 });
+  if (!isAiConfigured()) {
+    console.error("AI nincs konfigurálva generate-mindmap.js-ben.");
+    return aiUnavailableResponse();
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  let body;
+  try { body = await req.json(); } catch { return jsonError("Invalid JSON", 400, "invalid_json"); }
 
-  const prompt = `
-Te egy oktatási segéd vagy. Készíts egy SZÍNES és VIDÁM gondolattérképet: ${topic}.
+  const { topic, lang = "hu" } = body;
+
+  const prompt = `Te egy oktatási segéd vagy. Készíts egy SZÍNES és VIDÁM gondolattérképet: ${topic}.
 A kimenet Mermaid.js 'mindmap' legyen.
 Minden ághoz rendelj egy egyedi színt vagy formát a Mermaid szintaxissal.
 Minden szöveget tegyél dupla idézőjelbe.
@@ -35,15 +31,27 @@ Példa:
 mindmap
   root(("${topic}"))
     (( "Ág 1" ))
-    ::icon(fa fa-book)
+      ::icon(fa fa-book)
     {{ "Ág 2" }}
-    )) "Ág 3" ((
-`;
+    )) "Ág 3" ((`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text().trim().replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.0-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { systemInstruction: "Te egy oktatási segéd vagy. Mermaid mindmap szintaxist generálsz." }
+    });
+
+    let fullText = "";
+    for await (const chunk of stream.stream) {
+      for (const candidate of chunk.candidates || []) {
+        for (const part of candidate.content?.parts || []) {
+          if (part.text) fullText += part.text;
+        }
+      }
+    }
+
+    let text = fullText.trim().replace(/^```mermaid\n?/, "").replace(/```$/, "").trim();
     if (!text.startsWith("mindmap")) text = "mindmap\n" + text;
 
     return new Response(JSON.stringify({ code: text }), {
@@ -51,9 +59,6 @@ mindmap
     });
   } catch (error) {
     console.error("Mindmap generálás hiba generate-mindmap.js-ben:", error);
-    return new Response(JSON.stringify({ error: "AI generálás sikertelen." }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+    return aiUnavailableResponse();
   }
 }
