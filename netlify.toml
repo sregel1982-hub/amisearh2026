@@ -9,16 +9,18 @@
 [functions]
   node_bundler = "esbuild"
 
+# SPA redirect (fontos!)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Functions redirect
 [[redirects]]
   from = "/.netlify/functions/*"
   to = "/.netlify/functions/:splat"
   status = 200
   force = true
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 [[headers]]
   for = "/*"
@@ -27,4 +29,3 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Content-Type-Options = "nosniff"
-    
