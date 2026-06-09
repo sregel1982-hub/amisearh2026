@@ -24,8 +24,9 @@ Használj Mermaid mindmap szintaxist.
 Legyen vidám, strukturált és könnyen olvasható.
 Minden szöveget tegyél dupla idézőjelbe.`;
 
+    // Frissítve gemini-2.5-flash modellre
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: { 
         systemInstruction: "Te egy Mermaid mindmap generátor vagy. Csak érvényes Mermaid kódot adj vissza, semmi mást." 
