@@ -1,137 +1,76 @@
-import { getSupabaseUser } from "./auth-helper.mjs";
-import { createClient } from "@supabase/supabase-js";
+// --- Amisearch Biztonsági Extra Fájl ---
+(function() {
+  const themes = {
+    blue: { primary: '#3B82F6', hover: '#2563EB', light: '#DBEAFE' },
+    purple: { primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF' },
+    emerald: { primary: '#10B981', hover: '#059669', light: '#D1FAE5' },
+    orange: { primary: '#F59E0B', hover: '#D97706', light: '#FEF3C7' }
+  };
 
-const getEnv = (key) =>
- (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+  window.changeSiteTheme = function(themeName) {
+    const theme = themes[themeName];
+    if (!theme) return;
+    let styleTag = document.getElementById('dynamic-theme-style') || document.createElement('style');
+    styleTag.id = 'dynamic-theme-style';
+    styleTag.innerHTML = `
+      :root { --primary-color: ${theme.primary} !important; }
+      header, .bg-indigo-600, .bg-\\[\\#6C5CE7\\], .btn-primary, button[type="submit"],
+      .bg-purple-600, [class*="bg-purple-"], [class*="bg-indigo-"] {
+        background-color: ${theme.primary} !important;
+      }
+      .text-indigo-600, .text-\\[\\#6C5CE7\\], .text-purple-600,
+      [class*="text-purple-"], [class*="text-indigo-"] {
+        color: ${theme.primary} !important;
+      }
+      .border-indigo-600, .border-\\[\\#6C5CE7\\], .border-purple-600,
+      [class*="border-purple-"], [class*="border-indigo-"] {
+        border-color: ${theme.primary} !important;
+      }
+      .bg-indigo-50, .bg-purple-50 { background-color: ${theme.light} !important; }
+      svg, svg path, svg circle, .lucide {
+        stroke: ${theme.primary} !important;
+        fill: transparent;
+      }
+      svg[fill*="#"], svg path[fill*="#"] { fill: ${theme.primary} !important; stroke: none !important; }
+    `;
+    if (!styleTag.parentElement) document.head.appendChild(styleTag);
+    localStorage.setItem('amisearch-theme', themeName);
+  };
 
-const supabase = createClient(
- getEnv("SUPABASE_URL"),
- getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
-);
+  function init() {
+    const picker = document.createElement('div');
+    picker.id = 'amisearch-picker';
+    picker.style.cssText = 'position:fixed; bottom:20px; left:20px; z-index:10000; background:white; padding:10px; border-radius:30px; display:flex; gap:10px; box-shadow:0 4px 15px rgba(0,0,0,0.2); border:2px solid #6C5CE7;';
 
-function mapRow(row) {
- return {
- id: row.id,
- title: row.cim || row.original_name || "Névtelen jegyzet",
- cim: row.cim,
- subject: row.subject || null,
- language: row.language || null,
- file_name: row.file_path,
- fileName: row.file_path,
- original_name: row.original_name,
- originalName: row.original_name,
- public_url: row.public_url,
- file_size: row.file_size || 0,
- uploaderIdentityId: row.user_id,
- textContent: row.text_content || null,
- created_at: row.created_at
- };
-}
+    Object.keys(themes).forEach(name => {
+      const circle = document.createElement('div');
+      circle.style.cssText = `width:25px; height:25px; border-radius:50%; background:${themes[name].primary}; cursor:pointer; border:2px solid white;`;
+      circle.onclick = () => window.changeSiteTheme(name);
+      picker.appendChild(circle);
+    });
+    document.body.appendChild(picker);
 
-// === JAVÍTÁS: Háttérben elindítja a szöveg kinyerését ===
-async function triggerIndexDocument(noteId, filePath) {
- try {
-  // Megvárjuk egy kicsit, hogy a fájl biztosan elérhető legyen a storage-ban
-  await new Promise(r => setTimeout(r, 2000));
-  
-  const resp = await fetch(
-   (getEnv("URL") || "") + "/.netlify/functions/index-document",
-   {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ noteId, filePath })
-   }
-  );
-  
-  if (!resp.ok) {
-   console.warn("Index document trigger failed:", resp.status);
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while(node = walker.nextNode()) {
+      if (node.nodeValue.includes('Amisearh') || node.nodeValue.includes('Amisrarh')) {
+        node.nodeValue = node.nodeValue.replace(/Amisearh|Amisrarh/g, 'Amisearch');
+      }
+    }
+
+    const saved = localStorage.getItem('amisearch-theme');
+    if (saved) window.changeSiteTheme(saved);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-   const result = await resp.json();
-   console.log("Index document result:", result);
-  }
- } catch (e) {
-  console.error("Index document trigger error:", e);
-  // Nem dobjuk el a hibát, hogy a feltöltés ne essen el
- }
-}
-
-export default async function handler(req) {
- const user = await getSupabaseUser(req);
- if (!user) return errorRes("Unauthorized", 401);
-
- if (req.method === "GET") {
-  const url = new URL(req.url);
-  const queryParam = url.searchParams.get("q");
-
-  let dbQuery = supabase
-   .from("jegyzetek")
-   .select("id, cim, subject, language, file_path, original_name, public_url, file_size, text_content, user_id, created_at")
-   .eq("user_id", user.id)
-   .order("created_at", { ascending: false });
-
-  if (queryParam) {
-   dbQuery = dbQuery.or(`cim.ilike.%${queryParam}%,text_content.ilike.%${queryParam}%`);
+    init();
   }
 
-  const { data, error: fetchErr } = await dbQuery;
-  if (fetchErr) return errorRes("Fetch failed: " + fetchErr.message, 500);
-  return ok((data || []).map(mapRow));
- }
-
- if (req.method === "POST") {
-  let body;
-  try { body = await req.json(); } catch { return errorRes("Invalid JSON body", 400); }
-  const { publicUrl, fileName, originalName, fileSize, cim, title, subject, language } = body || {};
-  const storagePath = fileName || body.filePath;
-
-  if (!publicUrl) return errorRes("publicUrl required", 400);
-  if (!storagePath) return errorRes("fileName required", 400);
-
-  const { data: inserted, error: insertErr } = await supabase
-   .from("jegyzetek")
-   .insert({
-    user_id: user.id,
-    cim: cim || title || originalName || "Névtelen jegyzet",
-    original_name: originalName || storagePath,
-    file_path: storagePath,
-    public_url: publicUrl,
-    file_size: fileSize || 0,
-    subject: subject || null,
-    language: language || null,
-    text_content: null,
-    text_hash: null,
-    embedding: null,
-    created_at: new Date().toISOString()
-   })
-   .select()
-   .single();
-
-  if (insertErr) return errorRes("Insert failed: " + insertErr.message, 500);
-  
-  // === JAVÍTÁS: Háttérben elindítjuk a szöveg kinyerését ===
-  // Nem várjuk meg, hogy a válasz gyors legyen
-  const noteId = inserted.id;
-  const filePath = inserted.file_path;
-  triggerIndexDocument(noteId, filePath).catch(console.error);
-  
-  return ok(mapRow(inserted));
- }
-
- return errorRes("Method not allowed", 405);
-}
-
-function ok(data, status = 200) {
- return new Response(JSON.stringify(data), {
-  status,
-  headers: { "Content-Type": "application/json" }
- });
-}
-
-function errorRes(msg, status = 400) {
- return new Response(JSON.stringify({ error: msg }), {
-  status,
-  headers: { "Content-Type": "application/json" }
- });
-}
-
-export const config = {};
+  window.downloadNote = async function(id) {
+    const resp = await fetch('/.netlify/functions/download-note?id=' + id, { headers: await window.getAuthHeaders({}) });
+    const d = await resp.json();
+    if (d.url) window.open(d.url, '_blank');
+  };
+})();
