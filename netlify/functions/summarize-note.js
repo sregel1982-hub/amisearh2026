@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai"; // ✅ Egységesítve az új SDK-ra
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -6,7 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY);
+// Egységesített inicializálás (figyelj, hogy a környezeti változód neve itt GOOGLE_GENAI_API_KEY vagy GEMINI_API_KEY, a korábbiak alapján)
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY });
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -41,9 +42,6 @@ export default async (req, context) => {
       });
     }
 
-    // 2. Generate summary using Gemini
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
     const prompt = `Készíts egy rövid, érthető összefoglalót a következő szövegből. A szöveg nyelve: ${note.language || "hu"}.
     
 Cím: ${note.title}
@@ -53,8 +51,14 @@ ${note.text_content}
 
 Kérlek szórakoztatóan és világosan írj egy 2-3 bekezdéses összefoglalót, amely kiemeli a legfontosabb pontokat.`;
 
-    const result = await model.generateContent(prompt);
-    const summary = result.response.text();
+    // 2. Frissítve a gemini-2.5-flash modellre és az új SDK szintaxisra
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }]
+    });
+    
+    // Az új SDK-ban a szöveget a .text() függvény hívásával kapjuk meg (vagy result.text)
+    const summary = result.text ? result.text() : "Nem sikerült összefoglalót készíteni.";
 
     return new Response(JSON.stringify({ success: true, summary }), {
       status: 200,
