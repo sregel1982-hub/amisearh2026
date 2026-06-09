@@ -1,4 +1,4 @@
-import { getSupabaseUser } from "./auth-helper.js";
+import { getSupabaseUser } from "./auth-helper.mjs";  // ✅ .mjs!
 import { GoogleGenAI } from "@google/genai";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 
@@ -13,6 +13,7 @@ const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 export default async function handler(req) {
   console.log("✅ search.js fut.");
   if (req.method !== "POST") return jsonError("Method not allowed", 405, "method_not_allowed");
+  
   const user = await getSupabaseUser(req);
   if (!user) return jsonError("Unauthorized", 401, "unauthorized");
 
@@ -25,16 +26,16 @@ export default async function handler(req) {
   try { body = await req.json(); } catch { body = {}; }
   const { query, lang = "hu" } = body;
 
-  const baseInstruction = ` Te egy kiváló magyar oktatási asszisztens vagy az AMISEARCH platformon. 
-    Válaszolj érthetően, lépésről lépésre. 
-    A válaszod végén MINDIG készíts egy elkülönített '=== FORRÁSOK ===' részt, ahol sorold fel a felhasznált hiteles forrásokat (tankönyvek, szakcikkek, weboldalak).`;
+  const baseInstruction = `Te egy kiváló magyar oktatási asszisztens vagy az AMISEARCH platformon.
+Válaszolj érthetően, lépésről lépésre.
+A válaszod végén MINDIG készíts egy elkülönített '=== FORRÁSOK ===' részt, ahol sorold fel a felhasznált hiteles forrásokat (tankönyvek, szakcikkek, weboldalak).`;
 
   const contents = [{ role: "user", parts: [{ text: query }] }];
 
   try {
-    const config = { 
-        systemInstruction: baseInstruction,
-        tools: [{ googleSearch: {} }] 
+    const config = {
+      systemInstruction: baseInstruction,
+      tools: [{ googleSearch: {} }]
     };
     console.log("AI kérés küldése search.js-ből.", config);
     const stream = await ai.models.generateContentStream({
