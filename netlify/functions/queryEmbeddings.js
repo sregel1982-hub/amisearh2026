@@ -1,91 +1,67 @@
-import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { GoogleGenerativeAI } from "@google/genai";
 
-const ai = new GoogleGenAI({
-  apiKey:
-    (typeof Netlify !== "undefined" && Netlify.env.get("GEMINI_API_KEY")) ||
-    process.env.GEMINI_API_KEY
-});
-
-// Supabase init
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export default async function handler(req) {
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENAI_API_KEY);
+
+export default async (req, context) => {
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
-
-  const { query } = await req.json().catch(() => ({}));
-
-  if (!query) {
-    return new Response(JSON.stringify({ error: "Missing query" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" }
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
   try {
-    // 1) Generate embedding for the query
-    const queryResult = await ai.models.embedContent({
-      model: "text-embedding-004",
-      contents: [{ parts: [{ text: query }] }]
-    });
+    const { query, userId, limit = 5 } = await req.json();
 
-    const queryEmbedding = queryResult.embeddings?.[0]?.values;
-
-    if (!queryEmbedding) {
-      return new Response(JSON.stringify({ error: "Failed to generate query embedding" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
+    if (!query || !userId) {
+      return new Response(
+        JSON.stringify({ error: "Missing query or userId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // 2) Fetch all embeddings from DB
-    const { data: notes, error } = await supabase
-      .from("uploaded_notes")
-      .select("id, file_path, text_content, embedding");
+    // 1. Generate embedding for the query
+    const model = genAI.getGenerativeModel({
+      model: "text-embedding-004",
+    });
+
+    const queryEmbedding = await model.embedContent(query);
+    const queryVector = queryEmbedding.embedding.values;
+
+    // 2. Query similar notes from Supabase using vector search
+    const { data: notes, error } = await supabase.rpc(
+      "match_uploaded_notes",
+      {
+        query_embedding: queryVector,
+        match_threshold: 0.6,
+        match_count: limit,
+        user_id_filter: userId,
+      }
+    );
 
     if (error) {
-      return new Response(JSON.stringify({ error: "DB fetch failed" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
+      console.error("Vector search error:", error);
+      return new Response(
+        JSON.stringify({ error: "Vector search failed", details: error }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // 3) Cosine similarity
-    const results = notes.map((item) => {
-      const similarity = cosineSimilarity(queryEmbedding, item.embedding);
-      return { ...item, similarity };
-    });
-
-    results.sort((a, b) => b.similarity - a.similarity);
-
-    return new Response(JSON.stringify({ results: results.slice(0, 5) }), {
+    return new Response(JSON.stringify({ success: true, notes: notes || [] }), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Query failed:", error);
-    return new Response(JSON.stringify({ error: "Query failed" }), {
+    console.error("Query embeddings error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   }
-}
-
-function cosineSimilarity(a, b) {
-  if (!a?.length || !b?.length || a.length !== b.length) return 0;
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom === 0 ? 0 : dot / denom;
-}
-
-export const config = {};
+};
