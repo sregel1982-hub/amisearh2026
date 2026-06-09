@@ -15,29 +15,29 @@ export default async function handler(req) {
 
     if (!isAiConfigured()) return aiUnavailableResponse();
 
-    const body = await req.json();
-    const { message } = body || {};
+    const body = await req.json().catch(() => ({}));
+    const { message } = body;
 
     if (!message) return jsonError("Message required", 400);
 
-    // === LEGTISZTÁBB TESZT ===
+    // Egyszerű, megbízható hívás (nem stream)
     const result = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-      contents: [{ role: "user", parts: [{ text: message }] }]
+      contents: [{ role: "user", parts: [{ text: message }] }],
+      config: {
+        systemInstruction: "Te egy segítőkész magyar AI tutor vagy. Válaszolj barátságosan, érthetően és magyarul."
+      }
     });
 
-    const text = result.text ? result.text() : String(result);
+    const responseText = result.text ? result.text() : "Nem kaptam választ.";
 
-    return new Response(text, {
+    return new Response(responseText, {
       status: 200,
       headers: { "Content-Type": "text/plain; charset=utf-8" }
     });
 
   } catch (error) {
-    console.error("=== CHAT ERROR ===", error?.message || error);
-    return new Response("Sajnos hiba történt: " + (error?.message || "Ismeretlen hiba"), {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" }
-    });
+    console.error("CHAT CRITICAL ERROR:", error?.message || error);
+    return aiUnavailableResponse();
   }
 }
