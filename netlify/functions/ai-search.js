@@ -49,7 +49,7 @@ export default async function handler(req) {
           notesContext = allNotes
             .map((n, i) => {
               const clean = latexToUnicode(n.text_content || "");
-              return `=== Jegyzet ${i+1}: ${n.cim || "Névtelen"} ===\n${clean}`;
+              return `=== Jegyzet ${i+1}: \( {n.cim || "Névtelen"} ===\n \){clean}`;
             })
             .join("\n\n");
         }
@@ -61,4 +61,16 @@ export default async function handler(req) {
     const baseInstruction = 
       "Te egy kiváló magyar matematika és tanulási asszisztens vagy az AMISEARCH platformon. " +
       "Válaszolj mindig MAGYARUL, érthető, lépésről lépésre magyarázatokkal. " +
-      "Soha ne használj nyersen LaTeX
+      "Soha ne használj nyersen LaTeX kódot, hacsak a felhasználó explicit nem kéri. " +
+      "Használj unicode szimbólumokat ahol lehet (pl. √, ∑, ∞, ≥, ≤, ≠). " +
+      "Legyél barátságos, motiváló és türelmes.";
+
+    const fullPrompt = `${baseInstruction}\n\nFelhasználó kérdése: \( {query}\n\n \){notesContext ? `Kapcsolódó jegyzeteim:\n${notesContext}` : ""}`;
+
+    return streamText(ai, fullPrompt);
+
+  } catch (error) {
+    console.error("AI Search error:", error);
+    return jsonError("Internal server error", 500);
+  }
+}
