@@ -20,9 +20,9 @@ export default async function handler(req) {
 
     if (!message) return jsonError("Message required", 400);
 
-    // Egyszerű, megbízható hívás (nem stream)
+    // Frissítve gemini-2.5-flash modellre
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: message }] }],
       config: {
         systemInstruction: "Te egy segítőkész magyar AI tutor vagy. Válaszolj barátságosan, érthetően és magyarul."
