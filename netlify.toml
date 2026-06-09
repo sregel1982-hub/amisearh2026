@@ -1,31 +1,11 @@
 [build]
-  publish = "."
-  command = "echo 'No build needed'"
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
 
-[build.environment]
-  NODE_VERSION = "22"
-  NPM_FLAGS = "--legacy-peer-deps"
-
-[functions]
-  node_bundler = "esbuild"
-
-# SPA redirect (fontos!)
+# EZ A JAVÍTOTT ÁTIRÁNYÍTÁS: A SPA (Single Page Application) frontend útvonalakhoz kell
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# Functions redirect
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Content-Security-Policy = "upgrade-insecure-requests"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    X-Content-Type-Options = "nosniff"
+  
