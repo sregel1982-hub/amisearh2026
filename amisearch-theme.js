@@ -1,126 +1,185 @@
 (function () {
   'use strict';
 
+  const STORAGE_KEY = 'amisearch_pastel_theme';
+
   const themes = {
-    purple: { label: 'Lila', primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF', ring: '#A29BFE' },
-    blue: { label: 'Kék', primary: '#2563EB', hover: '#1D4ED8', light: '#DBEAFE', ring: '#93C5FD' },
-    emerald: { label: 'Zöld', primary: '#059669', hover: '#047857', light: '#D1FAE5', ring: '#6EE7B7' },
-    orange: { label: 'Narancs', primary: '#D97706', hover: '#B45309', light: '#FEF3C7', ring: '#FCD34D' }
+    lavender: {
+      label: 'Levendula',
+      primary: '#8B7CF6',
+      primaryDark: '#6D5EEA',
+      soft: '#F3F0FF',
+      softer: '#FAF8FF',
+      border: '#DDD6FE'
+    },
+    sky: {
+      label: 'Égkék',
+      primary: '#60A5FA',
+      primaryDark: '#3B82F6',
+      soft: '#EFF6FF',
+      softer: '#F8FBFF',
+      border: '#BFDBFE'
+    },
+    mint: {
+      label: 'Menta',
+      primary: '#34D399',
+      primaryDark: '#10B981',
+      soft: '#ECFDF5',
+      softer: '#F7FFFB',
+      border: '#BBF7D0'
+    },
+    peach: {
+      label: 'Barack',
+      primary: '#FDBA74',
+      primaryDark: '#FB923C',
+      soft: '#FFF7ED',
+      softer: '#FFFCF8',
+      border: '#FED7AA'
+    },
+    rose: {
+      label: 'Rózsa',
+      primary: '#FDA4AF',
+      primaryDark: '#F43F5E',
+      soft: '#FFF1F2',
+      softer: '#FFFAFA',
+      border: '#FFE4E6'
+    }
   };
 
-  function setTheme(themeName) {
-    const theme = themes[themeName] || themes.purple;
-    let style = document.getElementById('amisearch-dynamic-theme');
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'amisearch-dynamic-theme';
-      document.head.appendChild(style);
-    }
+  function applyTheme(name) {
+    const theme = themes[name] || themes.lavender;
+    const root = document.documentElement;
 
+    root.style.setProperty('--ami-primary', theme.primary);
+    root.style.setProperty('--ami-primary-dark', theme.primaryDark);
+    root.style.setProperty('--ami-soft', theme.soft);
+    root.style.setProperty('--ami-softer', theme.softer);
+    root.style.setProperty('--ami-border', theme.border);
+
+    localStorage.setItem(STORAGE_KEY, name);
+
+    document.querySelectorAll('[data-ami-theme-dot]').forEach((el) => {
+      el.style.outline = el.dataset.themeName === name ? '3px solid rgba(17, 24, 39, 0.22)' : 'none';
+      el.style.transform = el.dataset.themeName === name ? 'scale(1.08)' : 'scale(1)';
+    });
+  }
+
+  function injectCss() {
+    if (document.getElementById('amisearch-pastel-theme-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'amisearch-pastel-theme-style';
     style.textContent = `
       :root {
-        --amisearch-primary: ${theme.primary};
-        --amisearch-primary-hover: ${theme.hover};
-        --amisearch-primary-light: ${theme.light};
+        --ami-primary: #8B7CF6;
+        --ami-primary-dark: #6D5EEA;
+        --ami-soft: #F3F0FF;
+        --ami-softer: #FAF8FF;
+        --ami-border: #DDD6FE;
       }
-      .btn-primary,
+
       .bg-\[\#6C5CE7\],
-      .bg-purple-600,
-      .bg-indigo-600,
-      button[type="submit"] {
-        background: ${theme.primary} !important;
-        background-color: ${theme.primary} !important;
+      .hover\:bg-\[\#5A4BD1\]:hover {
+        background-color: var(--ami-primary) !important;
       }
-      .btn-primary:hover,
-      .bg-purple-600:hover,
-      .bg-indigo-600:hover,
-      button[type="submit"]:hover {
-        background: ${theme.hover} !important;
-        background-color: ${theme.hover} !important;
+
+      .text-\[\#6C5CE7\] {
+        color: var(--ami-primary-dark) !important;
       }
-      .text-\[\#6C5CE7\],
-      .text-purple-600,
-      .text-indigo-600 {
-        color: ${theme.primary} !important;
+
+      .border-indigo-100,
+      .border-purple-100 {
+        border-color: var(--ami-border) !important;
       }
-      .border-\[\#6C5CE7\],
-      .border-purple-600,
-      .border-indigo-600 {
-        border-color: ${theme.primary} !important;
+
+      .bg-indigo-50,
+      .bg-purple-50 {
+        background-color: var(--ami-soft) !important;
       }
-      .bg-purple-50,
-      .bg-indigo-50 {
-        background-color: ${theme.light} !important;
+
+      .from-\[\#6C5CE7\],
+      .to-\[\#A29BFE\] {
+        --tw-gradient-from: var(--ami-primary) !important;
+        --tw-gradient-to: var(--ami-primary-dark) !important;
       }
-      #amisearch-picker button[data-active="true"] {
-        outline: 3px solid ${theme.ring};
-        outline-offset: 2px;
+
+      #amisearch-theme-picker {
+        position: fixed;
+        right: 14px;
+        bottom: 82px;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 10px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+      }
+
+      #amisearch-theme-picker button {
+        width: 24px;
+        height: 24px;
+        border: 2px solid rgba(255, 255, 255, 0.95);
+        border-radius: 999px;
+        cursor: pointer;
+        transition: transform 0.15s ease, outline 0.15s ease;
+      }
+
+      #amisearch-theme-picker button:hover {
+        transform: scale(1.12);
+      }
+
+      @media (max-width: 640px) {
+        #amisearch-theme-picker {
+          right: 10px;
+          bottom: 68px;
+          padding: 8px;
+          gap: 6px;
+        }
+
+        #amisearch-theme-picker button {
+          width: 22px;
+          height: 22px;
+        }
       }
     `;
-
-    try { localStorage.setItem('amisearch-theme', themeName); } catch (_) {}
-    document.querySelectorAll('#amisearch-picker button').forEach((button) => {
-      button.dataset.active = button.dataset.theme === themeName ? 'true' : 'false';
-    });
+    document.head.appendChild(style);
   }
 
   function createPicker() {
-    if (document.getElementById('amisearch-picker')) return;
+    if (document.getElementById('amisearch-theme-picker')) return;
 
-    const picker = document.createElement('section');
-    picker.id = 'amisearch-picker';
-    picker.setAttribute('aria-label', 'AMISEARCH színválasztó');
-    picker.setAttribute('role', 'group');
-    picker.style.cssText = [
-      'position:fixed',
-      'right:16px',
-      'bottom:16px',
-      'z-index:10000',
-      'display:flex',
-      'gap:10px',
-      'align-items:center',
-      'background:#ffffff',
-      'padding:10px 12px',
-      'border:2px solid #6C5CE7',
-      'border-radius:999px',
-      'box-shadow:0 8px 24px rgba(45,52,54,.18)'
-    ].join(';');
-
-    const label = document.createElement('span');
-    label.textContent = 'Szín';
-    label.style.cssText = 'font:600 13px system-ui,-apple-system,Segoe UI,sans-serif;color:#1f2937;margin-right:2px';
-    picker.appendChild(label);
+    const picker = document.createElement('div');
+    picker.id = 'amisearch-theme-picker';
+    picker.setAttribute('aria-label', 'AMISEARCH halvány színválasztó');
 
     Object.entries(themes).forEach(([name, theme]) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.dataset.theme = name;
-      button.setAttribute('aria-label', 'Téma kiválasztása: ' + theme.label);
-      button.title = theme.label;
-      button.style.cssText = [
-        'width:28px',
-        'height:28px',
-        'border-radius:999px',
-        'border:2px solid #ffffff',
-        'background:' + theme.primary,
-        'cursor:pointer',
-        'box-shadow:0 1px 4px rgba(0,0,0,.25)'
-      ].join(';');
-      button.addEventListener('click', () => setTheme(name));
-      picker.appendChild(button);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.title = theme.label;
+      btn.setAttribute('aria-label', theme.label + ' téma');
+      btn.dataset.amiThemeDot = '1';
+      btn.dataset.themeName = name;
+      btn.style.background = `linear-gradient(135deg, ${theme.soft}, ${theme.primary})`;
+      btn.addEventListener('click', () => applyTheme(name));
+      picker.appendChild(btn);
     });
 
     document.body.appendChild(picker);
-    let saved = 'purple';
-    try { saved = localStorage.getItem('amisearch-theme') || 'purple'; } catch (_) {}
-    setTheme(themes[saved] ? saved : 'purple');
   }
 
-  window.changeSiteTheme = setTheme;
+  function init() {
+    injectCss();
+    createPicker();
+    applyTheme(localStorage.getItem(STORAGE_KEY) || 'lavender');
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', createPicker, { once: true });
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    createPicker();
+    init();
   }
 })();
