@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 import mammoth from "mammoth";
 import { getSupabaseUser } from "./auth-helper.mjs";
+import { downloadFromRefs } from "./storage-helper.mjs";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -107,7 +108,7 @@ export default async function handler(req) {
     const supabase = getSupabaseAdmin();
     const { data: note, error: noteError } = await supabase
       .from("jegyzetek")
-      .select("id, file_path, original_name, user_id")
+      .select("id, file_path, public_url, original_name, user_id")
       .eq("id", noteId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -119,13 +120,15 @@ export default async function handler(req) {
 
     let buffer;
     if (/^https?:\/\//i.test(filePath)) {
-      const resp = await fetch(filePath);
-      if (!resp.ok) throw new Error("Storage URL download failed");
-      buffer = Buffer.from(await resp.arrayBuffer());
-    } else {
-      const { data, error } = await supabase.storage.from("jegyzetek").download(filePath);
-      if (error || !data) throw new Error(error?.message || "Storage download failed");
-      buffer = Buffer.from(await data.arrayBuffer());
+      try {
+        const resp = await fetch(filePath);
+        if (resp.ok) buffer = Buffer.from(await resp.arrayBuffer());
+      } catch (_) {}
+    }
+    if (!buffer) {
+      const downloaded = await downloadFromRefs(supabase, [filePath, note.public_url]);
+      if (!downloaded.data) throw new Error(downloaded.error?.message || "Storage download failed");
+      buffer = Buffer.from(await downloaded.data.arrayBuffer());
     }
 
     let textContent = await extractText(buffer, filePath);
