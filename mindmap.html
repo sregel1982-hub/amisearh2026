@@ -177,28 +177,82 @@ async function generateMindmap() {
   }
 }
 
+function stripMindmapEmoji(text) {
+  return String(text || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, '').trim();
+}
+
+function cleanMindmapLabel(raw) {
+  let s = stripMindmapEmoji(raw)
+    .replace(/^[-*•]+\s*/, '')
+    .replace(/^root\s*\(\(\s*/i, '')
+    .replace(/^root\s*\(\s*/i, '')
+    .replace(/^root\s*\[\s*/i, '')
+    .replace(/[\]\)]\s*$/g, '')
+    .replace(/^['"`]+|['"`]+$/g, '')
+    .replace(/[{}\[\]<>|]/g, ' ')
+    .replace(/\(\((.*?)\)\)/g, '($1)')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[\'"`]+|[\'"`]+$/g, '');
+  s = s.replace(/"/g, "'").trim();
+  return s || 'Téma';
+}
+
+function sanitizeMindmapCode(code, topic) {
+  const raw = String(code || '')
+    .replace(/^```(?:mermaid|mindmap)?\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .replace(/\r/g, '')
+    .trim();
+  const sourceLines = raw.split('\n').map(line => line.replace(/\t/g, '  ')).filter(line => line.trim());
+  const out = ['mindmap'];
+  let hasRoot = false;
+  for (const line of sourceLines) {
+    const trimmed = line.trim();
+    if (!trimmed || /^```/.test(trimmed) || /^mindmap\s*$/i.test(trimmed)) continue;
+    const leading = Math.max(0, (line.match(/^\s*/) || [''])[0].length);
+    let level = Math.max(1, Math.round(leading / 2));
+    let label = cleanMindmapLabel(trimmed);
+    if (/^root\s*[\(\[]/i.test(trimmed) || !hasRoot) {
+      out.push('  root(("' + cleanMindmapLabel(label || topic || currentTopic || 'Gondolattérkép') + '"))');
+      hasRoot = true;
+      continue;
+    }
+    if (level < 2) level = 2;
+    out.push('  '.repeat(level) + label);
+  }
+  if (!hasRoot) out.splice(1, 0, '  root(("' + cleanMindmapLabel(topic || currentTopic || 'Gondolattérkép') + '"))');
+  return out.join('\n');
+}
+
+function renderMindmapFallbackHtml(code) {
+  const lines = String(code || '').split('\n').filter(l => l.trim());
+  let html = '<div class="w-full max-w-4xl text-left p-5 bg-white rounded-2xl border border-purple-100 shadow-sm">';
+  html += '<div class="font-bold text-purple-700 mb-3"><i class="fa-solid fa-brain mr-2"></i>Gondolattérkép</div>';
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || /^mindmap$/i.test(trimmed)) continue;
+    const depth = Math.max(0, Math.floor(((line.match(/^\s*/) || [''])[0].length) / 2) - 1);
+    const text = cleanMindmapLabel(trimmed);
+    const weight = depth === 0 ? 'font-bold text-purple-700' : depth === 1 ? 'font-semibold text-gray-800' : 'text-gray-700';
+    html += '<div class="' + weight + '" style="margin-left:' + (depth * 22) + 'px; padding:4px 0;">• ' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 async function renderMindmap(code) {
   const container = document.getElementById('mindmapContainer');
-  
-  let cleanCode = code
-    .replace(/^```mermaid\n?/, '')
-    .replace(/```$/, '')
-    .trim();
-  
-  if (!cleanCode.startsWith('mindmap')) {
-    cleanCode = 'mindmap\n' + cleanCode;
-  }
-
-  container.innerHTML = '<div class="mermaid-inner">\n' + cleanCode + '\n</div>';
+  const cleanCode = sanitizeMindmapCode(code, currentTopic || document.getElementById('topicInput')?.value || 'Gondolattérkép');
+  currentCode = cleanCode;
   document.getElementById('mermaidCode').value = cleanCode;
+  container.innerHTML = '<div id="mindmapRenderTarget" class="mermaid-inner">' + cleanCode.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
 
   try {
-    await mermaid.run({
-      querySelector: '#mindmapContainer .mermaid-inner'
-    });
+    await mermaid.run({ querySelector: '#mindmapRenderTarget' });
   } catch (e) {
-    console.error('Mermaid render hiba:', e);
-    container.innerHTML = '<pre class="text-red-500 p-4">Hiba a renderelésnél:\n' + e.message + '\n\nKód:\n' + cleanCode.replace(/</g, '&lt;') + '</pre>';
+    console.error('Mermaid render hiba:', e, cleanCode);
+    container.innerHTML = renderMindmapFallbackHtml(cleanCode);
   }
 }
 
