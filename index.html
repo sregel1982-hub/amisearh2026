@@ -2284,8 +2284,9 @@
       document.body.removeChild(clone);
 
       const imgDataUrl = canvas.toDataURL('image/png');
-      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title></head><body><h1 style="font-family:Calibri,Arial,sans-serif;color:#5A4BD1;">AmiSearh — AI válasz</h1><p style="font-family:Calibri,Arial,sans-serif;color:#666;"><i>' + new Date().toLocaleString() + '</i></p><img src="' + imgDataUrl + '" style="max-width:100%;"></body></html>';
-      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
+      const contentHtml = _aiBubbleHtml(bubble);
+      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title><style>body{font-family:Calibri,Arial,sans-serif;line-height:1.45;color:#111827;padding:20px;} h1,h2,h3{color:#5A4BD1;} p,li{font-size:12pt;} pre,code{font-family:Consolas,monospace;white-space:pre-wrap;} table{border-collapse:collapse;} td,th{border:1px solid #ddd;padding:4px;}</style></head><body><h1>AMISEARCH — AI válasz</h1><p><i>' + new Date().toLocaleString() + '</i></p>' + contentHtml + '</body></html>';
+      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -2569,8 +2570,9 @@
         foreignObjectRendering: false
       });
       const imgDataUrl = canvas.toDataURL('image/png');
-      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Feladatok</title></head><body><h1 style="font-family:Calibri,Arial,sans-serif;color:#5A4BD1;">' + topicName + ' — Feladatok</h1><img src="' + imgDataUrl + '" style="max-width:100%;"></body></html>';
-      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword' });
+      const contentHtml = target.innerHTML;
+      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Feladatok</title><style>body{font-family:Calibri,Arial,sans-serif;line-height:1.45;color:#111827;padding:20px;} h1,h2,h3{color:#5A4BD1;} p,li{font-size:12pt;} pre,code{font-family:Consolas,monospace;white-space:pre-wrap;}</style></head><body><h1>' + topicName + ' — Feladatok</h1>' + contentHtml + '</body></html>';
+      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
