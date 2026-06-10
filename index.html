@@ -1115,6 +1115,12 @@
           <i class="fa-solid fa-paper-plane"></i>
         </button>
       </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button onclick="window.openMindMapPage()" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-[#6C5CE7] rounded-xl text-sm font-semibold transition" title="Gondolattérkép generálása külön aloldalon">
+          <i class="fa-solid fa-sitemap mr-2"></i><span data-hu="Gondolattérkép aloldal" data-en="Mind map page">Gondolattérkép aloldal</span>
+        </button>
+        <span class="text-xs text-gray-400 self-center" data-hu="A beírt témát külön oldalon vizualizálja." data-en="Visualizes the typed topic on a separate page.">A beírt témát külön oldalon vizualizálja.</span>
+      </div>
     </div>
   </div>
 </div>
@@ -1817,21 +1823,57 @@
   // --- Search Supabase documents ---
   window.searchSupabaseDocuments = async function(query) {
     try {
-      const params = new URLSearchParams();
-      if (query) params.set('q', query);
-      const resp = await fetch('/.netlify/functions/notes?' + params.toString(), {
-        headers: await window.getAuthHeaders(),
+      const resp = await fetch('/.netlify/functions/notes', {
+        method: 'GET',
+        headers: await window.getAuthHeaders({}),
       });
       if (!resp.ok) return [];
       const rows = await resp.json();
-      return rows.map(function(row) {
+      const normalized = Array.isArray(rows) ? rows.map(function(row) {
+        const title = row.title || row.cim || row.originalName || row.original_name || row.fileName || row.file_path || 'Névtelen jegyzet';
+        const originalName = row.originalName || row.original_name || title;
+        const fileName = row.fileName || row.filePath || row.file_name || row.file_path || '';
+        const textContent = row.textContent || row.text_content || '';
         return {
-          name: row.original_name,
-          originalName: row.file_name,
-          url: row.public_url,
-          createdAt: row.created_at,
-          size: row.file_size || 0,
+          id: row.id,
+          name: title,
+          title: title,
+          originalName: originalName,
+          fileName: fileName,
+          filePath: fileName,
+          url: row.publicUrl || row.public_url || '',
+          createdAt: row.createdAt || row.created_at || null,
+          size: row.fileSize || row.file_size || 0,
+          subject: row.subject || row.tantargy || '',
+          language: row.language || row.nyelv || 'hu',
+          processed: !!row.processed,
+          textContent: textContent
         };
+      }) : [];
+
+      const needle = (query || '').trim().toLocaleLowerCase('hu');
+      if (!needle) return normalized;
+      const matches = normalized.filter(function(doc) {
+        const haystack = [
+          doc.name,
+          doc.originalName,
+          doc.subject,
+          doc.language,
+          doc.textContent
+        ].join(' ').toLocaleLowerCase('hu');
+        return haystack.includes(needle);
+      });
+      return matches.map(function(doc) {
+        if (doc.textContent) {
+          const lowerText = doc.textContent.toLocaleLowerCase('hu');
+          const pos = lowerText.indexOf(needle);
+          if (pos >= 0) {
+            const start = Math.max(0, pos - 90);
+            const end = Math.min(doc.textContent.length, pos + needle.length + 140);
+            doc.snippet = (start > 0 ? '…' : '') + doc.textContent.slice(start, end).replace(/\s+/g, ' ').trim() + (end < doc.textContent.length ? '…' : '');
+          }
+        }
+        return doc;
       });
     } catch (e) {
       console.error('Document search error:', e);
@@ -1845,23 +1887,34 @@
     const isHu = lang === 'hu';
     let html = '';
     for (const doc of docs) {
-      const ext = doc.name.split('.').pop().toLowerCase();
-      const langBadge = isHu
-        ? '<span class="px-3 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-full">Magyar</span>'
-        : '<span class="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">English</span>';
-      const sizeStr = doc.size > 1048576 ? (doc.size / 1048576).toFixed(1) + ' MB' : doc.size > 1024 ? (doc.size / 1024).toFixed(0) + ' KB' : doc.size + ' B';
+      const displayName = doc.name || doc.title || doc.originalName || 'Névtelen jegyzet';
+      const fileForExt = doc.originalName || doc.fileName || displayName;
+      const ext = (fileForExt && fileForExt.indexOf('.') >= 0) ? fileForExt.split('.').pop().toLowerCase() : 'note';
+      const langBadge = (doc.language || '').toLowerCase().startsWith('en')
+        ? '<span class="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">English</span>'
+        : '<span class="px-3 py-1 text-xs bg-emerald-100 text-emerald-700 rounded-full">Magyar</span>';
+      const sizeStr = doc.size > 1048576 ? (doc.size / 1048576).toFixed(1) + ' MB' : doc.size > 1024 ? (doc.size / 1024).toFixed(0) + ' KB' : (doc.size ? doc.size + ' B' : (isHu ? 'jegyzet' : 'note'));
+      const subject = doc.subject ? '<span class="text-xs text-gray-500 ml-2">' + escapeHtml(doc.subject) + '</span>' : '';
+      const snippet = doc.snippet ? '<p class="text-sm text-gray-600 mt-3 line-clamp-3">' + escapeHtml(doc.snippet) + '</p>' : '';
       html += '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100">';
-      html += '<div class="flex justify-between items-start">';
-      html += '<div class="min-w-0 flex-1 mr-3">';
-      html += '<h3 class="font-semibold text-lg truncate">' + escapeHtml(doc.name) + '</h3>';
-      html += '<p class="text-sm text-gray-500">' + sizeStr + ' • ' + ext.toUpperCase() + '</p>';
+      html += '<div class="flex justify-between items-start gap-3">';
+      html += '<div class="min-w-0 flex-1">';
+      html += '<h3 class="font-semibold text-lg truncate">' + escapeHtml(displayName) + subject + '</h3>';
+      html += '<p class="text-sm text-gray-500">' + sizeStr + ' • ' + escapeHtml(ext.toUpperCase()) + '</p>';
       html += '</div>';
       html += langBadge;
       html += '</div>';
+      html += snippet;
       html += '<div class="mt-4 flex gap-3">';
-      html += '<button onclick="window.downloadWithAuth(\'' + encodeURIComponent(doc.originalName).replace(/'/g, "\\'") + '\', \'' + escapeHtml(doc.name).replace(/'/g, "\\'") + '\')" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-medium text-center text-sm transition cursor-pointer">';
-      html += '<i class="fa-solid fa-download mr-2"></i>' + (isHu ? 'Letöltés' : 'Download');
-      html += '</button>';
+      if (doc.fileName) {
+        html += '<button onclick="window.downloadWithAuth(\'' + encodeURIComponent(doc.fileName).replace(/'/g, "\\'") + '\', \'' + escapeHtml(doc.originalName || displayName).replace(/'/g, "\\'") + '\')" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-medium text-center text-sm transition cursor-pointer">';
+        html += '<i class="fa-solid fa-download mr-2"></i>' + (isHu ? 'Letöltés' : 'Download');
+        html += '</button>';
+      } else if (doc.url) {
+        html += '<a href="' + escapeHtml(doc.url) + '" target="_blank" rel="noopener" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-medium text-center text-sm transition cursor-pointer">';
+        html += '<i class="fa-solid fa-up-right-from-square mr-2"></i>' + (isHu ? 'Megnyitás' : 'Open');
+        html += '</a>';
+      }
       html += '</div>';
       html += '</div>';
     }
@@ -2141,6 +2194,17 @@
       .replace(/\s+/g, '_')
       .replace(/_{2,}/g, '_')
       .substring(0, 80);
+  };
+
+
+  window.openMindMapPage = function(topic) {
+    const inputTopic = topic || document.getElementById('chatInput')?.value || document.getElementById('searchInput')?.value || '';
+    const cleanTopic = (inputTopic || '').trim();
+    if (!cleanTopic) {
+      alert(window.currentLang === 'hu' ? 'Írd be előbb a gondolattérkép témáját.' : 'Please type the mind map topic first.');
+      return;
+    }
+    window.open('mindmap.html?topic=' + encodeURIComponent(cleanTopic), '_blank', 'noopener');
   };
 
   window.downloadMindMapPdf = async function(btn) {
@@ -2702,14 +2766,14 @@
             mermaidDiv.innerHTML = svg;
             const toolbar = document.createElement('div');
             toolbar.className = 'flex gap-2 mt-2 justify-end';
-            toolbar.innerHTML = '<button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+            toolbar.innerHTML = '<button onclick="window.openMindMapPage(this.closest(\'div\')?.parentElement?.dataset?.topic || \'Gondolattérkép\')" class="text-xs px-3 py-1.5 bg-indigo-100 text-[#6C5CE7] rounded-lg hover:bg-indigo-200 transition font-medium"><i class="fa-solid fa-up-right-from-square mr-1"></i>Aloldal</button><button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
             wrapper.appendChild(toolbar);
           } catch (e) {
             wrapper.dataset.topic = window.extractMindMapTopic(raw);
             mermaidDiv.innerHTML = renderMindMapFallback(raw);
             const toolbar = document.createElement('div');
             toolbar.className = 'flex gap-2 mt-2 justify-end';
-            toolbar.innerHTML = '<button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+            toolbar.innerHTML = '<button onclick="window.openMindMapPage(this.closest(\'div\')?.parentElement?.dataset?.topic || \'Gondolattérkép\')" class="text-xs px-3 py-1.5 bg-indigo-100 text-[#6C5CE7] rounded-lg hover:bg-indigo-200 transition font-medium"><i class="fa-solid fa-up-right-from-square mr-1"></i>Aloldal</button><button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
             wrapper.appendChild(toolbar);
           }
         }
