@@ -1,43 +1,89 @@
-import { getSupabaseUser } from "./auth-helper.mjs";
-import { GoogleGenAI } from "@google/genai";
-import { aiUnavailableResponse, isAiConfigured, jsonError } from "./ai-response.js";
+// --- AMISEARCH AI response helpers ---
+const getEnv = (key) => process.env[key] || (typeof Netlify !== "undefined" && Netlify.env.get(key));
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || (typeof Netlify !== "undefined" && Netlify.env.get("GEMINI_API_KEY")),
-});
+export function isAiConfigured() {
+  return !!getEnv("GEMINI_API_KEY");
+}
 
-export default async function handler(req) {
-  try {
-    if (req.method !== "POST") return jsonError("Method not allowed", 405);
+export function aiUnavailableResponse() {
+  return new Response(JSON.stringify({
+    error: "Az AI szolgáltatás pillanatnyilag nem elérhető. Kérjük, ellenőrizd a Netlify környezeti változókat, különösen a GEMINI_API_KEY értékét.",
+    code: "ai_unavailable"
+  }), {
+    status: 503,
+    headers: { "Content-Type": "application/json; charset=utf-8" }
+  });
+}
 
-    const user = await getSupabaseUser(req);
-    if (!user) return jsonError("Unauthorized", 401);
+export function jsonError(message, status = 400, code = "error") {
+  return new Response(JSON.stringify({ error: message, code }), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" }
+  });
+}
 
-    if (!isAiConfigured()) return aiUnavailableResponse();
-
-    const body = await req.json().catch(() => ({}));
-    const { message } = body;
-
-    if (!message) return jsonError("Message required", 400);
-
-    // Frissítve gemini-2.5-flash modellre
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: message }] }],
-      config: {
-        systemInstruction: "Te egy segítőkész magyar AI tutor vagy. Válaszolj barátságosan, érthetően és magyarul."
-      }
-    });
-
-    const responseText = result.text ? result.text() : "Nem kaptam választ.";
-
-    return new Response(responseText, {
-      status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" }
-    });
-
-  } catch (error) {
-    console.error("CHAT CRITICAL ERROR:", error?.message || error);
-    return aiUnavailableResponse();
+export function extractText(result) {
+  if (!result) return "";
+  if (typeof result.text === "function") return result.text() || "";
+  if (typeof result.text === "string") return result.text;
+  if (typeof result.candidates?.[0]?.content?.parts?.[0]?.text === "string") {
+    return result.candidates[0].content.parts[0].text;
   }
+  return "";
+}
+
+function chunkToText(chunk) {
+  if (!chunk) return "";
+  if (typeof chunk === "string") return chunk;
+  if (typeof chunk.text === "function") return chunk.text() || "";
+  if (typeof chunk.text === "string") return chunk.text;
+  if (typeof chunk.candidates?.[0]?.content?.parts?.[0]?.text === "string") {
+    return chunk.candidates[0].content.parts[0].text;
+  }
+  return "";
+}
+
+export async function streamText(streamResult) {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    async start(controller) {
+      try {
+        if (streamResult && typeof streamResult[Symbol.asyncIterator] === "function") {
+          for await (const chunk of streamResult) {
+            const text = chunkToText(chunk);
+            if (text) controller.enqueue(encoder.encode(text));
+          }
+        } else if (streamResult?.stream && typeof streamResult.stream[Symbol.asyncIterator] === "function") {
+          for await (const chunk of streamResult.stream) {
+            const text = chunkToText(chunk);
+            if (text) controller.enqueue(encoder.encode(text));
+          }
+        } else if (streamResult?.stream?.getReader) {
+          const reader = streamResult.stream.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value instanceof Uint8Array) controller.enqueue(value);
+            else {
+              const text = chunkToText(value);
+              if (text) controller.enqueue(encoder.encode(text));
+            }
+          }
+        } else {
+          const text = chunkToText(streamResult);
+          if (text) controller.enqueue(encoder.encode(text));
+        }
+      } catch (error) {
+        console.error("AI stream error:", error?.message || error);
+        controller.enqueue(encoder.encode("\n\nAz AI válasz streamelése közben hiba történt."));
+      } finally {
+        controller.close();
+      }
+    }
+  });
+
+  return new Response(body, {
+    status: 200,
+    headers: { "Content-Type": "text/plain; charset=utf-8" }
+  });
 }
