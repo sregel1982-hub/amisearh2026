@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
+import { createSignedUrlFromRefs } from "./storage-helper.mjs";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -27,40 +28,33 @@ export default async function handler(req) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (noteErr || !note) return jerr("Note not found", 404);
+  if (noteErr) return jerr(noteErr.message, 500);
+  if (!note) return jerr("Note not found", 404);
 
-  if (note.public_url) {
-    return jok({ url: note.public_url, originalName: note.original_name });
+  const signed = await createSignedUrlFromRefs(supabase, [note.file_path, note.public_url], 600);
+  if (!signed.signedUrl) {
+    return jerr("Nem sikerült letöltési linket generálni: " + (signed.error?.message || "a fájl nem található a storage-ban"), 500);
   }
 
-  let storagePath = note.file_path || "";
-  const marker = "/jegyzetek/";
-  if (storagePath.includes(marker)) {
-    storagePath = storagePath.split(marker).pop();
-  }
-
-  const { data, error } = await supabase.storage
-    .from("jegyzetek")
-    .createSignedUrl(storagePath, 300);
-
-  if (error || !data?.signedUrl) {
-    return jerr("Nem sikerült letöltési linket generálni: " + (error?.message || "ismeretlen hiba"), 500);
-  }
-
-  return jok({ url: data.signedUrl, originalName: note.original_name });
+  return jok({
+    url: signed.signedUrl,
+    originalName: note.original_name || "jegyzet",
+    bucket: signed.bucket,
+    path: signed.path
+  });
 }
 
 function jok(d, s = 200) {
   return new Response(JSON.stringify(d), {
     status: s,
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json; charset=utf-8" }
   });
 }
 
 function jerr(m, s = 400) {
   return new Response(JSON.stringify({ error: m }), {
     status: s,
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json; charset=utf-8" }
   });
 }
 
