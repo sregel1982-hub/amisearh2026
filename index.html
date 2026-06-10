@@ -2119,39 +2119,50 @@
     return div.innerHTML;
   }
 
-  window.sanitizeMermaidCode = function(code) {
-    const lines = code.split('\n');
-    const result = [];
+  window.cleanMindmapLabel = function(raw) {
+    let s = String(raw || '')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, '')
+      .replace(/^[-*•]+\s*/, '')
+      .replace(/^root\s*\(\(\s*/i, '')
+      .replace(/^root\s*\(\s*/i, '')
+      .replace(/^root\s*\[\s*/i, '')
+      .replace(/[\]\)]\s*$/g, '')
+      .replace(/^['"`]+|['"`]+$/g, '')
+      .replace(/[{}\[\]<>|]/g, ' ')
+      .replace(/\(\((.*?)\)\)/g, '($1)')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^[\'"`]+|[\'"`]+$/g, '');
+    s = s.replace(/"/g, "'").trim();
+    return s || 'Téma';
+  };
+
+  window.sanitizeMermaidCode = function(code, topic) {
+    const raw = String(code || '')
+      .replace(/^```(?:mermaid|mindmap)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .replace(/\r/g, '')
+      .trim();
+    const lines = raw.split('\n').map(line => line.replace(/\t/g, '  ')).filter(line => line.trim());
+    const result = ['mindmap'];
+    let hasRoot = false;
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed) continue;
-      if (trimmed.toLowerCase() === 'mindmap') {
-        result.push('mindmap');
+      if (!trimmed || /^```/.test(trimmed) || /^mindmap\s*$/i.test(trimmed)) continue;
+      const leadingSpaces = Math.max(0, (line.match(/^\s*/) || [''])[0].length);
+      let level = Math.max(1, Math.round(leadingSpaces / 2));
+      const text = window.cleanMindmapLabel(trimmed);
+      if (/^root\s*[\(\[]/i.test(trimmed) || !hasRoot) {
+        result.push('  root(("' + window.cleanMindmapLabel(text || topic || 'Gondolattérkép') + '"))');
+        hasRoot = true;
         continue;
       }
-      const leadingSpaces = line.search(/\S/);
-      const level = Math.max(1, Math.round(leadingSpaces / 2));
-      let text = trimmed.replace(/[{}|<>]/g, '').replace(/\[/g, '(').replace(/\]/g, ')');
-      
-      // Idézőjelekbe tesszük az ékezetes/nem-ASCII szöveget, hogy a mermaid
-      // helyesen rendelje (különben elnyeli az ékezeteket)
-      const hasNonAscii = /[^\x00-\x7F]/.test(text);
-      if (hasNonAscii) {
-        const rootDouble = text.match(/^root\(\(\s*"?([^")]+?)"?\s*\)\)$/i);
-        const rootSingle = text.match(/^root\(\s*"?([^")]+?)"?\s*\)$/i);
-        if (rootDouble) {
-          text = 'root(("' + rootDouble[1].replace(/"/g, '') + '"))';
-        } else if (rootSingle) {
-          text = 'root("' + rootSingle[1].replace(/"/g, '') + '")';
-        } else if (!text.startsWith('"')) {
-          text = '"' + text.replace(/"/g, '') + '"';
-        }
-      }
-      
+      if (level < 2) level = 2;
       result.push('  '.repeat(level) + text);
     }
+    if (!hasRoot) result.splice(1, 0, '  root(("' + window.cleanMindmapLabel(topic || 'Gondolattérkép') + '"))');
     return result.join('\n');
-  }
+  };
 
   window.renderMindMapFallback = function(code) {
     const lines = code.split('\n').filter(l => l.trim());
@@ -2420,12 +2431,12 @@
                   '<div class="min-w-0 flex-1">' +
                     '<p class="text-sm font-medium text-gray-900 truncate">' + safeTitle + subject + processedBadge + '</p>' +
                     '<div class="mt-2 flex flex-wrap gap-2">' +
-                      '<button onclick="window.downloadNote(' + idArg + ', this)" data-testid="download-note-' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-indigo-100 text-[#6C5CE7] hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</button>' +
-                      '<button onclick="window.openNoteInChat(' + idArg + ')" class="text-xs px-2.5 py-1 bg-white border border-indigo-100 text-[#6C5CE7] hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-comments mr-1"></i>' + (lang === 'hu' ? 'Chatbe' : 'To chat') + '</button>' +
-                      '<button onclick="window.deleteMyNote(' + idArg + ', this)" data-testid="delete-note-' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-red-100 text-red-600 hover:bg-red-50 rounded-lg transition"><i class="fa-solid fa-trash mr-1"></i>' + (lang === 'hu' ? 'Törlés' : 'Delete') + '</button>' +
+                      '<button type="button" data-note-action="download" data-note-id="' + escapeHtml(noteId) + '" data-testid="download-note-' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-indigo-100 text-[#6C5CE7] hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</button>' +
+                      '<button type="button" data-note-action="chat" data-note-id="' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-indigo-100 text-[#6C5CE7] hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-comments mr-1"></i>' + (lang === 'hu' ? 'Chatbe' : 'To chat') + '</button>' +
+                      '<button type="button" data-note-action="delete" data-note-id="' + escapeHtml(noteId) + '" data-testid="delete-note-' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-red-100 text-red-600 hover:bg-red-50 rounded-lg transition"><i class="fa-solid fa-trash mr-1"></i>' + (lang === 'hu' ? 'Törlés' : 'Delete') + '</button>' +
                     '</div>' +
                   '</div>' +
-                  '<button onclick="window.summarizeNote(' + idArg + ', this)" data-testid="summarize-note-' + escapeHtml(noteId) + '" class="text-xs px-3 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize') + '</button>' +
+                  '<button type="button" data-note-action="summary" data-note-id="' + escapeHtml(noteId) + '" data-testid="summarize-note-' + escapeHtml(noteId) + '" class="text-xs px-3 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize') + '</button>' +
                 '</div>' +
                 '<div id="my-note-summary-' + escapeHtml(noteId) + '" class="hidden mt-3 p-3 bg-white rounded-xl border border-indigo-100 text-sm text-gray-700 prose prose-sm max-w-none"></div>' +
                 '</div>';
@@ -2441,6 +2452,25 @@
     const id = String(noteId || '');
     return (window.myNotesCache || []).find(n => String(n.id) === id) || null;
   };
+
+  if (!window.__myNotesDelegatedClickInstalled) {
+    window.__myNotesDelegatedClickInstalled = true;
+    document.addEventListener('click', function(event) {
+      const btn = event.target.closest('[data-note-action][data-note-id]');
+      if (!btn) return;
+      const list = document.getElementById('myNotesList');
+      if (list && !list.contains(btn)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const noteId = btn.getAttribute('data-note-id');
+      const action = btn.getAttribute('data-note-action');
+      if (!noteId) return;
+      if (action === 'download') return window.downloadNote(noteId, btn);
+      if (action === 'summary') return window.summarizeNote(noteId, btn);
+      if (action === 'chat') return window.openNoteInChat(noteId);
+      if (action === 'delete') return window.deleteMyNote(noteId, btn);
+    });
+  }
 
   /* UUID-biztos letöltés — külön végponttal, hogy ne ütközzön a régi download-note.js függvénnyel */
   window.downloadNote = async function(noteId, btn) {
@@ -2842,8 +2872,8 @@
           parent.replaceWith(wrapper);
           try {
             const id = 'mm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-            const sanitized = sanitizeMermaidCode(raw);
             wrapper.dataset.topic = window.extractMindMapTopic(raw);
+            const sanitized = sanitizeMermaidCode(raw, wrapper.dataset.topic || 'Gondolattérkép');
             const { svg } = await mermaid.render(id, sanitized);
             mermaidDiv.innerHTML = svg;
             const toolbar = document.createElement('div');
@@ -2852,7 +2882,7 @@
             wrapper.appendChild(toolbar);
           } catch (e) {
             wrapper.dataset.topic = window.extractMindMapTopic(raw);
-            mermaidDiv.innerHTML = renderMindMapFallback(raw);
+            mermaidDiv.innerHTML = renderMindMapFallback(sanitizeMermaidCode(raw, wrapper.dataset.topic || 'Gondolattérkép'));
             const toolbar = document.createElement('div');
             toolbar.className = 'flex gap-2 mt-2 justify-end';
             toolbar.innerHTML = '<button onclick="window.openMindMapPage(this.closest(\'div\')?.parentElement?.dataset?.topic || \'Gondolattérkép\')" class="text-xs px-3 py-1.5 bg-indigo-100 text-[#6C5CE7] rounded-lg hover:bg-indigo-200 transition font-medium"><i class="fa-solid fa-up-right-from-square mr-1"></i>Aloldal</button><button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
