@@ -35,9 +35,8 @@ async function loadUserNotesContext(user, inlineNotes = "") {
   try {
     const { data, error } = await supabase
       .from("jegyzetek")
-      .select("id, cim, original_name, tantargy, text_content, created_at")
+      .select("id, cim, original_name, tantargy, text_content, processed, created_at")
       .eq("user_id", user.id)
-      .not("text_content", "is", null)
       .order("created_at", { ascending: false })
       .limit(5);
 
@@ -46,9 +45,12 @@ async function loadUserNotesContext(user, inlineNotes = "") {
     } else if (Array.isArray(data)) {
       for (const note of data) {
         const text = cleanText(note.text_content, 18000);
-        if (!text) continue;
         const title = note.cim || note.original_name || `Jegyzet #${note.id}`;
-        parts.push(`=== Mentett jegyzet: ${title}${note.tantargy ? " — " + note.tantargy : ""} ===\n${text}`);
+        if (text) {
+          parts.push(`=== Mentett jegyzet: ${title}${note.tantargy ? " — " + note.tantargy : ""} ===\n${text}`);
+        } else if (!note.processed) {
+          parts.push(`=== Mentett jegyzet még feldolgozás alatt: ${title}${note.tantargy ? " — " + note.tantargy : ""} ===\nA fájl fel van töltve, de a szövegkinyerés még nem fejeződött be. Ha a felhasználó erről kérdez, jelezd röviden, hogy a jegyzet újraindexelése vagy újbóli feltöltése szükséges lehet.`);
+        }
       }
     }
   } catch (error) {
