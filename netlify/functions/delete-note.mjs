@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
+import { candidateBuckets, candidatePaths } from "./storage-helper.mjs";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -16,17 +17,6 @@ function getSupabaseAdmin() {
   const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
   if (!url || !key) throw new Error("Supabase környezeti változó hiányzik.");
   return createClient(url, key);
-}
-
-function normalizeStoragePath(filePath = "") {
-  let storagePath = String(filePath || "").trim();
-  if (!storagePath) return "";
-  const marker = "/jegyzetek/";
-  if (storagePath.includes(marker)) storagePath = storagePath.split(marker).pop();
-  const storageObjectMarker = "/storage/v1/object/public/jegyzetek/";
-  if (storagePath.includes(storageObjectMarker)) storagePath = storagePath.split(storageObjectMarker).pop();
-  if (/^https?:\/\//i.test(storagePath)) return "";
-  return decodeURIComponent(storagePath);
 }
 
 export default async function handler(req) {
@@ -49,7 +39,7 @@ export default async function handler(req) {
     const supabase = getSupabaseAdmin();
     const { data: note, error: noteErr } = await supabase
       .from("jegyzetek")
-      .select("id, file_path, user_id")
+      .select("id, file_path, public_url, user_id")
       .eq("id", noteId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -57,11 +47,17 @@ export default async function handler(req) {
     if (noteErr) return json({ error: noteErr.message }, 500);
     if (!note) return json({ error: "A jegyzet nem található." }, 404);
 
-    const storagePath = normalizeStoragePath(note.file_path);
     let storageWarning = null;
-    if (storagePath) {
-      const { error: storageError } = await supabase.storage.from("jegyzetek").remove([storagePath]);
-      if (storageError) storageWarning = storageError.message;
+    const paths = candidatePaths(note.file_path, note.public_url);
+    if (paths.length) {
+      for (const bucket of candidateBuckets(note.file_path, note.public_url)) {
+        const { error: storageError } = await supabase.storage.from(bucket).remove(paths);
+        if (!storageError) {
+          storageWarning = null;
+          break;
+        }
+        storageWarning = storageError.message;
+      }
     }
 
     const { error: deleteError } = await supabase
