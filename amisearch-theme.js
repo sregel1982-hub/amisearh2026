@@ -70,9 +70,10 @@
     const picker = document.createElement('section');
     picker.id = 'amisearch-picker';
     picker.setAttribute('aria-label', 'AMISEARCH színválasztó');
+    picker.setAttribute('role', 'group');
     picker.style.cssText = [
       'position:fixed',
-      'left:16px',
+      'right:16px',
       'bottom:16px',
       'z-index:10000',
       'display:flex',
@@ -84,6 +85,11 @@
       'border-radius:999px',
       'box-shadow:0 8px 24px rgba(45,52,54,.18)'
     ].join(';');
+
+    const label = document.createElement('span');
+    label.textContent = 'Szín';
+    label.style.cssText = 'font:600 13px system-ui,-apple-system,Segoe UI,sans-serif;color:#1f2937;margin-right:2px';
+    picker.appendChild(label);
 
     Object.entries(themes).forEach(([name, theme]) => {
       const button = document.createElement('button');
