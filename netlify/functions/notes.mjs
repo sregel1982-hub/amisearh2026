@@ -12,36 +12,40 @@ function json(data, status = 200) {
 }
 
 function getSupabaseAdmin() {
-  const url = getEnv("SUPABASE_URL");
-  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
-  if (!url || !key) throw new Error("Supabase környezeti változó hiányzik.");
-  return createClient(url, key);
+  const supabaseUrl = getEnv("SUPABASE_URL");
+  const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase configuration missing");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false }
+  });
 }
 
 function mapNote(row) {
   return {
     id: row.id,
-    title: row.cim || row.title || row.original_name || "Névtelen jegyzet",
-    cim: row.cim || row.title || row.original_name || "Névtelen jegyzet",
-    subject: row.tantargy || row.subject || "",
-    originalName: row.original_name || row.originalName || row.file_path || "jegyzet",
+    title: row.title || row.cim || row.original_name || row.originalName || "Névtelen jegyzet",
+    subject: row.subject || row.tantargy || "",
+    language: row.language || row.lang || "hu",
     fileName: row.file_path || row.fileName || row.file_name || "",
     filePath: row.file_path || row.fileName || row.file_name || "",
+    originalName: row.original_name || row.originalName || row.title || "jegyzet",
     publicUrl: row.public_url || row.publicUrl || "",
     fileSize: row.file_size || row.fileSize || 0,
-    language: row.nyelv || row.language || "hu",
-    fileHash: row.file_hash || row.fileHash || "",
-    textContent: row.text_content || row.textContent || "",
-    uploaderIdentityId: row.user_id || row.uploaderIdentityId || "",
-    createdAt: row.created_at || row.createdAt || null,
-    processed: !!row.processed
+    textContent: row.text_content || row.textContent || row.content || "",
+    createdAt: row.created_at || row.createdAt || null
   };
 }
 
 export default async function handler(req) {
   try {
     const user = await getSupabaseUser(req);
-    if (!user) return json({ error: "Unauthorized", code: "unauthorized" }, 401);
+    if (!user) {
+      return json({ error: "Unauthorized" }, 401);
+    }
 
     const supabase = getSupabaseAdmin();
 
@@ -52,41 +56,61 @@ export default async function handler(req) {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) return json({ error: error.message }, 500);
+      if (error) {
+        return json({ error: error.message }, 500);
+      }
+
       return json((data || []).map(mapNote));
     }
 
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
-      const filePath = body.fileName || body.filePath || body.file_name;
-      const originalName = body.originalName || body.original_name || filePath || "jegyzet";
-      const fileHash = body.fileHash || body.file_hash || null;
 
-      if (!filePath) return json({ error: "Missing fileName" }, 400);
+      const filePath = body.fileName || body.filePath || body.file_path || "";
+      const originalName = body.originalName || body.original_name || filePath.split("/").pop() || "jegyzet";
+      const title = body.title || body.cim || originalName.replace(/\.[^.]+$/, "");
+      const subject = body.subject || body.tantargy || "";
+      const language = body.language || body.lang || "hu";
+      const publicUrl = body.publicUrl || body.public_url || "";
+      const fileSize = Number(body.fileSize || body.file_size || 0) || 0;
 
-      if (fileHash) {
-        const { data: duplicate } = await supabase
-          .from("jegyzetek")
-          .select("id, cim, original_name")
-          .eq("user_id", user.id)
-          .eq("file_hash", fileHash)
-          .maybeSingle();
-        if (duplicate) {
-          return json({ message: "Ezt a fájlt már feltöltötted egyszer.", note: mapNote(duplicate) }, 409);
-        }
+      if (!filePath) {
+        return json({ error: "Missing fileName/filePath" }, 400);
+      }
+
+      /*
+        Fontos: szándékosan NEM használunk file_hash mezőt.
+        A production adatbázisban a hiba alapján nincs ilyen oszlop a jegyzetek táblában.
+        Duplikációt ezért csak ugyanazon user + ugyanazon storage path alapján ellenőrzünk.
+      */
+      const { data: existing, error: existingError } = await supabase
+        .from("jegyzetek")
+        .select("id,title")
+        .eq("user_id", user.id)
+        .eq("file_path", filePath)
+        .maybeSingle();
+
+      if (existingError && existingError.code !== "PGRST116") {
+        return json({ error: existingError.message }, 500);
+      }
+
+      if (existing) {
+        return json({
+          error: "duplicate",
+          message: "Ez a fájl már szerepel a jegyzeteid között.",
+          id: existing.id
+        }, 409);
       }
 
       const insertRow = {
         user_id: user.id,
+        title,
+        subject,
+        language,
         file_path: filePath,
         original_name: originalName,
-        public_url: body.publicUrl || body.public_url || null,
-        file_size: body.fileSize || body.file_size || null,
-        file_hash: fileHash,
-        cim: body.title || body.cim || originalName,
-        tantargy: body.subject || body.tantargy || "",
-        nyelv: body.language || body.nyelv || "hu",
-        processed: false
+        public_url: publicUrl,
+        file_size: fileSize
       };
 
       const { data, error } = await supabase
@@ -95,13 +119,17 @@ export default async function handler(req) {
         .select("*")
         .single();
 
-      if (error) return json({ error: error.message }, 500);
+      if (error) {
+        return json({ error: error.message }, 500);
+      }
+
       return json(mapNote(data), 201);
     }
 
     return json({ error: "Method not allowed" }, 405);
-  } catch (error) {
-    console.error("notes.mjs error:", error);
-    return json({ error: error.message || "Internal server error" }, 500);
+  } catch (err) {
+    return json({ error: err?.message || String(err) }, 500);
   }
 }
+
+export const config = {};
