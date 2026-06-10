@@ -1,5 +1,5 @@
-import { getSupabaseUser } from "./auth-helper.mjs";
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser } from "./auth-helper.mjs";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -11,7 +11,7 @@ export default async function handler(req) {
   if (!user) return jerr("Bejelentkezés szükséges.", 401);
 
   const url = new URL(req.url);
-  const noteId = Number(url.searchParams.get("id"));
+  const noteId = String(url.searchParams.get("id") || "").trim();
   if (!noteId) return jerr("id kötelező", 400);
 
   const supabaseUrl = getEnv("SUPABASE_URL");
@@ -24,7 +24,8 @@ export default async function handler(req) {
     .from("jegyzetek")
     .select("id, file_path, public_url, original_name, user_id")
     .eq("id", noteId)
-    .single();
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   if (noteErr || !note) return jerr("Note not found", 404);
 
