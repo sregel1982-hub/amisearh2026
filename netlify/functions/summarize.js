@@ -1,6 +1,6 @@
-import { getSupabaseUser } from "./auth-helper.js";
 import { GoogleGenAI } from "@google/genai";
-import { jsonError } from "./ai-response.js";
+import { extractText, jsonError } from "./ai-response.js";
+import { getSupabaseUser } from "./auth-helper.mjs";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -75,7 +75,7 @@ ${content.substring(0, 15000)}
 
     return new Response(
       JSON.stringify({
-        summary: result.text,
+        summary: extractText(result),
         title: title,
       }),
       {
