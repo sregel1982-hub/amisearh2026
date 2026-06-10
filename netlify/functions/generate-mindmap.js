@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { aiUnavailableResponse, isAiConfigured, jsonError } from "./ai-response.js";
+import { aiUnavailableResponse, extractText, isAiConfigured, jsonError } from "./ai-response.js";
 
 const getEnv = (key) => 
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -33,7 +33,7 @@ Minden szöveget tegyél dupla idézőjelbe.`;
       }
     });
 
-    let text = result.text ? result.text() : "";
+    let text = extractText(result);
 
     text = text.trim()
       .replace(/^```mermaid\n?/i, "")
