@@ -962,7 +962,7 @@
             <span data-hu="Frissítés" data-en="Refresh">Frissítés</span>
           </button>
         </div>
-        <p class="text-sm text-gray-500 mb-4" data-hu="Egy kattintással AI összefoglaló bármelyik jegyzetből." data-en="One-click AI summary from any note.">Egy kattintással AI összefoglaló bármelyik jegyzetből.</p>
+        <p class="text-sm text-gray-500 mb-4" data-hu="Letöltés, AI összefoglaló, chatbe küldés és törlés egy helyen." data-en="Download, AI summary, send to chat and delete in one place.">Letöltés, AI összefoglaló, chatbe küldés és törlés egy helyen.</p>
         <div id="myNotesList" class="space-y-2"></div>
       </div>
 
@@ -2380,6 +2380,12 @@
   /* ──────────────────────────────────────────────────────────────
      SAJÁT JEGYZETEK panel — listáz + 1-kattintásos összefoglaló
      ────────────────────────────────────────────────────────────── */
+  window.myNotesCache = [];
+
+  window.noteIdArg = function(value) {
+    return JSON.stringify(String(value || ''));
+  };
+
   window.loadMyNotes = async function() {
     const container = document.getElementById('myNotesList');
     if (!container) return;
@@ -2391,51 +2397,64 @@
         headers: await window.getAuthHeaders({})
       });
       if (!resp.ok) {
-        container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba a lekéréskor.' : 'Failed to load.') + '</div>';
+        const msg = await resp.text().catch(() => '');
+        container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba a lekéréskor.' : 'Failed to load.') + ' ' + escapeHtml(msg.slice(0, 160)) + '</div>';
         return;
       }
       const all = await resp.json();
-      const mine = Array.isArray(all)
-        ? all.filter(n => n.uploaderIdentityId === window.currentUser?.id)
-        : [];
+      const mine = Array.isArray(all) ? all : [];
+      window.myNotesCache = mine;
       if (!mine.length) {
         container.innerHTML = '<div class="text-sm text-gray-500 italic">' + (lang === 'hu' ? 'Még nincs feltöltött jegyzeted.' : 'No notes yet.') + '</div>';
         return;
       }
       let html = '<div class="space-y-2">';
-      for (const n of mine.slice(0, 15)) {
-        const safeTitle = escapeHtml(n.title || n.originalName || ('Note #' + n.id));
+      for (const n of mine.slice(0, 50)) {
+        const noteId = String(n.id || '');
+        const idArg = window.noteIdArg(noteId);
+        const safeTitle = escapeHtml(n.title || n.cim || n.originalName || ('Note #' + noteId));
         const subject = n.subject ? '<span class="text-xs text-gray-500 ml-2">' + escapeHtml(n.subject) + '</span>' : '';
-        html += '<div class="flex items-center justify-between gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition">' +
-                '<div class="min-w-0 flex-1"><p class="text-sm font-medium text-gray-900 truncate">' + safeTitle + subject + '</p>' +
-                '<button onclick="window.downloadNote(' + n.id + ')" data-testid="download-note-' + n.id + '" class="text-xs text-[#6C5CE7] hover:underline mt-1"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</button>' +
+        const processedBadge = n.textContent ? '<span class="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 ml-2">AI kész</span>' : '<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 ml-2">Feldolgozható</span>';
+        html += '<div id="my-note-row-' + escapeHtml(noteId) + '" class="p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition border border-gray-100">' +
+                '<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">' +
+                  '<div class="min-w-0 flex-1">' +
+                    '<p class="text-sm font-medium text-gray-900 truncate">' + safeTitle + subject + processedBadge + '</p>' +
+                    '<div class="mt-2 flex flex-wrap gap-2">' +
+                      '<button onclick="window.downloadNote(' + idArg + ', this)" data-testid="download-note-' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-indigo-100 text-[#6C5CE7] hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-download mr-1"></i>' + (lang === 'hu' ? 'Letöltés' : 'Download') + '</button>' +
+                      '<button onclick="window.openNoteInChat(' + idArg + ')" class="text-xs px-2.5 py-1 bg-white border border-indigo-100 text-[#6C5CE7] hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-comments mr-1"></i>' + (lang === 'hu' ? 'Chatbe' : 'To chat') + '</button>' +
+                      '<button onclick="window.deleteMyNote(' + idArg + ', this)" data-testid="delete-note-' + escapeHtml(noteId) + '" class="text-xs px-2.5 py-1 bg-white border border-red-100 text-red-600 hover:bg-red-50 rounded-lg transition"><i class="fa-solid fa-trash mr-1"></i>' + (lang === 'hu' ? 'Törlés' : 'Delete') + '</button>' +
+                    '</div>' +
+                  '</div>' +
+                  '<button onclick="window.summarizeNote(' + idArg + ', this)" data-testid="summarize-note-' + escapeHtml(noteId) + '" class="text-xs px-3 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize') + '</button>' +
                 '</div>' +
-                '<button onclick="window.summarizeNote(' + n.id + ', this)" data-testid="summarize-note-' + n.id + '" class="text-xs px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white font-medium rounded-lg transition whitespace-nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize') + '</button>' +
+                '<div id="my-note-summary-' + escapeHtml(noteId) + '" class="hidden mt-3 p-3 bg-white rounded-xl border border-indigo-100 text-sm text-gray-700 prose prose-sm max-w-none"></div>' +
                 '</div>';
       }
       html += '</div>';
       container.innerHTML = html;
     } catch (e) {
-      container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba történt.' : 'An error occurred.') + '</div>';
+      container.innerHTML = '<div class="text-sm text-red-500">' + (lang === 'hu' ? 'Hiba történt: ' : 'An error occurred: ') + escapeHtml(e?.message || String(e)) + '</div>';
     }
   };
 
-  /* Signed URL alapú letöltés — privát bucket-hez is működik */
-  window.downloadNote = async function(noteId) {
+  window.findCachedNote = function(noteId) {
+    const id = String(noteId || '');
+    return (window.myNotesCache || []).find(n => String(n.id) === id) || null;
+  };
+
+  /* UUID-biztos letöltés — külön végponttal, hogy ne ütközzön a régi download-note.js függvénnyel */
+  window.downloadNote = async function(noteId, btn) {
     const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>' + (lang === 'hu' ? 'Nyitás...' : 'Opening...'); }
     try {
-      const resp = await fetch('/.netlify/functions/download-note?id=' + noteId, {
+      const resp = await fetch('/.netlify/functions/download-my-note?id=' + encodeURIComponent(String(noteId)), {
         method: 'GET',
         headers: await window.getAuthHeaders({})
       });
-      if (!resp.ok) {
-        const t = await resp.text();
-        alert((lang === 'hu' ? 'Letöltési hiba: ' : 'Download error: ') + t.slice(0, 200));
-        return;
-      }
-      const data = await resp.json();
-      if (!data.url) {
-        alert(lang === 'hu' ? 'Hiányzó letöltési URL.' : 'Missing download URL.');
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.url) {
+        alert((lang === 'hu' ? 'Letöltési hiba: ' : 'Download error: ') + escapeHtml(data.error || data.message || resp.statusText || 'Unknown error'));
         return;
       }
       const a = document.createElement('a');
@@ -2448,59 +2467,122 @@
       setTimeout(() => document.body.removeChild(a), 1000);
     } catch (e) {
       alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); btn.innerHTML = oldHtml; }
     }
   };
 
   window.summarizeNote = async function(noteId, btn) {
     const lang = window.currentLang === 'hu' ? 'hu' : 'en';
-    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>...'; }
+    const summaryBox = document.getElementById('my-note-summary-' + String(noteId));
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>' + (lang === 'hu' ? 'Készül...' : 'Working...'); }
+    if (summaryBox) {
+      summaryBox.classList.remove('hidden');
+      summaryBox.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'AI összefoglaló készül...' : 'AI summary is being generated...') + '</span></div>';
+    }
     try {
-      const noteResp = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders({}) });
-      const all = await noteResp.json();
-      let note = (Array.isArray(all) ? all : []).find(n => n.id === noteId);
-      if (!note) {
-        alert(lang === 'hu' ? 'A jegyzet nem található.' : 'Note not found.');
-        return;
+      let resp = await fetch('/.netlify/functions/summarize', {
+        method: 'POST',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ noteId: String(noteId), lang })
+      });
+      let data = await resp.json().catch(() => ({}));
+
+      /* Ha még nincs kinyert szöveg, előbb indexeljük, majd újra próbáljuk az összefoglalót. */
+      if (!resp.ok && (data.code === 'empty_content' || /nincs kinyert szövege|feldolgozás/i.test(data.error || ''))) {
+        const note = window.findCachedNote(noteId);
+        if (summaryBox) summaryBox.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Jegyzet feldolgozása...' : 'Processing note...') + '</span></div>';
+        const indexResp = await fetch('/.netlify/functions/index-document', {
+          method: 'POST',
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ noteId: String(noteId), filePath: note?.filePath || note?.fileName || '' })
+        });
+        if (!indexResp.ok) {
+          const indexData = await indexResp.json().catch(() => ({}));
+          throw new Error(indexData.error || (lang === 'hu' ? 'Nem sikerült feldolgozni a jegyzetet.' : 'Could not process note.'));
+        }
+        resp = await fetch('/.netlify/functions/summarize', {
+          method: 'POST',
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ noteId: String(noteId), lang })
+        });
+        data = await resp.json().catch(() => ({}));
       }
-      /* Ha nincs textContent, próbáljunk most indexelni */
-      if (!note.textContent) {
-        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>' + (lang === 'hu' ? 'Indexelés...' : 'Indexing...');
-        try {
-          await fetch('/.netlify/functions/index-document', {
-            method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ noteId: note.id, fileName: note.fileName })
-          });
-          /* Frissítjük a note-ot */
-          const r2 = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders({}) });
-          const all2 = await r2.json();
-          note = (Array.isArray(all2) ? all2 : []).find(n => n.id === noteId);
-        } catch (e) { console.warn('Reindex error:', e); }
-      }
-      if (!note || !note.textContent) {
-        alert(lang === 'hu' ? 'Nem sikerült szöveget kinyerni a jegyzetből. (Lehet PPTX/kép — még nem támogatott.)' : 'Could not extract text. (Maybe PPTX/image — not yet supported.)');
-        return;
-      }
-      const chatInput = document.getElementById('chatInput');
-      if (chatInput) {
-        chatInput.value = (lang === 'hu'
-          ? 'Készíts részletes összefoglalót az alábbi jegyzetből (' + (note.title || note.originalName) + '). Strukturált felsorolással, kulcsfogalmakkal és példákkal. Szöveg:\n\n'
-          : 'Create a detailed summary of the following note (' + (note.title || note.originalName) + '). Structured with bullet points, key concepts and examples. Text:\n\n')
-          + note.textContent.slice(0, 8000);
-        const chatModal = document.getElementById('aiChatModal') || document.getElementById('aiTutorModal');
-        if (chatModal) window.openModal(chatModal.id);
-        await window.sendMessage();
-      } else {
-        alert(lang === 'hu' ? 'Chat ablak nem található.' : 'Chat panel not found.');
+
+      if (!resp.ok) throw new Error(data.error || data.message || resp.statusText || 'Summary failed');
+      const summary = data.summary || '';
+      if (summaryBox) {
+        const rendered = (typeof marked !== 'undefined') ? marked.parse(summary) : escapeHtml(summary).replace(/\n/g, '<br>');
+        summaryBox.innerHTML = '<div class="flex items-center justify-between gap-2 mb-2"><strong class="text-gray-900">' + escapeHtml(data.title || (lang === 'hu' ? 'Összefoglaló' : 'Summary')) + '</strong><button onclick="window.copySummaryToChat(' + window.noteIdArg(noteId) + ')" class="text-xs px-2 py-1 bg-indigo-50 text-[#6C5CE7] rounded-lg hover:bg-indigo-100"><i class="fa-solid fa-comments mr-1"></i>' + (lang === 'hu' ? 'Chatbe' : 'To chat') + '</button></div>' + rendered;
+        summaryBox.dataset.summary = summary;
       }
     } catch (e) {
-      alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
+      if (summaryBox) summaryBox.innerHTML = '<div class="text-red-600">' + (lang === 'hu' ? 'Hiba: ' : 'Error: ') + escapeHtml(e?.message || String(e)) + '</div>';
+      else alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove('opacity-60');
-        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>' + (lang === 'hu' ? 'Összefoglaló' : 'Summarize');
-      }
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); btn.innerHTML = oldHtml; }
+    }
+  };
+
+  window.copySummaryToChat = function(noteId) {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const note = window.findCachedNote(noteId);
+    const summaryBox = document.getElementById('my-note-summary-' + String(noteId));
+    const summary = summaryBox?.dataset?.summary || summaryBox?.innerText || '';
+    const chatInput = document.getElementById('chatInput');
+    if (!chatInput) {
+      alert(lang === 'hu' ? 'Chat ablak nem található.' : 'Chat panel not found.');
+      return;
+    }
+    chatInput.value = (lang === 'hu'
+      ? 'Dolgozzunk ezzel a jegyzet-összefoglalóval: '
+      : 'Let us work with this note summary: ')
+      + (note?.title || note?.originalName || '') + '\n\n' + summary;
+    const chatModal = document.getElementById('aiTutorModal');
+    if (chatModal && typeof window.openModal === 'function') window.openModal(chatModal.id);
+    chatInput.focus();
+  };
+
+  window.openNoteInChat = function(noteId) {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const note = window.findCachedNote(noteId);
+    const chatInput = document.getElementById('chatInput');
+    if (!chatInput) {
+      alert(lang === 'hu' ? 'Chat ablak nem található.' : 'Chat panel not found.');
+      return;
+    }
+    chatInput.value = (lang === 'hu'
+      ? 'Kérlek, segíts tanulni ebből a saját jegyzetemből: '
+      : 'Please help me study from my own note: ')
+      + (note?.title || note?.originalName || String(noteId)) + '\n\n'
+      + (lang === 'hu' ? 'Először készíts rövid vázlatot, utána kérdezz vissza gyakorló kérdésekkel.' : 'First create a short outline, then ask me practice questions.');
+    const chatModal = document.getElementById('aiTutorModal');
+    if (chatModal && typeof window.openModal === 'function') window.openModal(chatModal.id);
+    chatInput.focus();
+  };
+
+  window.deleteMyNote = async function(noteId, btn) {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const note = window.findCachedNote(noteId);
+    const title = note?.title || note?.originalName || String(noteId);
+    const ok = confirm(lang === 'hu'
+      ? 'Biztosan törlöd ezt a jegyzetet?\n\n' + title
+      : 'Are you sure you want to delete this note?\n\n' + title);
+    if (!ok) return;
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>' + (lang === 'hu' ? 'Törlés...' : 'Deleting...'); }
+    try {
+      const resp = await fetch('/.netlify/functions/delete-note?id=' + encodeURIComponent(String(noteId)), {
+        method: 'DELETE',
+        headers: await window.getAuthHeaders({})
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || data.message || resp.statusText || 'Delete failed');
+      await window.loadMyNotes();
+    } catch (e) {
+      alert((lang === 'hu' ? 'Törlési hiba: ' : 'Delete error: ') + (e?.message || e));
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); btn.innerHTML = oldHtml; }
     }
   };
 
