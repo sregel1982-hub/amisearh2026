@@ -44,21 +44,37 @@ function normalizeFileSize(value) {
 
 function extractMissingColumn(message = "") {
   const text = String(message || "");
-  const match = text.match(/column\s+(?:[\w]+\.)?([\w]+)\s+does not exist/i);
-  return match ? match[1] : "";
+
+  // Példák:
+  // column jegyzetek.tantargy does not exist
+  // Could not find the 'nyelv' column of 'jegyzetek' in the schema cache
+  const patterns = [
+    /column\s+(?:[\w]+\.)?([\w]+)\s+does\s+not\s+exist/i,
+    /Could\s+not\s+find\s+the\s+'([^']+)'\s+column/i,
+    /Could\s+not\s+find\s+the\s+"([^"]+)"\s+column/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+
+  return "";
 }
 
 function mapNote(row = {}) {
   const originalName = firstNonEmpty(row.original_name, row.originalName, row.file_path, row.fileName, "jegyzet");
   const title = firstNonEmpty(row.cim, row.title, originalName, "Névtelen jegyzet");
   const filePath = firstNonEmpty(row.file_path, row.filePath, row.fileName, row.file_name);
-  const subject = firstNonEmpty(row.subject, row.tantargy, row.targy);
+  const subject = firstNonEmpty(row.subject, row.tantargy, row.targy, "");
   const language = firstNonEmpty(row.nyelv, row.language, "hu");
   const fileSize = normalizeFileSize(row.file_size ?? row.fileSize) || 0;
   const textContent = firstNonEmpty(row.text_content, row.textContent);
   const publicUrl = firstNonEmpty(row.public_url, row.publicUrl);
   const userId = firstNonEmpty(row.user_id, row.uploaderIdentityId);
 
+  // Fontos: ezek csak a frontendnek visszaadott mezők.
+  // Nem jelenti azt, hogy ezek mind adatbázis-oszlopok is.
   return {
     id: row.id,
     title,
@@ -89,7 +105,7 @@ function mapNote(row = {}) {
 async function insertWithSchemaFallback(supabase, row) {
   const safeRow = { ...row };
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     const { data, error } = await supabase
       .from("jegyzetek")
       .insert(safeRow)
@@ -103,10 +119,7 @@ async function insertWithSchemaFallback(supabase, row) {
       return { data: null, error };
     }
 
-    console.warn(
-      "notes.mjs insert fallback: hiányzó oszlop kihagyva:",
-      missingColumn
-    );
+    console.warn("notes.mjs insert fallback: hiányzó oszlop kihagyva:", missingColumn);
     delete safeRow[missingColumn];
   }
 
@@ -184,6 +197,9 @@ export default async function handler(req) {
         );
       }
 
+      // Csak olyan mezőket küldünk az adatbázisnak, amelyek nagy valószínűséggel
+      // a production `jegyzetek` táblában is léteznek. A `tantargy` és `nyelv`
+      // szándékosan NINCS itt, mert nálad ezekre hibát adott a production séma.
       const insertRow = {
         user_id: user.id,
         file_path: filePath,
@@ -191,14 +207,12 @@ export default async function handler(req) {
         public_url: firstNonEmpty(body.publicUrl, body.public_url) || null,
         file_size: normalizeFileSize(body.fileSize ?? body.file_size),
         cim: firstNonEmpty(body.title, body.cim, originalName, "Névtelen jegyzet"),
-        nyelv: firstNonEmpty(body.language, body.nyelv, "hu"),
         processed: false
       };
 
-      if (typeof body.textContent === "string" && body.textContent.trim()) {
-        insertRow.text_content = body.textContent.trim();
-      } else if (typeof body.text_content === "string" && body.text_content.trim()) {
-        insertRow.text_content = body.text_content.trim();
+      const textContent = firstNonEmpty(body.textContent, body.text_content);
+      if (textContent) {
+        insertRow.text_content = textContent;
       }
 
       const { data, error } = await insertWithSchemaFallback(supabase, insertRow);
