@@ -157,3 +157,63 @@ export default async function handler(req) {
         filePath,
         "jegyzet"
       );
+
+      if (!filePath) {
+        return json({ error: "Hiányzik a filePath/fileName mező." }, 400);
+      }
+
+      const { data: duplicate, error: duplicateError } = await supabase
+        .from("jegyzetek")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("file_path", filePath)
+        .maybeSingle();
+
+      if (duplicateError) {
+        console.error("notes.mjs duplicate check error:", duplicateError);
+        return json({ error: duplicateError.message }, 500);
+      }
+
+      if (duplicate) {
+        return json(
+          {
+            message: "Ezt a fájlt már feltöltötted egyszer.",
+            note: mapNote(duplicate)
+          },
+          409
+        );
+      }
+
+      const insertRow = {
+        user_id: user.id,
+        file_path: filePath,
+        original_name: originalName,
+        public_url: firstNonEmpty(body.publicUrl, body.public_url) || null,
+        file_size: normalizeFileSize(body.fileSize ?? body.file_size),
+        cim: firstNonEmpty(body.title, body.cim, originalName, "Névtelen jegyzet"),
+        nyelv: firstNonEmpty(body.language, body.nyelv, "hu"),
+        processed: false
+      };
+
+      if (typeof body.textContent === "string" && body.textContent.trim()) {
+        insertRow.text_content = body.textContent.trim();
+      } else if (typeof body.text_content === "string" && body.text_content.trim()) {
+        insertRow.text_content = body.text_content.trim();
+      }
+
+      const { data, error } = await insertWithSchemaFallback(supabase, insertRow);
+
+      if (error) {
+        console.error("notes.mjs POST insert error:", error);
+        return json({ error: error.message }, 500);
+      }
+
+      return json(mapNote(data), 201);
+    }
+
+    return json({ error: "Method not allowed" }, 405);
+  } catch (error) {
+    console.error("notes.mjs error:", error);
+    return json({ error: error.message || "Internal server error" }, 500);
+  }
+}
