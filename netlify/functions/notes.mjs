@@ -180,4 +180,3 @@ export default async function handler(req) {
     return json({ error: error.message || "Internal server error" }, 500);
   }
 }
-Miért nem működik a weboldalam frontendje? - Manus
