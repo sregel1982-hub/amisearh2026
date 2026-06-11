@@ -252,8 +252,92 @@
 <script>
   mermaid.initialize({ startOnLoad: false, theme: 'default', suppressErrors: true, logLevel: 'error' });
 </script>
+
+  <style id="amisearch-exam-theme-style">
+    :root {
+      --am-primary: #6C5CE7;
+      --am-primary-dark: #5A4BD1;
+      --am-primary-soft: #F3F0FF;
+      --am-accent: #A29BFE;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--am-primary) 0%, var(--am-primary-dark) 100%) !important;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--am-primary) 45%, transparent) !important;
+    }
+
+    .am-theme-text,
+    [class*="text-[#6C5CE7]"] {
+      color: var(--am-primary) !important;
+    }
+
+    .am-theme-bg,
+    [class*="bg-[#6C5CE7]"] {
+      background-color: var(--am-primary) !important;
+    }
+
+    .am-theme-border,
+    [class*="border-[#6C5CE7]"] {
+      border-color: var(--am-primary) !important;
+    }
+
+    .am-theme-gradient,
+    .feature-icon-gradient {
+      background: linear-gradient(135deg, var(--am-primary) 0%, var(--am-accent) 100%) !important;
+    }
+
+    .exam-answer-box {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    .exam-timer-ring {
+      background: conic-gradient(var(--am-primary) var(--exam-progress, 0deg), #ede9fe 0deg);
+    }
+
+    .theme-swatch[data-active="true"] {
+      outline: 3px solid rgba(17, 24, 39, 0.18);
+      outline-offset: 3px;
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 640px) {
+      #examSimulatorPanel .exam-controls-grid {
+        grid-template-columns: 1fr !important;
+      }
+      #examSimulatorPanel .exam-action-row {
+        flex-direction: column;
+      }
+      #examSimulatorPanel .exam-action-row button {
+        width: 100%;
+      }
+    }
+  </style>
+
 </head>
 <body class="bg-gray-50 text-gray-900">
+
+<!-- AMISEARCH színválasztó / theme picker -->
+<div id="themePicker" class="fixed right-4 bottom-4 z-40">
+  <button type="button" onclick="window.toggleThemePicker()" class="w-12 h-12 rounded-2xl shadow-xl btn-primary text-white flex items-center justify-center" aria-label="Theme colors">
+    <i class="fa-solid fa-palette"></i>
+  </button>
+  <div id="themePickerPanel" class="hidden absolute right-0 bottom-16 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
+    <div class="font-bold text-gray-900 mb-1" data-hu="Oldalszín" data-en="Page color">Oldalszín</div>
+    <p class="text-xs text-gray-500 mb-4" data-hu="Válassz színt az ikonokhoz és fő gombokhoz." data-en="Choose a color for icons and main buttons.">Válassz színt az ikonokhoz és fő gombokhoz.</p>
+    <div class="grid grid-cols-5 gap-3" id="themeSwatches">
+      <button type="button" class="theme-swatch w-9 h-9 rounded-xl bg-[#6C5CE7]" style="background:#6C5CE7" onclick="window.setAmisearchTheme('purple')" data-theme="purple" aria-label="Purple"></button>
+      <button type="button" class="theme-swatch w-9 h-9 rounded-xl" style="background:#2563EB" onclick="window.setAmisearchTheme('blue')" data-theme="blue" aria-label="Blue"></button>
+      <button type="button" class="theme-swatch w-9 h-9 rounded-xl" style="background:#059669" onclick="window.setAmisearchTheme('green')" data-theme="green" aria-label="Green"></button>
+      <button type="button" class="theme-swatch w-9 h-9 rounded-xl" style="background:#EA580C" onclick="window.setAmisearchTheme('orange')" data-theme="orange" aria-label="Orange"></button>
+      <button type="button" class="theme-swatch w-9 h-9 rounded-xl" style="background:#E11D48" onclick="window.setAmisearchTheme('rose')" data-theme="rose" aria-label="Rose"></button>
+    </div>
+  </div>
+</div>
+
 
 <!-- Header -->
 <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
@@ -569,12 +653,16 @@
       </div>
       
       <!-- Feature 2 -->
-      <div class="p-8 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover-lift">
-        <div class="w-14 h-14 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center mb-6">
-          <i class="fa-solid fa-circle-question text-white text-2xl"></i>
+      <div onclick="window.openExamSimulator && window.openExamSimulator()" class="p-8 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover-lift cursor-pointer group" role="button" tabindex="0" onkeydown="if(event.key==='Enter'){window.openExamSimulator && window.openExamSimulator()}">
+        <div class="w-14 h-14 feature-icon-gradient bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center mb-6 group-hover:scale-105 transition">
+          <i class="fa-solid fa-hourglass-half text-white text-2xl"></i>
         </div>
-        <h3 class="text-xl font-bold mb-3" data-hu="Vizsga szimulátor" data-en="Exam Simulator">Vizsga szimulátor</h3>
-        <p class="text-gray-600" data-hu="Generálj gyakorló tesztet a saját anyagaidból. Feleletválasztós, igaz-hamis, kifejtős kérdések." data-en="Generate practice tests from your materials. Multiple choice, true-false, essay questions.">Generálj gyakorló tesztet a saját anyagaidból. Feleletválasztós, igaz-hamis, kifejtős kérdések.</p>
+        <h3 class="text-xl font-bold mb-3" data-hu="Vizsgaszimulátor" data-en="Exam Simulator">Vizsgaszimulátor</h3>
+        <p class="text-gray-600 mb-4" data-hu="Generálj időzített feladatsort 45 vagy 90 perces vizsgamóddal, majd kérj AI kiértékelést." data-en="Generate a timed exam set with 45 or 90 minute exam mode, then ask AI for evaluation.">Generálj időzített feladatsort 45 vagy 90 perces vizsgamóddal, majd kérj AI kiértékelést.</p>
+        <span class="inline-flex items-center text-sm font-bold text-[#6C5CE7] am-theme-text">
+          <span data-hu="Megnyitás" data-en="Open">Megnyitás</span>
+          <i class="fa-solid fa-arrow-right ml-2"></i>
+        </span>
       </div>
       
       <!-- Feature 3 -->
@@ -999,6 +1087,79 @@
           <p class="text-gray-400 italic text-center py-4" data-hu="Itt jelennek meg a generált feladatok…" data-en="Generated problems will appear here…">Itt jelennek meg a generált feladatok…</p>
         </div>
       </div>
+
+      <!-- Vizsgaszimulátor / Exam Simulator -->
+      <div class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-3xl shadow-sm border border-purple-100 p-6 md:p-8 mb-8" id="examSimulatorPanel">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2 flex items-center">
+              <i class="fa-solid fa-hourglass-half text-[#6C5CE7] am-theme-text mr-2"></i>
+              <span data-hu="Vizsgaszimulátor" data-en="Exam Simulator">Vizsgaszimulátor</span>
+            </h3>
+            <p class="text-sm text-gray-600" data-hu="Készíts időzített feladatsort könnyű, közepes vagy nehéz szinten, majd a végén kérj AI kiértékelést." data-en="Create a timed exam set at easy, medium or hard level, then ask AI for evaluation at the end.">Készíts időzített feladatsort könnyű, közepes vagy nehéz szinten, majd a végén kérj AI kiértékelést.</p>
+          </div>
+          <div class="flex items-center gap-3 bg-white rounded-2xl border border-purple-100 px-4 py-3 shadow-sm">
+            <div class="exam-timer-ring w-12 h-12 rounded-full p-1" id="examTimerRing" style="--exam-progress:0deg">
+              <div class="w-full h-full bg-white rounded-full flex items-center justify-center text-[#6C5CE7] am-theme-text">
+                <i class="fa-solid fa-hourglass"></i>
+              </div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-500" data-hu="Hátralévő idő" data-en="Time left">Hátralévő idő</div>
+              <div id="examTimerDisplay" class="text-2xl font-extrabold text-gray-900 tabular-nums">45:00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="exam-controls-grid grid lg:grid-cols-5 md:grid-cols-2 gap-3 mb-4">
+          <input type="text" id="examTopicInput" data-testid="exam-topic-input" placeholder="pl. Történelem 7. osztály" data-hu-placeholder="pl. Történelem 7. osztály" data-en-placeholder="e.g. History Grade 7" class="lg:col-span-2 px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/20 outline-none">
+          <select id="examDifficulty" data-testid="exam-difficulty" class="px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none">
+            <option value="könnyű" data-hu="Könnyű" data-en="Easy">Könnyű</option>
+            <option value="közepes" selected data-hu="Közepes" data-en="Medium">Közepes</option>
+            <option value="nehéz" data-hu="Nehéz" data-en="Hard">Nehéz</option>
+          </select>
+          <select id="examDuration" data-testid="exam-duration" class="px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none">
+            <option value="45" data-hu="45 perc" data-en="45 minutes">45 perc</option>
+            <option value="90" data-hu="90 perc" data-en="90 minutes">90 perc</option>
+          </select>
+          <input type="number" id="examCountInput" data-testid="exam-count-input" value="6" min="1" max="20" class="px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none" title="Feladatok száma">
+        </div>
+
+        <div class="exam-action-row flex flex-wrap gap-2 mb-4">
+          <button onclick="window.generateExamSimulator()" data-testid="exam-generate-btn" class="btn-primary text-white font-semibold rounded-lg px-4 py-2">
+            <i class="fa-solid fa-file-circle-plus mr-1"></i>
+            <span data-hu="Feladatsor generálása" data-en="Generate exam set">Feladatsor generálása</span>
+          </button>
+          <button onclick="window.startExamTimer()" data-testid="exam-start-btn" class="px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-semibold rounded-lg">
+            <i class="fa-solid fa-play mr-1"></i>
+            <span data-hu="Idő indítása" data-en="Start timer">Idő indítása</span>
+          </button>
+          <button onclick="window.pauseExamTimer()" data-testid="exam-pause-btn" class="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 font-semibold rounded-lg">
+            <i class="fa-solid fa-pause mr-1"></i>
+            <span data-hu="Szünet" data-en="Pause">Szünet</span>
+          </button>
+          <button onclick="window.resetExamTimer()" data-testid="exam-reset-btn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg">
+            <i class="fa-solid fa-rotate-left mr-1"></i>
+            <span data-hu="Újraindítás" data-en="Reset">Újraindítás</span>
+          </button>
+          <button onclick="window.evaluateExamSimulator()" data-testid="exam-evaluate-btn" class="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-[#6C5CE7] am-theme-text font-semibold rounded-lg">
+            <i class="fa-solid fa-clipboard-check mr-1"></i>
+            <span data-hu="Kiértékelés" data-en="Evaluate">Kiértékelés</span>
+          </button>
+        </div>
+
+        <div id="examOutput" class="bg-white rounded-2xl border border-gray-100 p-4 min-h-[120px] text-sm mb-4">
+          <p class="text-gray-400 italic text-center py-6" data-hu="Itt jelenik meg az időzített vizsgafeladatsor…" data-en="The timed exam set will appear here…">Itt jelenik meg az időzített vizsgafeladatsor…</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-800 mb-2" data-hu="Megoldásaid / tanári ellenőrzésre szánt válaszok" data-en="Your answers / responses for teacher-style evaluation">Megoldásaid / tanári ellenőrzésre szánt válaszok</label>
+          <textarea id="examAnswersInput" class="exam-answer-box w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7]/20 outline-none text-sm" data-hu-placeholder="Ide másold vagy írd be a megoldásaidat. A kiértékelés pontozást, hibajavítást és magyarázatot ad." data-en-placeholder="Paste or type your answers here. Evaluation gives scoring, corrections and explanations." placeholder="Ide másold vagy írd be a megoldásaidat. A kiértékelés pontozást, hibajavítást és magyarázatot ad."></textarea>
+        </div>
+
+        <div id="examEvaluationOutput" class="hidden mt-4 bg-white rounded-2xl border border-purple-100 p-4 text-sm"></div>
+      </div>
+
 
     </div>
   </section>
@@ -3036,6 +3197,240 @@
       window.handleSearch();
     });
   });
+
+
+  /* ──────────────────────────────────────────────────────────────
+     AMISEARCH téma + Vizsgaszimulátor
+     ────────────────────────────────────────────────────────────── */
+  window.amisearchThemes = {
+    purple: { primary: '#6C5CE7', dark: '#5A4BD1', accent: '#A29BFE', soft: '#F3F0FF' },
+    blue:   { primary: '#2563EB', dark: '#1D4ED8', accent: '#93C5FD', soft: '#EFF6FF' },
+    green:  { primary: '#059669', dark: '#047857', accent: '#6EE7B7', soft: '#ECFDF5' },
+    orange: { primary: '#EA580C', dark: '#C2410C', accent: '#FDBA74', soft: '#FFF7ED' },
+    rose:   { primary: '#E11D48', dark: '#BE123C', accent: '#FDA4AF', soft: '#FFF1F2' }
+  };
+
+  window.toggleThemePicker = function() {
+    const panel = document.getElementById('themePickerPanel');
+    if (panel) panel.classList.toggle('hidden');
+  };
+
+  window.setAmisearchTheme = function(name) {
+    const theme = window.amisearchThemes[name] || window.amisearchThemes.purple;
+    document.documentElement.style.setProperty('--am-primary', theme.primary);
+    document.documentElement.style.setProperty('--am-primary-dark', theme.dark);
+    document.documentElement.style.setProperty('--am-accent', theme.accent);
+    document.documentElement.style.setProperty('--am-primary-soft', theme.soft);
+    localStorage.setItem('amisearch-theme', name);
+    document.querySelectorAll('.theme-swatch').forEach(function(btn) {
+      btn.dataset.active = btn.dataset.theme === name ? 'true' : 'false';
+    });
+  };
+
+  window.openExamSimulator = function() {
+    if (!window.currentUser && typeof openModal === 'function') {
+      openModal('loginModal');
+      return;
+    }
+    const panel = document.getElementById('examSimulatorPanel');
+    if (panel) {
+      location.hash = 'exam-simulator';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      panel.classList.add('ring-4', 'ring-purple-100');
+      setTimeout(function(){ panel.classList.remove('ring-4', 'ring-purple-100'); }, 1400);
+    }
+  };
+
+  window.examTimer = {
+    total: 45 * 60,
+    remaining: 45 * 60,
+    interval: null,
+    running: false
+  };
+
+  window.updateExamTimerDisplay = function() {
+    const display = document.getElementById('examTimerDisplay');
+    const ring = document.getElementById('examTimerRing');
+    const total = Math.max(1, window.examTimer.total || 1);
+    const remaining = Math.max(0, window.examTimer.remaining || 0);
+    const minutes = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const seconds = String(remaining % 60).padStart(2, '0');
+    if (display) display.textContent = minutes + ':' + seconds;
+    if (ring) {
+      const used = total - remaining;
+      ring.style.setProperty('--exam-progress', Math.round((used / total) * 360) + 'deg');
+    }
+  };
+
+  window.resetExamTimer = function() {
+    const minutes = parseInt(document.getElementById('examDuration')?.value || '45', 10) || 45;
+    clearInterval(window.examTimer.interval);
+    window.examTimer.total = minutes * 60;
+    window.examTimer.remaining = minutes * 60;
+    window.examTimer.running = false;
+    window.updateExamTimerDisplay();
+  };
+
+  window.startExamTimer = function() {
+    if (window.examTimer.running) return;
+    if (!window.examTimer.remaining || window.examTimer.remaining <= 0) window.resetExamTimer();
+    window.examTimer.running = true;
+    clearInterval(window.examTimer.interval);
+    window.examTimer.interval = setInterval(function() {
+      window.examTimer.remaining -= 1;
+      window.updateExamTimerDisplay();
+      if (window.examTimer.remaining <= 0) {
+        clearInterval(window.examTimer.interval);
+        window.examTimer.running = false;
+        alert(window.currentLang === 'hu' ? 'Lejárt az idő. Indíthatod a kiértékelést.' : 'Time is up. You can start the evaluation.');
+      }
+    }, 1000);
+  };
+
+  window.pauseExamTimer = function() {
+    clearInterval(window.examTimer.interval);
+    window.examTimer.running = false;
+  };
+
+  window.generateExamSimulator = async function() {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const topic = (document.getElementById('examTopicInput')?.value || '').trim();
+    const difficulty = document.getElementById('examDifficulty')?.value || (lang === 'hu' ? 'közepes' : 'medium');
+    const duration = parseInt(document.getElementById('examDuration')?.value || '45', 10) || 45;
+    const count = parseInt(document.getElementById('examCountInput')?.value || '6', 10) || 6;
+    const out = document.getElementById('examOutput');
+    const evalOut = document.getElementById('examEvaluationOutput');
+
+    if (!topic) {
+      alert(lang === 'hu' ? 'Adj meg egy vizsgatémát!' : 'Please enter an exam topic!');
+      return;
+    }
+
+    window.resetExamTimer();
+    if (evalOut) { evalOut.classList.add('hidden'); evalOut.innerHTML = ''; }
+    if (out) out.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-4"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Vizsgafeladatsor generálása...' : 'Generating exam set...') + '</span></div>';
+
+    const prompt = lang === 'hu'
+      ? 'Készíts teljes, időzített vizsgaszimulátor feladatsort a következő témából: "' + topic + '". Nehézség: ' + difficulty + '. Időtartam: ' + duration + ' perc. Feladatok száma: ' + count + '. Legyen a feladatlapon cím, név, osztály/csoport, dátum, elérhető pontszám. Adj változatos feladattípusokat: rövid válasz, igaz/hamis, feleletválasztós és kifejtős. Minden feladatnál tüntesd fel a pontszámot. A megoldókulcsot NE add meg, csak a feladatlapot. Használj rendezett Markdown szerkezetet.'
+      : 'Create a complete timed exam simulator worksheet for the following topic: "' + topic + '". Difficulty: ' + difficulty + '. Duration: ' + duration + ' minutes. Number of tasks: ' + count + '. Include title, name, class/group, date and total score fields. Use varied task types: short answer, true/false, multiple choice and essay/open-ended questions. Show points for every task. Do NOT include the answer key, only the exam sheet. Use a clean Markdown structure.';
+
+    try {
+      const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ message: prompt, history: [], notes: window.uploadedNotes || '' })
+      }, 70000);
+
+      if (!resp.ok) {
+        const m = await window.getAiErrorMessage(resp, lang);
+        if (out) out.innerHTML = '<div class="text-red-500 text-sm">' + escapeHtml(m) + '</div>';
+        return;
+      }
+
+      if (out) out.innerHTML = '<div class="prose prose-sm max-w-none" id="examContent"></div><div id="examToolbar" class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100"></div>';
+      const target = document.getElementById('examContent');
+      let full = '';
+      full = await window.readTextStream(resp, function(text) {
+        full = text;
+        if (target) target.innerHTML = typeof marked !== 'undefined' ? marked.parse(full) : escapeHtml(full);
+      });
+
+      if (window.renderMathInElement && target) {
+        renderMathInElement(target, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false });
+      }
+
+      const tb = document.getElementById('examToolbar');
+      if (tb) {
+        const safeT = window.sanitizeFilename ? window.sanitizeFilename(topic) : topic.replace(/[^a-zA-Z0-9_-]/g,'_');
+        tb.innerHTML =
+          '<button onclick="window.downloadExamPdf(\'' + safeT + '\')" class="text-xs px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>' +
+          '<button onclick="window.downloadExamWord(\'' + safeT + '\')" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>' +
+          '<button onclick="window.startExamTimer()" class="text-xs px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 font-medium"><i class="fa-solid fa-play mr-1"></i>' + (lang === 'hu' ? 'Idő indítása' : 'Start timer') + '</button>';
+      }
+    } catch (e) {
+      if (out) out.innerHTML = '<div class="text-red-500 text-sm">' + (lang === 'hu' ? 'Hiba: ' : 'Error: ') + escapeHtml(e?.message || String(e)) + '</div>';
+    }
+  };
+
+  window.evaluateExamSimulator = async function() {
+    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
+    const examText = document.getElementById('examContent')?.innerText || '';
+    const answers = (document.getElementById('examAnswersInput')?.value || '').trim();
+    const evalOut = document.getElementById('examEvaluationOutput');
+
+    if (!examText.trim()) {
+      alert(lang === 'hu' ? 'Előbb generálj egy feladatsort!' : 'Generate an exam set first!');
+      return;
+    }
+    if (!answers) {
+      alert(lang === 'hu' ? 'Írd be vagy másold be a megoldásokat a kiértékeléshez!' : 'Type or paste answers for evaluation!');
+      return;
+    }
+
+    if (evalOut) {
+      evalOut.classList.remove('hidden');
+      evalOut.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-4"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Kiértékelés készül...' : 'Preparing evaluation...') + '</span></div>';
+    }
+
+    const prompt = lang === 'hu'
+      ? 'Tanári stílusban értékeld ki a következő vizsgafeladatsort és a diák válaszait. Adj pontszámot feladatonként, összpontszámot, rövid hibajavítást, magyarázatot és ismétlési javaslatot. Ha egy válasz hiányos, jelezd.\n\nFELADATSOR:\n' + examText + '\n\nDIÁK VÁLASZAI:\n' + answers
+      : 'Evaluate the following exam worksheet and student answers in a teacher-like style. Give points per task, total score, brief corrections, explanations and revision suggestions. If an answer is incomplete, indicate it.\n\nEXAM SHEET:\n' + examText + '\n\nSTUDENT ANSWERS:\n' + answers;
+
+    try {
+      const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ message: prompt, history: [], notes: window.uploadedNotes || '' })
+      }, 70000);
+
+      if (!resp.ok) {
+        const m = await window.getAiErrorMessage(resp, lang);
+        if (evalOut) evalOut.innerHTML = '<div class="text-red-500 text-sm">' + escapeHtml(m) + '</div>';
+        return;
+      }
+
+      let full = '';
+      full = await window.readTextStream(resp, function(text) {
+        full = text;
+        if (evalOut) evalOut.innerHTML = '<div class="prose prose-sm max-w-none">' + (typeof marked !== 'undefined' ? marked.parse(full) : escapeHtml(full)) + '</div>';
+      });
+    } catch (e) {
+      if (evalOut) evalOut.innerHTML = '<div class="text-red-500 text-sm">' + (lang === 'hu' ? 'Hiba: ' : 'Error: ') + escapeHtml(e?.message || String(e)) + '</div>';
+    }
+  };
+
+  window.downloadExamPdf = function(topicName) {
+    const content = document.getElementById('examContent');
+    if (!content) return;
+    const title = (topicName || 'exam').replace(/_/g, ' ');
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write('<html><head><title>' + title + '</title><style>body{font-family:Arial,sans-serif;line-height:1.5;padding:32px;color:#111827;}h1,h2,h3{color:#5A4BD1;}hr{border:0;border-top:1px solid #e5e7eb;}@page{margin:18mm;} .header{background:linear-gradient(135deg,#6C5CE7,#A29BFE);color:white;padding:18px 22px;border-radius:18px;margin-bottom:22px;} .content{overflow-wrap:anywhere;} table{width:100%;border-collapse:collapse;}td,th{border:1px solid #ddd;padding:6px;}</style></head><body><div class="header"><h1 style="margin:0;color:white;">AMISEARCH — Exam Simulator</h1><p style="margin:6px 0 0;">' + new Date().toLocaleString() + '</p></div><div class="content">' + content.innerHTML + '</div><script>window.onload=function(){setTimeout(function(){window.print();},300)}<\/script></body></html>');
+    printWindow.document.close();
+  };
+
+  window.downloadExamWord = function(topicName) {
+    const content = document.getElementById('examContent');
+    if (!content) return;
+    const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + topicName + ' — Exam</title><style>body{font-family:Calibri,Arial,sans-serif;line-height:1.45;color:#111827;padding:20px;}h1,h2,h3{color:#5A4BD1;}p,li{font-size:12pt;}table{border-collapse:collapse;}td,th{border:1px solid #ddd;padding:4px;}</style></head><body><h1>AMISEARCH — Exam Simulator</h1>' + content.innerHTML + '</body></html>';
+    const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (topicName || 'exam') + '.doc';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  window.addEventListener('DOMContentLoaded', function() {
+    window.setAmisearchTheme(localStorage.getItem('amisearch-theme') || 'purple');
+    window.resetExamTimer();
+    document.getElementById('examDuration')?.addEventListener('change', window.resetExamTimer);
+    if (location.hash === '#exam-simulator') setTimeout(window.openExamSimulator, 500);
+  });
+
 </script>
 
 <script type="module">
