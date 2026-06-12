@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagram - AMISEARCH</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: system-ui; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+ .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+ .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    button { background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+ .explanation { margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px; border-left: 4px solid #6366f1; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Diagram</h1>
+      <button onclick="window.close(); window.location.href='/'">← Vissza a chathez</button>
+    </div>
+    <div id="loading">Betöltés...</div>
+    <div id="content" style="display:none;">
+      <h3 id="question"></h3>
+      <canvas id="chartCanvas"></canvas>
+      <div class="explanation">
+        <strong>Magyarázat:</strong>
+        <p id="explanationText"></p>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = 'https://rvgzvseejzbzmcqidnzc.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_OFOpS0WMB4Sy0ciyIA9ySQ_59JH7Njh';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  async function init() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = '/'; return; }
+
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (!id) { document.body.innerHTML = 'Hiányzó ID'; return; }
+
+    const { data, error } = await supabase.from('charts').select('*').eq('id', id).single();
+    if (error) { document.body.innerHTML = 'Hiba: ' + error.message; return; }
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('question').textContent = data.question;
+    document.getElementById('explanationText').textContent = data.explanation;
+    new Chart(document.getElementById('chartCanvas'), data.config);
+  }
+  init();
+</script>
+</body>
+</html>
