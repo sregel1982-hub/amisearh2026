@@ -19,16 +19,16 @@ function getSupabaseAdmin() {
 
 function cleanText(value, max = 70000) {
   return String(value || "")
-   .replace(/\r\n/g, "\n")
-   .replace(/[\t ]+/g, " ")
-   .replace(/\n{4,}/g, "\n\n")
-   .trim()
-   .slice(0, max);
+.replace(/\r\n/g, "\n")
+.replace(/[\t ]+/g, " ")
+.replace(/\n{4,}/g, "\n\n")
+.trim()
+.slice(0, max);
 }
 
 function detectLanguage(text = "") {
   const sample = String(text || "").toLowerCase();
-  const huMarkers = ["á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű", "hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold"];
+  const huMarkers = ["á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű", "hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "ábra"];
   const esMarkers = ["¿", "¡", "ñ", "qué", "cómo", "porque", "explica", "ejercicio"];
   if (esMarkers.some((marker) => sample.includes(marker))) return "es";
   if (huMarkers.some((marker) => sample.includes(marker))) return "hu";
@@ -38,10 +38,10 @@ function detectLanguage(text = "") {
 function simpleScore(text, query) {
   const haystack = String(text || "").toLowerCase();
   const words = String(query || "")
-   .toLowerCase()
-   .split(/[^\p{L}\p{N}]+/u)
-   .filter((word) => word.length >= 4)
-   .slice(0, 40);
+.toLowerCase()
+.split(/[^\p{L}\p{N}]+/u)
+.filter((word) => word.length >= 4)
+.slice(0, 40);
   let score = 0;
   for (const word of words) {
     if (haystack.includes(word)) score += 1;
@@ -61,11 +61,11 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
 
   try {
     const { data, error } = await supabase
-    .from("jegyzetek")
-    .select("id, cim, original_name, tantargy, text_content, processed, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(12);
+.from("jegyzetek")
+.select("id, cim, original_name, tantargy, text_content, processed, created_at")
+.eq("user_id", user.id)
+.order("created_at", { ascending: false })
+.limit(12);
 
     if (error) {
       console.warn("Jegyzetek betöltése sikertelen:", error.message);
@@ -73,13 +73,13 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
     }
 
     const ranked = Array.isArray(data)
-   ? data
-         .map((note) => ({
+? data
+        .map((note) => ({
             note,
             score: simpleScore(`${note.cim || ""}\n${note.original_name || ""}\n${note.tantargy || ""}\n${note.text_content || ""}`, query),
           }))
-         .sort((a, b) => b.score - a.score)
-         .slice(0, 6)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6)
       : [];
 
     for (const item of ranked) {
@@ -121,50 +121,60 @@ Fontos szabályok:
 
 function buildPrompt({ message, notesContext, history }) {
   const historyText = history
-   .map((item) => `${item.role === "assistant"? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
-   .filter(Boolean)
-   .join("\n");
+.map((item) => `${item.role === "assistant"? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
+.filter(Boolean)
+.join("\n");
   return `${notesContext? `## Elérhető saját jegyzetkontekstus\n${notesContext}\n\n` : ""}${historyText? `## Rövid beszélgetési előzmény\n${historyText}\n\n` : ""}## Felhasználói kérés\n${message}`;
 }
 
 async function handleChartRequest(user, question, notesContext) {
-  // Gyors check: ha nincs benne rajzolós kulcsszó, ne is hívjuk a Geminit feleslegesen
-  const chartKeywords = ["rajzold", "ábrázold", "grafikon", "diagram", "chart", "függvény", "plot", "oszlop", "kördiagram", "sin", "cos", "x^2"];
+  const chartKeywords = [
+    "rajzold", "ábrázold", "grafikon", "diagram", "chart", "függvény", "plot",
+    "oszlop", "kördiagram", "sin", "cos", "x^2", "ábra", "alakzat",
+    "háromszög", "négyzet", "kör", "geometria", "derékszög",
+    "természetes szám", "számhalmaz", "venn", "halmaz"
+  ];
+
   const needsChartCheck = chartKeywords.some(k => question.toLowerCase().includes(k));
-  if (!needsChartCheck) return null;
+  if (!needsChartCheck) {
+    console.log("Nincs diagram kulcsszó:", question);
+    return null;
+  }
 
   const prompt = `
 Felhasználói kérés: ${question}
+Jegyzet kontextus: ${notesContext || "Nincs."}
 
-Elérhető jegyzet tartalom:
-${notesContext || "Nincs feltöltött jegyzet."}
+Feladat: Generálj Chart.js konfigot. NE magyarázz, NE írj szöveget, CSAK JSON-t adj vissza.
 
-Feladat: Döntsd el, kell-e diagramot rajzolni.
+Típus választás:
+1. "természetes számok", "számhalmaz", "venn" → pie chart
+2. "függvény", "sin", "cos", "x^2" → line chart -10-től 10-ig 20 ponttal
+3. "háromszög", "geometria" → scatter chart + showLine: true. Derékszögű: (0,0), (4,0), (0,3), (0,0)
+4. "oszlop", "adatok", "statisztika" → bar chart
+5. Egyéb → pie chart alapértelmezett
 
-Ha IGEN kell diagram, válaszolj CSAK érvényes JSON-nal, más szöveg nélkül:
+JSON formátum:
 {
-  "needsChart": true,
   "chartConfig": {
-    "type": "line",
+    "type": "pie",
     "data": {
-      "labels": ["0", "1", "2"],
-      "datasets": [{ "label": "f(x)", "data": [0, 1, 4], "borderColor": "#6366f1", "tension": 0.3 }]
+      "labels": ["Természetes ℕ", "Egész ℤ", "Racionális ℚ"],
+      "datasets": [{
+        "data": [30, 30, 40],
+        "backgroundColor": ["#6366f1", "#8b5cf6", "#ec4899"]
+      }]
     },
     "options": {
       "responsive": true,
-      "plugins": { "title": { "display": true, "text": "Cím" } },
-      "scales": { "x": { "title": { "display": true, "text": "X" } }, "y": { "title": { "display": true, "text": "Y" } } }
+      "plugins": {
+        "title": { "display": true, "text": "Számhalmazok" },
+        "legend": { "position": "bottom" }
+      }
     }
   },
-  "explanation": "Rövid magyarázat 1-2 mondatban. Ha a jegyzetből vetted az adatot, írd bele: 'A feltöltött jegyzeted alapján...'"
+  "explanation": "A természetes számok ℕ a számhalmazok legbelső része."
 }
-
-Használható type: "line", "bar", "pie", "doughnut", "scatter", "radar"
-
-Ha NEM kell diagram, válaszolj:
-{ "needsChart": false }
-
-FONTOS: Ha a jegyzetben táblázat vagy számsor van, abból készíts diagramot.
 `;
 
   try {
@@ -175,43 +185,60 @@ FONTOS: Ha a jegyzetben táblázat vagy számsor van, abból készíts diagramot
     });
 
     const text = result.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
-
     let parsed;
     try {
       parsed = JSON.parse(text);
     } catch (e) {
-      console.log("Chart parse hiba, nem JSON:", text.slice(0, 100));
-      return null; // Nem diagram, megy sima chatre
-    }
-
-    if (parsed.needsChart && parsed.chartConfig) {
-      const supabase = getSupabaseAdmin();
-      const { data, error } = await supabase
-    .from("charts")
-    .insert({
-          user_id: user.id,
-          question: question,
-          config: parsed.chartConfig,
-          explanation: parsed.explanation || ""
-        })
-    .select()
-    .single();
-
-      if (error) {
-        console.error("Chart DB insert error:", error);
-        return null;
-      }
-
-      return {
-        type: "chart_link",
-        answer: `Elkészítettem a diagramot${notesContext? ' a feltöltött jegyzeted alapján' : ''}. [Megnyitás külön oldalon](/chart.html?id=${data.id})`,
-        url: `/chart.html?id=${data.id}`
+      console.error("JSON parse hiba. Gemini válasza:", text.slice(0, 200));
+      // FALLBACK: ha nem JSON, akkor is csinálunk valamit
+      parsed = {
+        chartConfig: {
+          type: "pie",
+          data: {
+            labels: ["Adat"],
+            datasets: [{ data: [100], backgroundColor: ["#6366f1"] }]
+          },
+          options: {
+            plugins: {
+              title: { display: true, text: question.slice(0, 50) }
+            }
+          }
+        },
+        explanation: "Alap diagram a kérésedhez."
       };
     }
-    return null;
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      console.error("Supabase admin kliens nincs");
+      return null;
+    }
+
+    const { data, error } = await supabase
+.from("charts")
+.insert({
+        user_id: user.id,
+        question: question,
+        config: parsed.chartConfig,
+        explanation: parsed.explanation || ""
+      })
+.select()
+.single();
+
+    if (error) {
+      console.error("Chart DB insert error:", error);
+      return null;
+    }
+
+    return {
+      type: "chart_link",
+      answer: `Megnyitom a diagramot külön oldalon: [Diagram nézet](/chart.html?id=${data.id})`,
+      url: `/chart.html?id=${data.id}`
+    };
+
   } catch (error) {
     console.error("Chart request error:", error);
-    return null; // Hiba esetén menjen sima chatre
+    return null;
   }
 }
 
