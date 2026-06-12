@@ -52,7 +52,7 @@ function simpleScore(text, query) {
 async function loadUserNotesContext(user, query, inlineNotes = "") {
   const parts = [];
 
-  // 1. INLINE DOKSI: ha a + gombbal töltött fel a chatben
+  // 1. INLINE DOKSI: + gombbal feltöltött fájl szövege
   const inline = cleanText(inlineNotes, 25000);
   if (inline) {
     parts.push(`=== A felhasználó által MOST feltöltött dokumentum ===\n${inline}\nFONTOS: Ezt a dokumentumot használd elsődlegesen a válaszhoz és diagram készítéshez!`);
@@ -67,7 +67,7 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
 .from("jegyzetek")
 .select("id, cim, original_name, tantargy, text_content, processed, created_at")
 .eq("user_id", user.id)
-.eq("processed", true) // csak feldolgozott jegyzetek
+.eq("processed", true)
 .order("created_at", { ascending: false })
 .limit(12);
 
@@ -78,12 +78,12 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
 
     const ranked = Array.isArray(data)
 ? data
-       .map((note) => ({
+      .map((note) => ({
             note,
             score: simpleScore(`${note.cim || ""}\n${note.original_name || ""}\n${note.tantargy || ""}\n${note.text_content || ""}`, query),
           }))
-       .sort((a, b) => b.score - a.score)
-       .slice(0, 6)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6)
       : [];
 
     for (const item of ranked) {
@@ -134,7 +134,7 @@ async function handleChartRequest(user, question, notesContext) {
     "rajzold", "ábrázold", "grafikon", "diagram", "chart", "függvény", "plot",
     "oszlop", "kördiagram", "sin", "cos", "x^2", "ábra", "alakzat",
     "háromszög", "négyzet", "kör", "geometria", "derékszög",
-    "természetes szám", "számhalmaz", "venn", "halmaz", "adatok", "statisztika"
+    "természetes szám", "számhalmaz", "venn", "halmaz", "adatok", "statisztika", "éghajlat"
   ];
 
   const needsChartCheck = chartKeywords.some(k => question.toLowerCase().includes(k));
@@ -149,14 +149,15 @@ Felhasználói kérés: ${question}
 Feltöltött dokumentum/jegyzet tartalma:
 ${notesContext || "Nincs feltöltött dokumentum."}
 
-Feladat: Generálj Chart.js konfigot a dokumentum ADATAI ALAPJÁN. NE magyarázz, NE írj szöveget, CSAK JSON-t adj vissza.
+Feladat: Generálj Chart.js konfigot a DOKUMENTUM ADATAI ALAPJÁN. NE magyarázz, NE írj szöveget, CSAK JSON-t adj vissza.
 
 Szabályok:
 1. Ha a dokumentumban TÁBLÁZAT vagy SZÁMOK vannak: abból csinálj bar/line/pie chartot.
 2. "természetes számok", "számhalmaz", "venn", "halmaz" → pie chart: Természetes ℕ, Egész ℤ, Racionális ℚ
 3. "függvény", "sin", "cos", "x^2" → line chart -10-től 10-ig 20 ponttal
 4. "háromszög", "geometria" → scatter chart + showLine: true. Derékszögű: (0,0), (4,0), (0,3), (0,0)
-5. Ha nem egyértelmű: pie chart a kérés címével.
+5. "éghajlat", "övek" → bar chart: Trópusi, Mérsékelt, Hideg, stb.
+6. Ha nem egyértelmű: pie chart a kérés címével.
 
 JSON formátum:
 {
@@ -197,7 +198,6 @@ FONTOS: Ha van dokumentum, akkor ABBÓL vedd az adatokat. Az explanation-ben ír
       parsed = JSON.parse(text);
     } catch (e) {
       console.error("JSON parse hiba. Gemini válasza:", text.slice(0, 300));
-      // FALLBACK: ha nem JSON, akkor is csinálunk valamit
       parsed = {
         chartConfig: {
           type: "pie",
@@ -237,10 +237,12 @@ FONTOS: Ha van dokumentum, akkor ABBÓL vedd az adatokat. Az explanation-ben ír
       return null;
     }
 
-    // FONTOS: Nem JSON-t adunk vissza, hanem sima szöveget markdown linkkel
+    // JAVÍTÁS: HTML <a> tag target="_blank"-kel, hogy ne zárja be a chatet
+    const linkHtml = `${parsed.explanation || 'Elkészítettem a diagramot.'}\n\n<a href="/chart.html?id=${data.id}" target="_blank" rel="noopener">📊 Diagram megnyitása új lapon</a>`;
+
     return {
       type: "text",
-      answer: `${parsed.explanation || 'Elkészítettem a diagramot.'}\n\n[📊 Diagram megnyitása új lapon](/chart.html?id=${data.id})`,
+      answer: linkHtml,
       url: `/chart.html?id=${data.id}`
     };
 
@@ -282,7 +284,7 @@ export default async function handler(req) {
     // 2. Diagram check - ha kell diagram, visszaad linket és kilép
     const chartResult = await handleChartRequest(user, message, notesContext);
     if (chartResult) {
-      // JAVÍTÁS: Sima szöveget adunk vissza, nem JSON-t
+      // Sima szöveget adunk vissza HTML linkkel, nem JSON-t
       return new Response(chartResult.answer, {
         status: 200,
         headers: { "Content-Type": "text/plain; charset=utf-8" }
@@ -306,4 +308,4 @@ export default async function handler(req) {
     console.error("Chat AI error:", error?.message || error);
     return aiUnavailableResponse();
   }
-    }
+}
