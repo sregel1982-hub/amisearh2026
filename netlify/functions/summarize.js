@@ -1,91 +1,105 @@
 import { GoogleGenAI } from "@google/genai";
-import { extractText, jsonError } from "./ai-response.js";
-import { getSupabaseUser } from "./auth-helper.mjs";
+import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser } from "./auth-helper.js";
+import { aiUnavailableResponse, isAiConfigured, jsonError } from "./ai-response.js";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
 
-const ai = new GoogleGenAI({
-  apiKey: getEnv("GEMINI_API_KEY"),
-});
+const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
+
+function getSupabaseAdmin() {
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+
+  if (!url || !key) return null;
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+function cleanText(value, max = 18000) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[\t ]+/g, " ")
+    .replace(/\n{4,}/g, "\n\n")
+    .trim()
+    .slice(0, max);
+}
 
 export default async function handler(req) {
-  if (req.method !== "POST") {
-    return jsonError("Method not allowed", 405, "method_not_allowed");
-  }
-
-  const user = await getSupabaseUser(req);
-  if (!user) return jsonError("Unauthorized", 401, "unauthorized");
-
-  let body;
   try {
-    body = await req.json();
-  } catch {
-    return jsonError("Invalid JSON body", 400, "invalid_json");
-  }
+    if (req.method !== "POST") {
+      return jsonError("Method not allowed", 405, "method_not_allowed");
+    }
 
-  const { noteId, lang = "hu" } = body;
-  if (!noteId) return jsonError("noteId required", 400, "missing_noteId");
+    if (!isAiConfigured()) {
+      return aiUnavailableResponse();
+    }
 
-  const supabase = await import("@supabase/supabase-js").then((m) =>
-    m.createClient(
-      getEnv("SUPABASE_URL"),
-      getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
-    )
-  );
+    const user = await getSupabaseUser(req);
+    if (!user) {
+      return jsonError("Unauthorized", 401, "unauthorized");
+    }
 
-  // JAVÍTÁS: "jegyzetek" tábla az "uploaded_notes" helyett
-  const { data, error } = await supabase
-    .from("jegyzetek")
-    .select("text_content, cim, original_name")
-    .eq("id", noteId)
-    .eq("user_id", user.id)
-    .single();
+    const body = await req.json().catch(() => ({}));
+    const { noteId, lang = "hu" } = body;
 
-  if (error || !data) return jsonError("Note not found", 404, "note_not_found");
+    if (!noteId) {
+      return jsonError("noteId required", 400, "missing_noteId");
+    }
 
-  const content = data.text_content || "";
-  const title = data.cim || data.original_name || "Jegyzet";
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      return jsonError("Supabase server configuration missing", 500, "supabase_not_configured");
+    }
 
-  if (!content.trim()) {
-    return jsonError("A jegyzetnek nincs kinyert szövege. Először feldolgozás szükséges.", 400, "empty_content");
-  }
+    const { data, error } = await supabase
+      .from("jegyzetek")
+      .select("text_content, cim, original_name")
+      .eq("id", noteId)
+      .eq("user_id", user.id)
+      .single();
 
-  try {
-    const prompt = `
-Készíts egy tömör, jól strukturált összefoglalót a következő jegyzetből.
-Cím: ${title}
+    if (error || !data) {
+      return jsonError("Note not found", 404, "note_not_found");
+    }
 
-Legyen:
-- rövid
-- lényegre törő
-- pontokba szedett
-- vizsgára alkalmas
+    const content = cleanText(data.text_content, 22000);
+    const title = data.cim || data.original_name || "Jegyzet";
 
-Nyelv: ${lang === 'hu' ? 'magyar' : 'angol'}
+    if (!content) {
+      return jsonError("A jegyzetnek nincs kinyert szövege. Először feldolgozás vagy újraindexelés szükséges.", 400, "empty_content");
+    }
 
-Jegyzet szövege:
-${content.substring(0, 15000)}
-`;
+    const prompt = `Készíts tanulásra alkalmas, jól strukturált összefoglalót a következő jegyzetből.\n\nCím: ${title}\nNyelv: ${lang === "hu" ? "magyar" : "angol"}\n\nElvárások:\n- legyen lényegre törő, de ne túl rövid;\n- emeld ki a kulcsfogalmakat;\n- adj vizsgára alkalmas pontokat;\n- ha vannak képletek, olvasható formában add meg őket;\n- a végén adj 5 ellenőrző kérdést.\n\nJegyzet szövege:\n${content}`;
 
     const result = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: "Te az AMISEARCH magyar oktatási asszisztense vagy. A feltöltött jegyzet tartalmára támaszkodj, ne találj ki nem létező adatot.",
+        temperature: 0.25,
+      },
     });
 
     return new Response(
       JSON.stringify({
-        summary: extractText(result),
-        title: title,
+        summary: result.text || "",
+        title,
       }),
       {
-        headers: { "Content-Type": "application/json" },
         status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
       }
     );
-  } catch (err) {
-    console.error("Summarize error:", err);
-    return jsonError(err.message, 500, "ai_error");
+  } catch (error) {
+    console.error("Summarize error:", error?.message || error);
+    return aiUnavailableResponse();
   }
 }
 
