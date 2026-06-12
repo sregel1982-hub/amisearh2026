@@ -245,7 +245,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="/amisearch-theme.js?v=20260612-fix2" defer></script>
+<script src="/amisearch-theme.js?v=20260612-fix3" defer></script>
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
@@ -270,35 +270,37 @@
     }
 
     .am-theme-text,
-    [class*="text-[#6C5CE7]"],
-    [class*="text-[#A29BFE]"],
-    [class*="text-purple"],
-    [class*="text-indigo"] {
+    [class*="text-[#6C5CE7]"] {
       color: var(--am-primary) !important;
     }
 
     .am-theme-bg,
-    [class*="bg-[#6C5CE7]"],
-    [class*="bg-[#A29BFE]"],
-    [class*="bg-purple"],
-    [class*="bg-indigo"] {
+    [class*="bg-[#6C5CE7]"] {
       background-color: var(--am-primary) !important;
     }
 
     .am-theme-border,
-    [class*="border-[#6C5CE7]"],
-    [class*="border-[#A29BFE]"],
-    [class*="border-purple"],
-    [class*="border-indigo"] {
+    [class*="border-[#6C5CE7]"] {
       border-color: var(--am-primary) !important;
     }
 
     .am-theme-gradient,
     .feature-icon-gradient,
-    .gradient-text,
-    [class*="from-[#6C5CE7]"],
-    [class*="to-[#A29BFE]"] {
+    [class*="from-[#6C5CE7]"] {
       background: linear-gradient(135deg, var(--am-primary) 0%, var(--am-accent) 100%) !important;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--am-primary) 0%, var(--am-accent) 100%) !important;
+      -webkit-background-clip: text !important;
+      background-clip: text !important;
+    }
+
+    .search-tag,
+    .price-badge,
+    .soft-theme-chip {
+      background-color: var(--am-primary-soft) !important;
+      color: var(--am-primary) !important;
     }
 
     .exam-answer-box {
@@ -2489,7 +2491,7 @@
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
-      pdf.text('AmiSearh — AI válasz', margin, margin);
+      pdf.text('AMISEARCH — AI válasz', margin, margin);
       let heightLeft = imgHeight;
       let position = margin + 20;
       pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
@@ -2879,7 +2881,7 @@
       // Fejléc
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
-      pdf.text('AmiSearh — ' + topicName + ' — Feladatok', margin, margin);
+      pdf.text('AMISEARCH — ' + topicName + ' — Feladatok', margin, margin);
 
       // Több oldalas tördelés
       let heightLeft = imgHeight;
