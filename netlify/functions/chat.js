@@ -28,7 +28,7 @@ function cleanText(value, max = 70000) {
 
 function detectLanguage(text = "") {
   const sample = String(text || "").toLowerCase();
-  const huMarkers = ["á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű", "hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "ábra"];
+  const huMarkers = ["á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű", "hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "ábra", "halmaz"];
   const esMarkers = ["¿", "¡", "ñ", "qué", "cómo", "porque", "explica", "ejercicio"];
   if (esMarkers.some((marker) => sample.includes(marker))) return "es";
   if (huMarkers.some((marker) => sample.includes(marker))) return "hu";
@@ -51,11 +51,14 @@ function simpleScore(text, query) {
 
 async function loadUserNotesContext(user, query, inlineNotes = "") {
   const parts = [];
+
+  // 1. INLINE DOKSI: ha a + gombbal töltött fel a chatben
   const inline = cleanText(inlineNotes, 25000);
   if (inline) {
-    parts.push(`=== A felhasználó által most megadott vagy feltöltött jegyzet ===\n${inline}`);
+    parts.push(`=== A felhasználó által MOST feltöltött dokumentum ===\n${inline}\nFONTOS: Ezt a dokumentumot használd elsődlegesen a válaszhoz és diagram készítéshez!`);
   }
 
+  // 2. DB-BŐL JÖVŐ JEGYZETEK: jegyzetfeltöltő ablakból
   const supabase = getSupabaseAdmin();
   if (!supabase ||!user?.id) return parts.join("\n\n");
 
@@ -64,6 +67,7 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
 .from("jegyzetek")
 .select("id, cim, original_name, tantargy, text_content, processed, created_at")
 .eq("user_id", user.id)
+.eq("processed", true) // csak feldolgozott jegyzetek
 .order("created_at", { ascending: false })
 .limit(12);
 
@@ -74,12 +78,12 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
 
     const ranked = Array.isArray(data)
 ? data
-        .map((note) => ({
+       .map((note) => ({
             note,
             score: simpleScore(`${note.cim || ""}\n${note.original_name || ""}\n${note.tantargy || ""}\n${note.text_content || ""}`, query),
           }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 6)
+       .sort((a, b) => b.score - a.score)
+       .slice(0, 6)
       : [];
 
     for (const item of ranked) {
@@ -90,8 +94,6 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
 
       if (text) {
         parts.push(`=== Mentett jegyzet: ${title}${subject} ===\n${text}`);
-      } else if (!note.processed) {
-        parts.push(`=== Mentett jegyzet még feldolgozás alatt: ${title}${subject} ===\nA fájl fel van töltve, de a szövegkinyerés még nem fejeződött be.`);
       }
     }
   } catch (error) {
@@ -112,11 +114,11 @@ Rules: Do not start with "Sure". If the user has notes, use them first. Use head
   return `Te az AMISEARCH oktatási asszisztense vagy. Magyarul válaszolj, közérthetően, pontosan.
 Fontos szabályok:
 - Ne kezdj felvezetővel: "Rendben", "Persze", "Segítek".
-- Ha van feltöltött jegyzet, először abból dolgozz, és jelezd röviden.
+- Ha van feltöltött jegyzet vagy dokumentum, ELŐSZÖR ABBÓL DOLGOZZ, és jelezd: "A feltöltött dokumentum alapján..."
 - Ha a jegyzet hiányos, egészítsd ki megbízható tudással, de ne találj ki forrást.
 - Használj tagolt választ: címek, rövid bekezdések, felsorolások.
-- Táblázatot markdown formában adj: | Oszlop | Oszlop |.
-- A válasz végén mindig legyen "## Forrásjegyzék" szakasz 3-6 forrással. Ha csak saját jegyzetből dolgoztál, az első: "A feltöltött saját jegyzet".`;
+- Táblázatot markdown formában adj: | Oszlop |.
+- A válasz végén mindig legyen "## Forrásjegyzék" szakasz 3-6 forrással. Ha saját jegyzetből dolgoztál, az első: "A feltöltött saját jegyzet/dokumentum".`;
 }
 
 function buildPrompt({ message, notesContext, history }) {
@@ -124,7 +126,7 @@ function buildPrompt({ message, notesContext, history }) {
 .map((item) => `${item.role === "assistant"? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
 .filter(Boolean)
 .join("\n");
-  return `${notesContext? `## Elérhető saját jegyzetkontekstus\n${notesContext}\n\n` : ""}${historyText? `## Rövid beszélgetési előzmény\n${historyText}\n\n` : ""}## Felhasználói kérés\n${message}`;
+  return `${notesContext? `## Elérhető dokumentum/jegyzet kontextus\n${notesContext}\n\n` : ""}${historyText? `## Rövid beszélgetési előzmény\n${historyText}\n\n` : ""}## Felhasználói kérés\n${message}`;
 }
 
 async function handleChartRequest(user, question, notesContext) {
@@ -132,7 +134,7 @@ async function handleChartRequest(user, question, notesContext) {
     "rajzold", "ábrázold", "grafikon", "diagram", "chart", "függvény", "plot",
     "oszlop", "kördiagram", "sin", "cos", "x^2", "ábra", "alakzat",
     "háromszög", "négyzet", "kör", "geometria", "derékszög",
-    "természetes szám", "számhalmaz", "venn", "halmaz"
+    "természetes szám", "számhalmaz", "venn", "halmaz", "adatok", "statisztika"
   ];
 
   const needsChartCheck = chartKeywords.some(k => question.toLowerCase().includes(k));
@@ -143,38 +145,43 @@ async function handleChartRequest(user, question, notesContext) {
 
   const prompt = `
 Felhasználói kérés: ${question}
-Jegyzet kontextus: ${notesContext || "Nincs."}
 
-Feladat: Generálj Chart.js konfigot. NE magyarázz, NE írj szöveget, CSAK JSON-t adj vissza.
+Feltöltött dokumentum/jegyzet tartalma:
+${notesContext || "Nincs feltöltött dokumentum."}
 
-Típus választás:
-1. "természetes számok", "számhalmaz", "venn" → pie chart
-2. "függvény", "sin", "cos", "x^2" → line chart -10-től 10-ig 20 ponttal
-3. "háromszög", "geometria" → scatter chart + showLine: true. Derékszögű: (0,0), (4,0), (0,3), (0,0)
-4. "oszlop", "adatok", "statisztika" → bar chart
-5. Egyéb → pie chart alapértelmezett
+Feladat: Generálj Chart.js konfigot a dokumentum ADATAI ALAPJÁN. NE magyarázz, NE írj szöveget, CSAK JSON-t adj vissza.
+
+Szabályok:
+1. Ha a dokumentumban TÁBLÁZAT vagy SZÁMOK vannak: abból csinálj bar/line/pie chartot.
+2. "természetes számok", "számhalmaz", "venn", "halmaz" → pie chart: Természetes ℕ, Egész ℤ, Racionális ℚ
+3. "függvény", "sin", "cos", "x^2" → line chart -10-től 10-ig 20 ponttal
+4. "háromszög", "geometria" → scatter chart + showLine: true. Derékszögű: (0,0), (4,0), (0,3), (0,0)
+5. Ha nem egyértelmű: pie chart a kérés címével.
 
 JSON formátum:
 {
   "chartConfig": {
-    "type": "pie",
+    "type": "bar",
     "data": {
-      "labels": ["Természetes ℕ", "Egész ℤ", "Racionális ℚ"],
+      "labels": ["A", "B", "C"],
       "datasets": [{
-        "data": [30, 30, 40],
+        "label": "Érték",
+        "data": [10, 20, 30],
         "backgroundColor": ["#6366f1", "#8b5cf6", "#ec4899"]
       }]
     },
     "options": {
       "responsive": true,
       "plugins": {
-        "title": { "display": true, "text": "Számhalmazok" },
+        "title": { "display": true, "text": "Diagram címe" },
         "legend": { "position": "bottom" }
       }
     }
   },
-  "explanation": "A természetes számok ℕ a számhalmazok legbelső része."
+  "explanation": "A feltöltött dokumentum alapján készített diagram. Rövid magyarázat 1-2 mondatban."
 }
+
+FONTOS: Ha van dokumentum, akkor ABBÓL vedd az adatokat. Az explanation-ben írd: "A feltöltött dokumentum alapján..."
 `;
 
   try {
@@ -189,7 +196,7 @@ JSON formátum:
     try {
       parsed = JSON.parse(text);
     } catch (e) {
-      console.error("JSON parse hiba. Gemini válasza:", text.slice(0, 200));
+      console.error("JSON parse hiba. Gemini válasza:", text.slice(0, 300));
       // FALLBACK: ha nem JSON, akkor is csinálunk valamit
       parsed = {
         chartConfig: {
@@ -230,9 +237,10 @@ JSON formátum:
       return null;
     }
 
+    // FONTOS: Nem JSON-t adunk vissza, hanem sima szöveget markdown linkkel
     return {
-      type: "chart_link",
-      answer: `Megnyitom a diagramot külön oldalon: [Diagram nézet](/chart.html?id=${data.id})`,
+      type: "text",
+      answer: `${parsed.explanation || 'Elkészítettem a diagramot.'}\n\n[📊 Diagram megnyitása új lapon](/chart.html?id=${data.id})`,
       url: `/chart.html?id=${data.id}`
     };
 
@@ -267,15 +275,17 @@ export default async function handler(req) {
     const lang = body.lang && body.lang!== "auto"? body.lang : detectLanguage(rawMessage);
     const history = Array.isArray(body.history)? body.history.slice(-8) : [];
 
-    // 1. Jegyzet betöltése először
+    // 1. Jegyzet/dokumentum betöltése: DB + inline + gomb
     const notesContext = await loadUserNotesContext(user, message, body.notes || "");
+    console.log("Notes context length:", notesContext.length);
 
     // 2. Diagram check - ha kell diagram, visszaad linket és kilép
     const chartResult = await handleChartRequest(user, message, notesContext);
     if (chartResult) {
-      return new Response(JSON.stringify(chartResult), {
+      // JAVÍTÁS: Sima szöveget adunk vissza, nem JSON-t
+      return new Response(chartResult.answer, {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
       });
     }
 
@@ -296,4 +306,4 @@ export default async function handler(req) {
     console.error("Chat AI error:", error?.message || error);
     return aiUnavailableResponse();
   }
-}
+    }
