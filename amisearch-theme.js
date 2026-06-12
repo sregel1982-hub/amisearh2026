@@ -1,12 +1,16 @@
-(() => {
+(function () {
   'use strict';
 
   const themes = {
-    purple: { label: 'Lila', primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF', ring: '#A29BFE' },
-    blue: { label: 'Kék', primary: '#2563EB', hover: '#1D4ED8', light: '#DBEAFE', ring: '#93C5FD' },
-    emerald: { label: 'Zöld', primary: '#059669', hover: '#047857', light: '#D1FAE5', ring: '#6EE7B7' },
-    orange: { label: 'Narancs', primary: '#D97706', hover: '#B45309', light: '#FEF3C7', ring: '#FCD34D' }
+    purple: { label: 'Lila', en: 'Purple', primary: '#6C5CE7', hover: '#5A4BD1', light: '#EFEEFF', ring: '#A29BFE' },
+    blue: { label: 'Kék', en: 'Blue', primary: '#2563EB', hover: '#1D4ED8', light: '#DBEAFE', ring: '#93C5FD' },
+    emerald: { label: 'Zöld', en: 'Green', primary: '#059669', hover: '#047857', light: '#D1FAE5', ring: '#6EE7B7' },
+    orange: { label: 'Narancs', en: 'Orange', primary: '#D97706', hover: '#B45309', light: '#FEF3C7', ring: '#FCD34D' }
   };
+
+  function currentLang() {
+    return window.currentLang === 'en' ? 'en' : 'hu';
+  }
 
   function setTheme(themeName) {
     const theme = themes[themeName] || themes.purple;
@@ -64,6 +68,20 @@
     });
   }
 
+  function updatePickerLanguage() {
+    const picker = document.getElementById('amisearch-picker');
+    if (!picker) return;
+    const lang = currentLang();
+    const label = picker.querySelector('[data-theme-picker-label]');
+    if (label) label.textContent = lang === 'hu' ? 'Szín' : 'Color';
+    picker.querySelectorAll('button[data-theme]').forEach((button) => {
+      const theme = themes[button.dataset.theme] || themes.purple;
+      const name = lang === 'hu' ? theme.label : theme.en;
+      button.setAttribute('aria-label', (lang === 'hu' ? 'Téma kiválasztása: ' : 'Choose theme: ') + name);
+      button.title = name;
+    });
+  }
+
   function createPicker() {
     if (document.getElementById('amisearch-picker')) return;
 
@@ -87,7 +105,8 @@
     ].join(';');
 
     const label = document.createElement('span');
-    label.textContent = 'Szín';
+    label.dataset.themePickerLabel = 'true';
+    label.textContent = currentLang() === 'hu' ? 'Szín' : 'Color';
     label.style.cssText = 'font:600 13px system-ui,-apple-system,Segoe UI,sans-serif;color:#1f2937;margin-right:2px';
     picker.appendChild(label);
 
@@ -95,8 +114,6 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.theme = name;
-      button.setAttribute('aria-label', 'Téma kiválasztása: ' + theme.label);
-      button.title = theme.label;
       button.style.cssText = [
         'width:28px',
         'height:28px',
@@ -114,6 +131,7 @@
     let saved = 'purple';
     try { saved = localStorage.getItem('amisearch-theme') || 'purple'; } catch (_) {}
     setTheme(themes[saved] ? saved : 'purple');
+    updatePickerLanguage();
   }
 
   function sanitizeFilename(name) {
@@ -130,253 +148,194 @@
       .slice(0, 80) || fallback;
   }
 
-  function escapeText(text) {
-    return String(text || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  function injectPdfStyles() {
-    if (document.getElementById('amisearch-pdf-export-style')) return;
-    const style = document.createElement('style');
-    style.id = 'amisearch-pdf-export-style';
-    style.textContent = `
-      .amisearch-pdf-stage,
-      .amisearch-pdf-stage * {
-        box-sizing: border-box !important;
-      }
-      .amisearch-pdf-stage {
-        width: 760px !important;
-        max-width: 760px !important;
-        min-width: 760px !important;
-        background: #ffffff !important;
-        color: #111827 !important;
-        font-family: Inter, Arial, Helvetica, sans-serif !important;
-        font-size: 15px !important;
-        line-height: 1.62 !important;
-        padding: 28px !important;
-        overflow: visible !important;
-      }
-      .amisearch-pdf-stage h1,
-      .amisearch-pdf-stage h2,
-      .amisearch-pdf-stage h3 {
-        color: #4C1D95 !important;
-        line-height: 1.25 !important;
-        break-after: avoid !important;
-        page-break-after: avoid !important;
-      }
-      .amisearch-pdf-stage p,
-      .amisearch-pdf-stage li,
-      .amisearch-pdf-stage .katex-display {
-        break-inside: avoid !important;
-        page-break-inside: avoid !important;
-      }
-      .amisearch-pdf-stage .katex,
-      .amisearch-pdf-stage .katex * {
-        line-height: 1.35 !important;
-        overflow: visible !important;
-      }
-      .amisearch-pdf-stage .katex-display {
-        display: block !important;
-        margin: 0.75em 0 !important;
-        padding: 0.25em 0 !important;
-        overflow: visible !important;
-      }
-      .amisearch-pdf-stage table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        table-layout: fixed !important;
-      }
-      .amisearch-pdf-stage th,
-      .amisearch-pdf-stage td {
-        border: 1px solid #E5E7EB !important;
-        padding: 8px !important;
-        word-break: break-word !important;
-      }
-      .amisearch-pdf-stage img,
-      .amisearch-pdf-stage svg,
-      .amisearch-pdf-stage canvas {
-        max-width: 100% !important;
-        height: auto !important;
-      }
-      .amisearch-pdf-stage pre,
-      .amisearch-pdf-stage code {
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function removeDownloadToolbar(root) {
-    if (!root || !root.querySelectorAll) return;
-    root.querySelectorAll('[data-ai-dl-toolbar], button, .no-print, .pdf-hide').forEach((el) => {
-      const text = (el.innerText || el.textContent || '').toLowerCase();
-      const looksLikeToolbar = el.hasAttribute('data-ai-dl-toolbar') ||
-        text.includes('pdf') || text.includes('word') || text.includes('letölt') || text.includes('download');
-      if (looksLikeToolbar) el.remove();
+  function loadScriptOnce(src, testFn) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (testFn && testFn()) return resolve();
+        const existing = document.querySelector('script[src="' + src + '"]');
+        if (existing) {
+          existing.addEventListener('load', () => resolve(), { once: true });
+          existing.addEventListener('error', () => reject(new Error('Nem tölthető be: ' + src)), { once: true });
+          setTimeout(() => { if (!testFn || testFn()) resolve(); }, 300);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Nem tölthető be: ' + src));
+        document.head.appendChild(script);
+      } catch (e) { reject(e); }
     });
   }
 
-  function prepareClone(sourceEl) {
-    injectPdfStyles();
+  async function ensurePdfMake() {
+    await loadScriptOnce('https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js', () => !!window.pdfMake);
+    await loadScriptOnce('https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js', () => !!(window.pdfMake && window.pdfMake.vfs));
+  }
+
+  async function ensureDocx() {
+    await loadScriptOnce('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js', () => !!window.docx);
+  }
+
+  function removeExportControls(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('[data-ai-dl-toolbar], #practiceToolbar, #examToolbar, button, .no-print, .pdf-hide').forEach((el) => {
+      const txt = (el.innerText || el.textContent || '').toLowerCase();
+      if (el.hasAttribute('data-ai-dl-toolbar') || /pdf|word|letölt|download|másol|copy/.test(txt)) el.remove();
+    });
+  }
+
+  function elementToText(sourceEl) {
+    if (!sourceEl) return '';
     const clone = sourceEl.cloneNode(true);
-    removeDownloadToolbar(clone);
-    clone.classList.add('amisearch-pdf-stage');
-    clone.style.position = 'absolute';
-    clone.style.left = '-100000px';
-    clone.style.top = '0';
-    clone.style.zIndex = '-1';
-    clone.style.opacity = '1';
-    clone.style.transform = 'none';
-    clone.style.maxHeight = 'none';
-    clone.style.height = 'auto';
-    clone.style.overflow = 'visible';
-    document.body.appendChild(clone);
-    return clone;
+    removeExportControls(clone);
+    clone.querySelectorAll('script, style, noscript').forEach((el) => el.remove());
+    clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+    clone.querySelectorAll('h1,h2,h3,h4,p,li,pre,blockquote,table').forEach((el) => {
+      if (el.tagName === 'LI') el.prepend('• ');
+      el.appendChild(document.createTextNode('\n'));
+    });
+    return (clone.innerText || clone.textContent || '')
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
-  function renderMathIfAvailable(element) {
-    if (!element || typeof window.renderMathInElement !== 'function') return;
-    try {
-      window.renderMathInElement(element, {
-        delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '\\[', right: '\\]', display: true },
-          { left: '$', right: '$', display: false },
-          { left: '\\(', right: '\\)', display: false }
-        ],
-        throwOnError: false
-      });
-    } catch (_) {}
+  function extractTitleLine(text, fallback) {
+    const first = String(text || '').split('\n').map(s => s.trim()).find(Boolean);
+    return (first || fallback || 'AMISEARCH dokumentum').slice(0, 120);
   }
 
-  async function waitForFontsAndLayout() {
-    try {
-      if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    } catch (_) {}
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await new Promise((resolve) => setTimeout(resolve, 120));
-  }
-
-  function addHeader(pdf, pageWidth, headerHeight, title, subtitle) {
-    pdf.setFillColor(108, 92, 231);
-    pdf.rect(0, 0, pageWidth, headerHeight, 'F');
-    pdf.setFillColor(162, 155, 254);
-    pdf.circle(pageWidth - 46, 18, 32, 'F');
-    pdf.setFillColor(85, 76, 199);
-    pdf.circle(pageWidth - 12, 44, 44, 'F');
-
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(18);
-    pdf.text('AMISEARCH', 34, 30);
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.text(subtitle || 'Tanulási segédlet', 34, 46);
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(12);
-    const safeTitle = String(title || 'Letöltés').slice(0, 72);
-    pdf.text(safeTitle, 34, 66, { maxWidth: pageWidth - 68 });
-  }
-
-  function addFooter(pdf, pageWidth, pageHeight, pageNumber) {
-    pdf.setDrawColor(229, 231, 235);
-    pdf.setLineWidth(0.5);
-    pdf.line(34, pageHeight - 28, pageWidth - 34, pageHeight - 28);
-    pdf.setTextColor(107, 114, 128);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.text('amisearch.app', 34, pageHeight - 14);
-    pdf.text(String(pageNumber), pageWidth - 40, pageHeight - 14, { align: 'right' });
-  }
-
-  async function exportElementToStyledPdf(sourceEl, options) {
-    const { jsPDF } = window.jspdf || {};
-    if (!jsPDF || !window.html2canvas) {
-      alert('PDF könyvtár hiányzik. Frissítsd az oldalt, majd próbáld újra.');
-      return;
-    }
-
-    const title = options?.title || 'AMISEARCH letöltés';
-    const subtitle = options?.subtitle || 'Tanulási segédlet';
-    const filename = sanitizeFilename(options?.filename || title) + '.pdf';
-    const clone = prepareClone(sourceEl);
-
-    try {
-      renderMathIfAvailable(clone);
-      await waitForFontsAndLayout();
-
-      const canvas = await window.html2canvas(clone, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: clone.scrollWidth,
-        windowHeight: clone.scrollHeight,
-        width: clone.scrollWidth,
-        height: clone.scrollHeight
-      });
-
-      const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait', compress: true });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const marginX = 34;
-      const headerHeight = 82;
-      const footerHeight = 34;
-      const topY = headerHeight + 20;
-      const usableHeightPt = pageHeight - topY - footerHeight;
-      const imgWidthPt = pageWidth - marginX * 2;
-      const pxPerPt = canvas.width / imgWidthPt;
-      const sliceHeightPx = Math.max(1, Math.floor(usableHeightPt * pxPerPt));
-
-      let page = 1;
-      let sourceY = 0;
-
-      while (sourceY < canvas.height) {
-        if (page > 1) pdf.addPage();
-        addHeader(pdf, pageWidth, headerHeight, title, subtitle);
-        addFooter(pdf, pageWidth, pageHeight, page);
-
-        const currentSliceHeightPx = Math.min(sliceHeightPx, canvas.height - sourceY);
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = currentSliceHeightPx;
-        const ctx = sliceCanvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-        ctx.drawImage(
-          canvas,
-          0,
-          sourceY,
-          canvas.width,
-          currentSliceHeightPx,
-          0,
-          0,
-          canvas.width,
-          currentSliceHeightPx
-        );
-
-        const sliceData = sliceCanvas.toDataURL('image/png');
-        const sliceHeightPt = currentSliceHeightPx / pxPerPt;
-        pdf.addImage(sliceData, 'PNG', marginX, topY, imgWidthPt, sliceHeightPt, undefined, 'FAST');
-        sourceY += currentSliceHeightPx;
-        page += 1;
+  function textToPdfContent(text) {
+    const lines = String(text || '').split('\n');
+    const content = [];
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) {
+        content.push({ text: ' ', margin: [0, 2, 0, 2] });
+        continue;
       }
-
-      pdf.save(filename);
-    } finally {
-      if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
+      if (/^#{1,4}\s+/.test(line)) {
+        const level = (line.match(/^#+/) || ['#'])[0].length;
+        content.push({ text: line.replace(/^#{1,4}\s+/, ''), style: level <= 2 ? 'sectionHeader' : 'subHeader', margin: [0, 12, 0, 5] });
+      } else if (/^(\d+[.)]|[-*•])\s+/.test(line)) {
+        content.push({ text: line, style: 'body', margin: [12, 2, 0, 3] });
+      } else if (/^[-–—]{3,}$/.test(line)) {
+        content.push({ canvas: [{ type: 'line', x1: 0, y1: 4, x2: 515, y2: 4, lineWidth: 0.5, lineColor: '#E5E7EB' }], margin: [0, 6, 0, 6] });
+      } else {
+        content.push({ text: line, style: 'body', margin: [0, 2, 0, 4] });
+      }
     }
+    return content;
+  }
+
+  async function exportTextToPdf(text, opts) {
+    await ensurePdfMake();
+    const lang = currentLang();
+    const title = opts?.title || extractTitleLine(text, 'AMISEARCH');
+    const subtitle = opts?.subtitle || (lang === 'hu' ? 'Tanulási segédlet' : 'Study document');
+    const filename = sanitizeFilename(opts?.filename || title) + '.pdf';
+    const docDefinition = {
+      pageSize: 'A4',
+      pageMargins: [42, 92, 42, 54],
+      info: { title: title, author: 'AMISEARCH' },
+      header: function () {
+        return {
+          margin: [42, 24, 42, 0],
+          stack: [
+            { canvas: [{ type: 'rect', x: 0, y: 0, w: 511, h: 50, r: 12, color: '#6C5CE7' }] },
+            { text: 'AMISEARCH', color: '#FFFFFF', bold: true, fontSize: 18, absolutePosition: { x: 62, y: 36 } },
+            { text: subtitle, color: '#F3F0FF', fontSize: 9, absolutePosition: { x: 62, y: 58 } }
+          ]
+        };
+      },
+      footer: function (currentPage, pageCount) {
+        return { columns: [
+          { text: 'amisearch.org', color: '#6B7280', fontSize: 8, margin: [42, 14, 0, 0] },
+          { text: currentPage + ' / ' + pageCount, alignment: 'right', color: '#6B7280', fontSize: 8, margin: [0, 14, 42, 0] }
+        ] };
+      },
+      content: [
+        { text: title, style: 'title', margin: [0, 0, 0, 12] },
+        { text: new Date().toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-US'), style: 'meta', margin: [0, 0, 0, 14] },
+        ...textToPdfContent(text)
+      ],
+      styles: {
+        title: { fontSize: 20, bold: true, color: '#4C1D95' },
+        sectionHeader: { fontSize: 15, bold: true, color: '#5A4BD1' },
+        subHeader: { fontSize: 13, bold: true, color: '#111827' },
+        body: { fontSize: 10.5, lineHeight: 1.35, color: '#111827' },
+        meta: { fontSize: 8.5, color: '#6B7280' }
+      },
+      defaultStyle: { font: 'Roboto' }
+    };
+    window.pdfMake.createPdf(docDefinition).download(filename);
+  }
+
+  function textToDocxParagraphs(text) {
+    const d = window.docx;
+    const P = d.Paragraph;
+    const R = d.TextRun;
+    const H = d.HeadingLevel;
+    const paragraphs = [];
+    for (const raw of String(text || '').split('\n')) {
+      const line = raw.trim();
+      if (!line) {
+        paragraphs.push(new P({ text: '', spacing: { after: 120 } }));
+        continue;
+      }
+      if (/^#{1,4}\s+/.test(line)) {
+        paragraphs.push(new P({ text: line.replace(/^#{1,4}\s+/, ''), heading: H.HEADING_2, spacing: { before: 220, after: 100 } }));
+      } else if (/^(\d+[.)]|[-*•])\s+/.test(line)) {
+        paragraphs.push(new P({ children: [new R({ text: line, size: 22 })], indent: { left: 360 }, spacing: { after: 80 } }));
+      } else {
+        paragraphs.push(new P({ children: [new R({ text: line, size: 22 })], spacing: { after: 90 } }));
+      }
+    }
+    return paragraphs;
+  }
+
+  async function exportTextToDocx(text, opts) {
+    await ensureDocx();
+    const d = window.docx;
+    const title = opts?.title || extractTitleLine(text, 'AMISEARCH');
+    const filename = sanitizeFilename(opts?.filename || title) + '.docx';
+    const doc = new d.Document({
+      creator: 'AMISEARCH',
+      title: title,
+      description: 'AMISEARCH export',
+      sections: [{
+        properties: {
+          page: { margin: { top: 900, right: 850, bottom: 850, left: 850 } }
+        },
+        children: [
+          new d.Paragraph({
+            children: [new d.TextRun({ text: 'AMISEARCH', bold: true, color: '6C5CE7', size: 34 })],
+            spacing: { after: 120 }
+          }),
+          new d.Paragraph({
+            children: [new d.TextRun({ text: title, bold: true, color: '4C1D95', size: 30 })],
+            spacing: { after: 120 }
+          }),
+          new d.Paragraph({
+            children: [new d.TextRun({ text: new Date().toLocaleString(currentLang() === 'hu' ? 'hu-HU' : 'en-US'), color: '6B7280', size: 18 })],
+            spacing: { after: 260 }
+          }),
+          ...textToDocxParagraphs(text)
+        ]
+      }]
+    });
+    const blob = await d.Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   function findAiBubbleFrom(btn) {
@@ -392,50 +351,96 @@
       null;
   }
 
-  function installPdfFixes() {
-    window.downloadAiAnswerPdf = async function(btn) {
+  function installStructuredExports() {
+    window.downloadAiAnswerPdf = async function (btn) {
       const bubble = findAiBubbleFrom(btn);
       if (!bubble) return;
       const q = btn?.getAttribute?.('data-q') || 'ai-valasz';
       try {
-        await exportElementToStyledPdf(bubble, {
-          title: 'AI válasz',
-          subtitle: 'AMISEARCH tanulási segédlet',
-          filename: q
-        });
+        const text = elementToText(bubble);
+        await exportTextToPdf(text, { title: currentLang() === 'hu' ? 'AI válasz' : 'AI answer', subtitle: currentLang() === 'hu' ? 'AMISEARCH tanulási segédlet' : 'AMISEARCH study document', filename: q });
       } catch (e) {
         console.error('[amisearch] AI PDF export hiba:', e);
         alert('PDF generálás hiba: ' + (e?.message || e));
       }
     };
 
-    window.downloadPracticePdf = async function(topicName) {
+    window.downloadAiAnswerWord = async function (btn) {
+      const bubble = findAiBubbleFrom(btn);
+      if (!bubble) return;
+      const q = btn?.getAttribute?.('data-q') || 'ai-valasz';
+      try {
+        const text = elementToText(bubble);
+        await exportTextToDocx(text, { title: currentLang() === 'hu' ? 'AI válasz' : 'AI answer', filename: q });
+      } catch (e) {
+        console.error('[amisearch] AI Word export hiba:', e);
+        alert('Word generálás hiba: ' + (e?.message || e));
+      }
+    };
+
+    window.downloadPracticePdf = async function (topicName) {
       const target = document.getElementById('practiceContent');
       if (!target) return;
-      const topic = topicName || 'Feladatsor';
+      const topic = topicName || (currentLang() === 'hu' ? 'Feladatsor' : 'Practice sheet');
       try {
-        await exportElementToStyledPdf(target, {
-          title: topic + ' — Feladatok',
-          subtitle: 'Feladatok, megoldások és magyarázatok',
-          filename: topic + '-feladatok'
-        });
+        await exportTextToPdf(elementToText(target), { title: topic + (currentLang() === 'hu' ? ' — Feladatok' : ' — Tasks'), subtitle: currentLang() === 'hu' ? 'Feladatok, megoldások és magyarázatok' : 'Tasks, solutions and explanations', filename: topic + '-feladatok' });
       } catch (e) {
         console.error('[amisearch] Practice PDF export hiba:', e);
         alert('PDF generálás hiba: ' + (e?.message || e));
       }
     };
+
+    window.downloadPracticeWord = async function (topicName) {
+      const target = document.getElementById('practiceContent');
+      if (!target) return;
+      const topic = topicName || (currentLang() === 'hu' ? 'Feladatsor' : 'Practice sheet');
+      try {
+        await exportTextToDocx(elementToText(target), { title: topic + (currentLang() === 'hu' ? ' — Feladatok' : ' — Tasks'), filename: topic + '-feladatok' });
+      } catch (e) {
+        console.error('[amisearch] Practice Word export hiba:', e);
+        alert('Word generálás hiba: ' + (e?.message || e));
+      }
+    };
+
+    window.downloadExamPdf = async function (topicName) {
+      const target = document.getElementById('examContent');
+      if (!target) return;
+      const topic = topicName || (currentLang() === 'hu' ? 'Vizsgaszimulátor' : 'Exam simulator');
+      try {
+        await exportTextToPdf(elementToText(target), { title: topic, subtitle: currentLang() === 'hu' ? 'Vizsgaszimulátor feladatsor' : 'Exam simulator sheet', filename: topic + '-vizsga' });
+      } catch (e) {
+        console.error('[amisearch] Exam PDF export hiba:', e);
+        alert('PDF generálás hiba: ' + (e?.message || e));
+      }
+    };
+
+    window.downloadExamWord = async function (topicName) {
+      const target = document.getElementById('examContent');
+      if (!target) return;
+      const topic = topicName || (currentLang() === 'hu' ? 'Vizsgaszimulátor' : 'Exam simulator');
+      try {
+        await exportTextToDocx(elementToText(target), { title: topic, filename: topic + '-vizsga' });
+      } catch (e) {
+        console.error('[amisearch] Exam Word export hiba:', e);
+        alert('Word generálás hiba: ' + (e?.message || e));
+      }
+    };
   }
 
   window.changeSiteTheme = setTheme;
-  window.amisearchExportElementToStyledPdf = exportElementToStyledPdf;
+  window.amisearchExportTextToPdf = exportTextToPdf;
+  window.amisearchExportTextToDocx = exportTextToDocx;
+
+  function init() {
+    createPicker();
+    installStructuredExports();
+    updatePickerLanguage();
+    setInterval(updatePickerLanguage, 1200);
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      createPicker();
-      installPdfFixes();
-    }, { once: true });
+    document.addEventListener('DOMContentLoaded', init, { once: true });
   } else {
-    createPicker();
-    installPdfFixes();
+    init();
   }
 })();
