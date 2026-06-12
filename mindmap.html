@@ -6,9 +6,9 @@
 <title>AMISEARCH - Gondolattérkép</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.17.3/dist/browser/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17.3/dist/browser/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.iife.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18.12/dist/browser/index.js"></script>
 <style>
   body { font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
   #loading { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 58vh; }
@@ -160,10 +160,11 @@ let currentMap = null;
 
 const urlParams = new URLSearchParams(window.location.search);
 const topicFromUrl = urlParams.get('topic');
+const directSourceFromUrl = urlParams.get('content') || urlParams.get('markdown') || urlParams.get('code') || urlParams.get('mindmap');
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('loading').style.display = 'none';
-  if (topicFromUrl) {
-    document.getElementById('topicInput').value = decodeURIComponent(topicFromUrl);
+  if (topicFromUrl && !directSourceFromUrl) {
+    document.getElementById('topicInput').value = topicFromUrl;
     generateMindmap();
   }
 });
@@ -268,8 +269,11 @@ async function renderMarkmap(markdown) {
   document.getElementById('markdownSource').value = markdown;
 
   try {
+    if (!window.d3) {
+      throw new Error('A D3 könyvtár nem töltődött be. Ellenőrizd az internetkapcsolatot vagy a CDN elérést.');
+    }
     if (!window.markmap || !window.markmap.Transformer || !window.markmap.Markmap) {
-      throw new Error('A Markmap könyvtár nem töltődött be.');
+      throw new Error('A Markmap könyvtár nem töltődött be. A javított fájl markmap-lib@0.18.12 és markmap-view@0.18.12 CDN buildet használ.');
     }
     const transformer = new window.markmap.Transformer();
     const { root } = transformer.transform(markdown);
@@ -376,6 +380,37 @@ function downloadSVG() {
   URL.revokeObjectURL(url);
 }
 
+function getInitialMindmapPayload() {
+  const params = new URLSearchParams(window.location.search);
+  const topic = params.get('topic') || params.get('q') || params.get('title') || '';
+  const source = params.get('content') || params.get('markdown') || params.get('code') || params.get('mindmap') || '';
+  return { topic: topic.trim(), source };
+}
+
+async function loadInitialMindmapIfProvided() {
+  const payload = getInitialMindmapPayload();
+  if (!payload.topic && !payload.source) return;
+  const topic = payload.topic || 'Gondolattérkép';
+  document.getElementById('topicInput').value = topic;
+  currentTopic = topic;
+
+  if (payload.source) {
+    try {
+      showLoading();
+      currentMarkdown = mermaidMindmapToMarkdown(payload.source, topic);
+      await renderMarkmap(currentMarkdown);
+      showResult(topic);
+      return;
+    } catch (e) {
+      console.error('Közvetlen Markmap renderelési hiba:', e);
+      showError(e.message || String(e));
+      return;
+    }
+  }
+
+  await generateMindmap();
+}
+
 function downloadPNG() {
   const svg = document.querySelector('#mindmapSvg');
   if (!svg || !svg.innerHTML.trim()) {
@@ -416,6 +451,8 @@ function downloadPNG() {
   };
   img.src = url;
 }
+
+document.addEventListener('DOMContentLoaded', loadInitialMindmapIfProvided, { once: true });
 </script>
 
 </body>
