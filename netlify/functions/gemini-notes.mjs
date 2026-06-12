@@ -6,10 +6,17 @@ import { getSupabaseUser } from "./auth-helper.mjs";
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
 
-const supabase = createClient(
-  getEnv("SUPABASE_URL"),
-  getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY")
-);
+function getSupabaseAdmin() {
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 const DEFAULT_MODEL = getEnv("GEMINI_MODEL") || "gemini-2.5-flash";
@@ -87,6 +94,8 @@ async function downloadNoteBuffer(note) {
     return Buffer.from(await resp.arrayBuffer());
   }
 
+  const supabase = getSupabaseAdmin();
+  if (!supabase) throw new Error("Supabase server configuration missing.");
   const { data, error } = await supabase.storage.from("jegyzetek").download(filePath);
   if (error || !data) throw new Error("Nem sikerült letölteni a jegyzetfájlt a tárhelyről.");
   return Buffer.from(await data.arrayBuffer());
@@ -141,6 +150,8 @@ async function ensureNoteText(note) {
   }
 
   if (text.length >= 40 && note?.id) {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return text;
     const textHash = createHash("sha256").update(text).digest("hex");
     const updatePayload = { text_content: text, processed: true, text_hash: textHash };
     const { error } = await supabase.from("jegyzetek").update(updatePayload).eq("id", note.id);
@@ -220,6 +231,9 @@ export default async function handler(req) {
     if (!question && mode !== "summary") {
       return json({ error: "Hiányzik a kérdés.", code: "missing_question" }, 400);
     }
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return json({ error: "A Supabase szerveroldali környezeti változói hiányoznak.", code: "supabase_missing_config" }, 500);
 
     let query = supabase.from("jegyzetek").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(80);
     if (uniqueIds.length) query = query.in("id", uniqueIds);
