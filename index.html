@@ -42,7 +42,7 @@
   }
   
   .gradient-text {
-    background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);
+    background: linear-gradient(135deg, var(--am-primary, #6C5CE7) 0%, var(--am-accent, #A29BFE) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -245,7 +245,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="/amisearch-theme.js" defer></script>
+<script src="/amisearch-theme.js?v=20260612-fix2" defer></script>
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
@@ -270,22 +270,34 @@
     }
 
     .am-theme-text,
-    [class*="text-[#6C5CE7]"] {
+    [class*="text-[#6C5CE7]"],
+    [class*="text-[#A29BFE]"],
+    [class*="text-purple"],
+    [class*="text-indigo"] {
       color: var(--am-primary) !important;
     }
 
     .am-theme-bg,
-    [class*="bg-[#6C5CE7]"] {
+    [class*="bg-[#6C5CE7]"],
+    [class*="bg-[#A29BFE]"],
+    [class*="bg-purple"],
+    [class*="bg-indigo"] {
       background-color: var(--am-primary) !important;
     }
 
     .am-theme-border,
-    [class*="border-[#6C5CE7]"] {
+    [class*="border-[#6C5CE7]"],
+    [class*="border-[#A29BFE]"],
+    [class*="border-purple"],
+    [class*="border-indigo"] {
       border-color: var(--am-primary) !important;
     }
 
     .am-theme-gradient,
-    .feature-icon-gradient {
+    .feature-icon-gradient,
+    .gradient-text,
+    [class*="from-[#6C5CE7]"],
+    [class*="to-[#A29BFE]"] {
       background: linear-gradient(135deg, var(--am-primary) 0%, var(--am-accent) 100%) !important;
     }
 
@@ -321,7 +333,7 @@
 <body class="bg-gray-50 text-gray-900">
 
 <!-- AMISEARCH színválasztó / theme picker -->
-<div id="themePicker" class="fixed right-4 bottom-4 z-40">
+<div id="themePicker" class="fixed right-4 bottom-32 z-40">
   <button type="button" onclick="window.toggleThemePicker()" class="w-12 h-12 rounded-2xl shadow-xl btn-primary text-white flex items-center justify-center" aria-label="Theme colors">
     <i class="fa-solid fa-palette"></i>
   </button>
@@ -1195,11 +1207,9 @@
           <span class="text-2xl font-extrabold text-white">AMISEARCH</span>
         </div>
         <p class="text-sm mb-6" data-hu="AI-powered tanulási platform diákoknak és oktatóknak." data-en="AI-powered learning platform for students and educators.">AI-powered tanulási platform diákoknak és oktatóknak.</p>
-        <div class="flex space-x-4">
-          <a href="#" class="w-10 h-10 bg-gray-800 hover:bg-[#6C5CE7] rounded-lg flex items-center justify-center transition"><i class="fa-brands fa-facebook-f"></i></a>
-          <a href="#" class="w-10 h-10 bg-gray-800 hover:bg-[#6C5CE7] rounded-lg flex items-center justify-center transition"><i class="fa-brands fa-twitter"></i></a>
-          <a href="#" class="w-10 h-10 bg-gray-800 hover:bg-[#6C5CE7] rounded-lg flex items-center justify-center transition"><i class="fa-brands fa-linkedin-in"></i></a>
-          <a href="#" class="w-10 h-10 bg-gray-800 hover:bg-[#6C5CE7] rounded-lg flex items-center justify-center transition"><i class="fa-brands fa-instagram"></i></a>
+        <div class="flex space-x-4" aria-label="Közösségi oldalak">
+          <a href="#" aria-label="Facebook" class="w-10 h-10 bg-gray-800 hover:bg-[#6C5CE7] rounded-lg flex items-center justify-center transition"><i class="fa-brands fa-facebook-f"></i></a>
+          <a href="#" aria-label="Discord" class="w-10 h-10 bg-gray-800 hover:bg-[#6C5CE7] rounded-lg flex items-center justify-center transition"><i class="fa-brands fa-discord"></i></a>
         </div>
       </div>
       
@@ -2479,7 +2489,7 @@
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
-      pdf.text('AmiSearch — AI válasz', margin, margin);
+      pdf.text('AmiSearh — AI válasz', margin, margin);
       let heightLeft = imgHeight;
       let position = margin + 20;
       pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
@@ -3669,4 +3679,3 @@
 </html>
 </body>
 </html>
-Miért nem működik a weboldalam frontendje? - Manus
