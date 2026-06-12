@@ -1,0 +1,57 @@
+// ============================================
+// AMISEARCH - Profil mentés (opcionális külön végpont)
+// ============================================
+
+import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUser } from "./auth-helper.mjs";
+import { jsonError } from "./ai-response.js";
+
+const getEnv = (key) =>
+  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+
+function getSupabaseAdmin() {
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
+export default async function handler(req) {
+  try {
+    if (req.method !== "POST") return jsonError("Method not allowed", 405);
+
+    const user = await getSupabaseUser(req);
+    if (!user) return jsonError("Jelentkezz be!", 401);
+
+    const body = await req.json().catch(() => ({}));
+    const supabase = getSupabaseAdmin();
+    
+    if (!supabase) return jsonError("Adatbázis hiba", 500);
+
+    const { education_level, hobbies, difficult_subjects, learning_goal } = body;
+
+    const { error } = await supabase
+      .from("user_profiles")
+      .upsert({
+        user_id: user.id,
+        education_level: education_level || null,
+        hobbies: hobbies || null,
+        difficult_subjects: difficult_subjects || null,
+        learning_goal: learning_goal || null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error("Profil mentési hiba:", error);
+      return jsonError("Mentési hiba", 500);
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    console.error("Profile setup error:", err);
+    return jsonError("Szerver hiba", 500);
+  }
+}
