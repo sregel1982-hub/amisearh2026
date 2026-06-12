@@ -1,7 +1,3 @@
-/* AMISEARCH Gemini jegyzetalapú AI kiegészítés
-   Betöltés javasolt az index.html fő scriptjei után:
-   <script src="amisearch-gemini-notes.js?v=1"></script>
-*/
 (function () {
   'use strict';
 
