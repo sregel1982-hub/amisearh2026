@@ -14,14 +14,38 @@
     return window.currentLang === 'en' ? 'en' : 'hu';
   }
 
+  function latexToPlain(value) {
+    let text = String(value || '');
+    for (let i = 0; i < 5; i += 1) {
+      text = text.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2');
+    }
+    return text
+      .replace(/\\dfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
+      .replace(/\\tfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
+      .replace(/\\left|\\right/g, '')
+      .replace(/\\times/g, '×')
+      .replace(/\\cdot/g, '·')
+      .replace(/\\div/g, '÷')
+      .replace(/\\leq/g, '≤')
+      .replace(/\\geq/g, '≥')
+      .replace(/\\neq/g, '≠')
+      .replace(/\\pm/g, '±')
+      .replace(/\\sqrt\s*\{([^{}]+)\}/g, '√($1)')
+      .replace(/[{}]/g, '')
+      .replace(/\\[a-zA-Z]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function cleanText(value) {
-    return String(value || '')
+    return latexToPlain(String(value || ''))
       .replace(/\u00a0/g, ' ')
       .replace(/[\u200B-\u200D\uFEFF]/g, '')
       .replace(/[\u2018\u2019]/g, '’')
       .replace(/[\u201C\u201D]/g, '”')
       .replace(/\r\n?/g, '\n')
       .replace(/[ \t]+\n/g, '\n')
+      .replace(/\s+([.,;:!?])/g, '$1')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
@@ -98,10 +122,22 @@
     });
   }
 
+  function normalizeMathForExport(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('.katex').forEach((el) => {
+      const annotation = el.querySelector('annotation[encoding="application/x-tex"], annotation');
+      const latex = cleanText(annotation ? annotation.textContent : '');
+      const plain = latexToPlain(latex || el.getAttribute('data-latex') || '');
+      el.replaceWith(document.createTextNode(plain ? ' ' + plain + ' ' : ' '));
+    });
+    root.querySelectorAll('.katex-html, .katex-mathml, math, annotation, [aria-hidden="true"]').forEach((el) => el.remove());
+  }
+
   function elementToText(sourceEl) {
     if (!sourceEl) return '';
     const clone = sourceEl.cloneNode(true);
     removeExportControls(clone);
+    normalizeMathForExport(clone);
     clone.querySelectorAll('script, style, noscript, svg, canvas').forEach((el) => el.remove());
     clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
     clone.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,section,article').forEach((el) => {
@@ -148,23 +184,23 @@
 
     const docDefinition = {
       pageSize: 'A4',
-      pageMargins: [42, 96, 42, 56],
+      pageMargins: [56, 92, 56, 58],
       info: { title: title, author: BRAND, subject: subtitle, creator: BRAND },
       defaultStyle: { font: 'Roboto', fontSize: 10.5, lineHeight: 1.35, color: '#111827' },
       header: function () {
         return {
-          margin: [42, 22, 42, 0],
+          margin: [56, 22, 56, 0],
           stack: [
-            { canvas: [{ type: 'rect', x: 0, y: 0, w: 511, h: 54, r: 12, color: theme.primary }] },
-            { text: BRAND, color: '#FFFFFF', bold: true, fontSize: 19, absolutePosition: { x: 62, y: 35 } },
-            { text: subtitle, color: '#F8FAFC', fontSize: 9, absolutePosition: { x: 62, y: 59 } }
+            { canvas: [{ type: 'rect', x: 0, y: 0, w: 483, h: 52, r: 10, color: theme.dark }] },
+            { text: BRAND, color: '#FFFFFF', bold: true, fontSize: 18, absolutePosition: { x: 76, y: 35 } },
+            { text: subtitle, color: '#F8FAFC', fontSize: 9, absolutePosition: { x: 76, y: 58 } }
           ]
         };
       },
       footer: function (currentPage, pageCount) {
         return { columns: [
-          { text: 'amisearch.org', color: '#6B7280', fontSize: 8, margin: [42, 16, 0, 0] },
-          { text: currentPage + ' / ' + pageCount, alignment: 'right', color: '#6B7280', fontSize: 8, margin: [0, 16, 42, 0] }
+          { text: 'amisearch.org', color: '#6B7280', fontSize: 8, margin: [56, 16, 0, 0] },
+          { text: currentPage + ' / ' + pageCount, alignment: 'right', color: '#6B7280', fontSize: 8, margin: [0, 16, 56, 0] }
         ] };
       },
       content: [
@@ -222,7 +258,7 @@
       title: title,
       description: BRAND + ' export',
       sections: [{
-        properties: { page: { margin: { top: 900, right: 850, bottom: 850, left: 850 } } },
+        properties: { page: { margin: { top: 900, right: 950, bottom: 850, left: 950 } } },
         children: [
           new d.Paragraph({ children: [new d.TextRun({ text: BRAND, bold: true, color: primary, size: 36 })], spacing: { after: 100 } }),
           new d.Paragraph({ children: [new d.TextRun({ text: title, bold: true, color: dark, size: 30 })], spacing: { after: 100 } }),
@@ -357,7 +393,7 @@
         outline-offset: 3px !important;
         transform: translateY(-1px) !important;
       }
-      #themePicker { bottom: 6rem !important; z-index: 40 !important; }
+      #themePicker { bottom: 8rem !important; z-index: 40 !important; }
     `;
 
     try { localStorage.setItem('amisearch-theme', themeName); } catch (_) {}
@@ -385,6 +421,9 @@
     window.amisearchExportTextToPdf = exportTextToPdf;
     window.amisearchExportTextToDocx = exportTextToDocx;
     installStructuredExports();
+    setTimeout(installStructuredExports, 0);
+    setTimeout(installStructuredExports, 500);
+    setTimeout(installStructuredExports, 1500);
     applyTheme(localStorage.getItem('amisearch-theme') || 'purple');
     updatePickerLanguage();
     setInterval(updatePickerLanguage, 1500);
