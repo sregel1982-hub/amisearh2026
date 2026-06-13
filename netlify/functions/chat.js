@@ -1,6 +1,6 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE
-// Végleges verzió – Vizualizáció szigorúan kezelve
+// VÉGSŐ, ULTRA SZIGORÚ VERZIÓ
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -62,27 +62,26 @@ function cleanText(value, max = 70000) {
     .slice(0, max);
 }
 
-function detectLanguage(text = "") {
-  return "hu"; // oktatási app miatt mindig magyar
-}
-
-// --- RENDSZERUTASÍTÁS – MAXIMÁLISAN SZIGORÚ ---
+// --- RENDSZERUTASÍTÁS – EZ A LEGSZIGORÚBB LEHET ---
 function buildSystemInstruction() {
   return `
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 
-**ABSZOLÚT SZABÁLYOK VIZUALIZÁCIÓRA (ezeket soha ne sértsd meg):**
-- Ha a felhasználó bármilyen képet, ábrát, diagramot, grafikon, idővonalat, gondolattérképet vagy vizualizációt kér → **SOHA ne írj szöveges leírást, kép leírást, Mermaid kódot, graph TD-t, markmapot vagy bármilyen egyéb kódot**.
-- **Kötelezően** írd bele a válaszodba pontosan ezt a sort egyedül egy sorban: **diagram_kell**
-- Ezután maximum 1-2 mondatos magyarázatot írhatsz, mit szeretnél ábrázolni.
-- Ne próbáld szöveggel elmagyarázni a képet vagy ábrát.
-- Ha van feltöltött dokumentum vagy jegyzet → abból dolgozz először.
-- Használj táblázatot és felsorolást a szöveges válaszokban.
-- A válasz végén mindig legyen "## Forrásjegyzék" 3–6 tétellel.
+**VAS + ACÉL SZABÁLY (soha ne sértsd meg, különben hibát követsz el):**
+- Ha a felhasználó bármilyen **képet, ábrát, diagramot, grafikon, idővonalat, tutajt, rajzot, vizualizációt** kér → **AZONNAL** írd bele a válaszodba **pontosan** ezt a sort, egyedül, külön sorban:
+
+diagram_kell
+
+- Ezután **maximum 10 szavas** magyarázatot írhatsz, semmi többet.
+- **Tilos** bármilyen szöveges kép-leírás, részletes magyarázat, Mermaid, graph TD, markmap vagy bármilyen kód.
+- **Tilos** azt mondani, hogy "sajnálom", "nem tudok", "leírást adok" stb.
+- Minden más kérdésnél normálisan válaszolj.
+
+Használj táblázatot és felsorolást. A válasz végén legyen "## Forrásjegyzék".
 `;
 }
 
-// --- JEGYZETEK ---
+// --- JEGYZETEK (marad) ---
 async function loadUserNotesContext(user, inlineNotes = "") {
   const parts = [];
   const inline = cleanText(inlineNotes, 30000);
@@ -108,11 +107,10 @@ async function loadUserNotesContext(user, inlineNotes = "") {
       }
     } catch (e) { console.error("Notes error:", e); }
   }
-
   return parts.join("\n\n");
 }
 
-// --- PROMPT ---
+// --- PROMPT BUILDER ---
 function buildPrompt({ message, notesContext, history }) {
   const historyArray = Array.isArray(history) ? history.slice(-8) : [];
   const historyText = historyArray
@@ -126,19 +124,24 @@ function buildPrompt({ message, notesContext, history }) {
   ].filter(Boolean).join("");
 }
 
-function needsDiagram(message) {
+function needsVisualization(message) {
   const m = message.toLowerCase();
-  return ["diagram", "grafikon", "ábra", "idővonal", "chart", "oszlop", "vonal", "kördiagram", "vizualizáció", "kép", "rajzolj", "ábrázol", "tutaj"].some(k => m.includes(k));
+  return /diagram|grafikon|ábra|kép|rajzolj|ábrázol|tutaj|idővonal|chart|vizualizáció|oszlop|vonal/.test(m);
 }
 
-// --- DIAGRAM MENTÉS ---
+// --- DIAGRAM SAVE ---
 async function saveDiagram(userId, question, config, explanation) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
   try {
     const { data, error } = await supabase
       .from("charts")
-      .insert({ user_id: userId, question, config, explanation: explanation || "" })
+      .insert({ 
+        user_id: userId, 
+        question, 
+        config, 
+        explanation: explanation || "Vizualizáció" 
+      })
       .select("id")
       .single();
     return error ? null : data?.id || null;
@@ -148,7 +151,7 @@ async function saveDiagram(userId, question, config, explanation) {
   }
 }
 
-// --- MAIN HANDLER ---
+// --- HANDLER ---
 export default async function handler(req) {
   try {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" }});
@@ -166,7 +169,7 @@ export default async function handler(req) {
     const notesContext = await loadUserNotesContext(user, body.notes || "");
     const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
 
-    if (needsDiagram(message) && body.chartConfig) {
+    if (needsVisualization(message) && body.chartConfig) {
       const id = await saveDiagram(user.id, message, body.chartConfig, body.explanation);
       if (id) return jsonResponse({ redirect: `https://amisearch.org/diagram?id=${id}` });
     }
@@ -175,7 +178,10 @@ export default async function handler(req) {
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: promptText }] }],
       systemInstruction: buildSystemInstruction(),
-      generationConfig: { temperature: 0.5, maxOutputTokens: 8192 }, // alacsonyabb temperature = következetesebb
+      generationConfig: { 
+        temperature: 0.2,   // nagyon alacsony
+        maxOutputTokens: 2048 
+      },
     });
 
     async function* generator() {
@@ -189,6 +195,6 @@ export default async function handler(req) {
 
   } catch (error) {
     console.error("Chat AI fatal error:", error);
-    return jsonResponse({ error: "Szerver hiba történt. Próbáld újra később." }, 500);
+    return jsonResponse({ error: "Szerver hiba történt." }, 500);
   }
 }
