@@ -34,7 +34,7 @@ function jsonError(message, status = 500, code = "error") {
 }
 
 function aiUnavailableResponse() {
-  return jsonError("Az AI szolgáltatás jelenleg nem elérhető. Kérlek, próbáld újra később.", 503, "ai_unavailable");
+  return jsonError("Az AI szolgáltatás jelenleg nem elérhető.", 503, "ai_unavailable");
 }
 
 function isAiConfigured() {
@@ -44,25 +44,53 @@ function isAiConfigured() {
 // === NYELVDETEKTÁLÁS ===
 function detectLanguage(text = "") {
   const sample = String(text || "").toLowerCase();
-  const huMarkers = ["á","é","í","ó","ö","ő","ú","ü","ű","hogy","mert","szerint","magyarázd","feladat","rajzold","ábra","halmaz"];
-  const esMarkers = ["¿","¡","ñ","qué","cómo","porque","explica","ejercicio"];
+  const huMarkers = ["á","é","í","ó","ö","ő","ú","ü","ű","hogy","mert","szerint","magyarázd","feladat","rajzold","ábra","halmaz","diagram","táblázat","négyzet","háromszög","kör"];
+  const esMarkers = ["¿","¡","ñ","qué","cómo","porque","explica","ejercicio","diagrama","tabla"];
+  const deMarkers = ["ä","ö","ü","ß","wie","was","weil","aufgabe","diagramm","tabelle"];
+  const frMarkers = ["à","è","é","ê","ë","ï","î","ô","ù","û","ç","comment","pourquoi","exercice","diagramme","tableau"];
+  
   if (esMarkers.some((m) => sample.includes(m))) return "es";
+  if (deMarkers.some((m) => sample.includes(m))) return "de";
+  if (frMarkers.some((m) => sample.includes(m))) return "fr";
   if (huMarkers.some((m) => sample.includes(m))) return "hu";
   return "en";
 }
 
-// === JEGYZETEK BETÖLTÉSE ===
+// === FÁJL LETÖLTÉS SUPABASE STORAGE-BÓL ===
+async function downloadFileAsBase64(supabase, filePath, bucket = "jegyzetek") {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).download(filePath);
+    if (error || !data) {
+      console.warn("Storage download hiba:", error?.message);
+      return null;
+    }
+    
+    const arrayBuffer = await data.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    
+    let mimeType = "application/octet-stream";
+    if (filePath.endsWith('.pdf')) mimeType = 'application/pdf';
+    else if (filePath.endsWith('.png')) mimeType = 'image/png';
+    else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) mimeType = 'image/jpeg';
+    
+    return { base64, mimeType };
+  } catch (err) {
+    console.error("Fájl letöltési hiba:", err);
+    return null;
+  }
+}
+
+// === JEGYZETEK BETÖLTÉSE (szöveg + kép) ===
 async function loadUserNotesContext(user, query, inlineNotes = "") {
   const parts = [];
-  const images = []; // ÚJ: képek gyűjtése
+  const images = [];
 
-  // 1. Inline doksik
+  // Inline doksik (PDF/Word/TXT)
   const inline = cleanText(inlineNotes, 30000);
   if (inline) {
-    parts.push(`=== FELTÖLTÖTT DOKUMENTUM (PDF/Word/TXT) ===\n${inline}\n\nFONTOS: Használd ezt elsődlegesen a válaszhoz és diagram készítéshez!`);
+    parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}\n\nFONTOS: Használd ezt elsődlegesen!`);
   }
 
-  // 2. DB jegyzetek
   const supabase = getSupabaseAdmin();
   if (!supabase || !user?.id) return { text: parts.join("\n\n"), images };
 
@@ -82,13 +110,10 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
         const text = cleanText(note.text_content, 20000);
         const title = note.cim || note.original_name || `Jegyzet #${note.id}`;
         
-        // Ha van értelmes szöveg
         if (text && text.length > 50) {
           parts.push(`=== Mentett jegyzet: ${title} ===\n${text}`);
-        }
-        // Ha nincs szöveg, de van fájl útvonal → kép/PDF ként letöltjük
-        else if (note.file_path) {
-          console.log(`Kép/PDF letöltése: ${title} (${note.file_path})`);
+        } else if (note.file_path) {
+          console.log(`Kép/PDF letöltése: ${title}`);
           const fileData = await downloadFileAsBase64(supabase, note.file_path);
           if (fileData) {
             images.push({ title, base64: fileData.base64, mimeType: fileData.mimeType });
@@ -104,31 +129,6 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
   return { text: parts.join("\n\n"), images };
 }
 
-// === FÁJL LETÖLTÉS SUPABASE-BÓL ===
-async function downloadFileAsBase64(supabase, filePath, bucket = "jegyzetek") {
-  try {
-    const { data, error } = await supabase.storage.from(bucket).download(filePath);
-    if (error || !data) {
-      console.warn("Storage download hiba:", error?.message);
-      return null;
-    }
-    
-    const arrayBuffer = await data.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    
-    // MIME type detektálás
-    let mimeType = "application/octet-stream";
-    if (filePath.endsWith('.pdf')) mimeType = 'application/pdf';
-    else if (filePath.endsWith('.png')) mimeType = 'image/png';
-    else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) mimeType = 'image/jpeg';
-    
-    return { base64, mimeType };
-  } catch (err) {
-    console.error("Fájl letöltési hiba:", err);
-    return null;
-  }
-}
-
 // === RENDSZERUTASÍTÁS ===
 function buildSystemInstruction(lang = "hu") {
   const instructions = {
@@ -138,30 +138,48 @@ Fontos szabályok:
 - Ha van feltöltött dokumentum, ELŐSZÖR ABBÓL DOLGOZZ.
 - Ne kezdj felesleges felvezetéssel (pl. "Rendben", "Persze").
 - Használj felsorolásokat, táblázatokat ahol érdemes.
-- VIZUÁLIS FORMÁZÁS:
-  * TÁBLÁZAT: markdown | Oszlop1 | Oszlop2 |
-  * DIAGRAM/ÁBRA: ASCII art (oszlopdiagram, folyamatábra)
-  * HÁROMSZÖG: ASCII rajz
+
+VIZUÁLIS FORMÁZÁS (kötelező, ha releváns):
+- TÁBLÁZAT: markdown | Oszlop1 | Oszlop2 |
+- DIAGRAM/ÁBRA: ASCII art (oszlopdiagram, folyamatábra)
+- HÁROMSZÖG/NÉGYSZÖG: ASCII rajz
       /\\
      /  \\
     /____\\
-  * FOLYAMAT: számozott lépések
+- FOLYAMAT: számozott lépések
 - A válasz végén legyen "## Forrásjegyzék" szakasz 3-6 forrással.`,
     
     es: `Eres el asistente educativo de AMISEARCH. Responde en español.
 
 Reglas:
 - Sin introducciones de cortesía.
-- TABLAS: formato markdown
+- TABLAS: formato markdown | Columna1 | Columna2 |
 - DIAGRAMAS: ASCII art
 - Fuentes al final.`,
+    
+    de: `Du bist der AMISEARCH Bildungsassistent. Antworte auf Deutsch.
+
+Regeln:
+- Keine Höflichkeitsfloskeln.
+- TABELLEN: Markdown-Format
+- DIAGRAMME: ASCII-Art
+- Quellen am Ende.`,
+    
+    fr: `Vous êtes l'assistant éducatif AMISEARCH. Répondez en français.
+
+Règles:
+- Pas d'introductions de courtoisie.
+- TABLEAUX: format markdown
+- DIAGRAMMES: ASCII art
+- Sources à la fin.`,
     
     en: `You are the AMISEARCH educational assistant. Answer in English.
 
 Rules:
 - No filler openings.
-- TABLES: markdown format
+- TABLES: markdown format | Column1 | Column2 |
 - DIAGRAMS: ASCII art
+- PROCESSES: numbered steps
 - References at the end.`
   };
   
@@ -206,6 +224,7 @@ function streamResponse(generator) {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*",
     },
   });
 }
@@ -213,7 +232,7 @@ function streamResponse(generator) {
 // === FŐ HANDLER ===
 export default async function handler(req) {
   try {
-    // CORS preflight
+    // CORS
     if (req.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -246,10 +265,11 @@ export default async function handler(req) {
       return jsonError("Hiányzó üzenet.", 400, "missing_message");
     }
 
+    // Nyelv detektálás
     const lang = body.lang && body.lang !== "auto" ? body.lang : detectLanguage(rawMessage);
     const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
 
-    // Jegyzetek betöltése (szöveg + képek)
+    // Jegyzetek betöltése
     const notesResult = await loadUserNotesContext(user, message, body.notes || "");
     const notesContext = notesResult.text;
     const noteImages = notesResult.images;
@@ -257,10 +277,9 @@ export default async function handler(req) {
     // Prompt összeállítása
     const promptText = buildPrompt({ message, notesContext, history });
 
-    // Gemini contents összeállítása (szöveg + képek)
+    // Gemini contents (szöveg + képek)
     const parts = [{ text: promptText }];
     
-    // Képek hozzáadása (max 3, mert a Gemini limitált)
     for (const img of noteImages.slice(0, 3)) {
       parts.push({
         inlineData: {
@@ -271,20 +290,16 @@ export default async function handler(req) {
       console.log(`Kép hozzáadva: ${img.title}`);
     }
 
-    // System instruction + config
-    const systemInstruction = buildSystemInstruction(lang);
-
     // Gemini hívás
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts }],
       config: {
         temperature: 0.35,
-        systemInstruction: systemInstruction,
+        systemInstruction: buildSystemInstruction(lang),
       },
     });
 
-    // Stream válasz
     return streamResponse(streamToGenerator(stream));
 
   } catch (error) {
