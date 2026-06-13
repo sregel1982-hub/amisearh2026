@@ -1,6 +1,6 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE
-// Teljesen új, hibamentes verzió
+// Javított, optimalizált verzió
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -8,8 +8,14 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
 
 // --- ENV KEZELÉS ---
-const getEnv = (key) =>
-  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+const getEnv = (key) => process.env[key];
+
+const requiredEnv = ["GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+for (const key of requiredEnv) {
+  if (!getEnv(key)) {
+    console.error(`Hiányzó környezeti változó: ${key}`);
+  }
+}
 
 const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
@@ -35,6 +41,7 @@ function textStreamResponse(generator) {
         }
         controller.close();
       } catch (err) {
+        console.error("Stream error:", err);
         controller.error(err);
       }
     },
@@ -53,6 +60,7 @@ function textStreamResponse(generator) {
 function getSupabaseAdmin() {
   const url = getEnv("SUPABASE_URL");
   const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+
   if (!url || !key) return null;
 
   return createClient(url, key, {
@@ -63,14 +71,10 @@ function getSupabaseAdmin() {
 // --- SZÖVEG TISZTÍTÁS ---
 function cleanText(value, max = 70000) {
   return String(value || "")
-    .replace(/
-/g, "
-")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
-    .replace(/
-{4,}/g, "
-
-")
+    .replace(/\n{4,}/g, "\n\n\n")
     .trim()
     .slice(0, max);
 }
@@ -79,10 +83,12 @@ function cleanText(value, max = 70000) {
 function detectLanguage(text = "") {
   const sample = String(text || "").toLowerCase();
 
-  if (/[áéíóöőúüű]/.test(sample)) return "hu";
-  if (["hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "mi az"].some((w) => sample.includes(w))) return "hu";
+  if (/[áéíóöőúüű]/i.test(sample)) return "hu";
+  if (["hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "mi az"].some((w) => sample.includes(w))) {
+    return "hu";
+  }
 
-  return "hu";
+  return "hu"; // alapértelmezett az oktatási app miatt
 }
 
 // --- RENDSZERUTASÍTÁS ---
@@ -92,61 +98,55 @@ function buildSystemInstruction(lang = "hu") {
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 
 SZABÁLYOK:
-- Ha van feltöltött dokumentum → ELŐSZÖR abból dolgozz.
-- Ne írj felesleges bevezetést.
-- Használj táblázatot, felsorolást, ha egyszerű.
-- Ha a feladat bonyolult DIAGRAM vagy GRAFIKON → csak jelezd: "diagram_kell".
-- A válasz végén legyen "## Forrásjegyzék" 3–6 tétellel.
+- Ha van feltöltött dokumentum vagy jegyzet → ELŐSZÖR abból dolgozz.
+- Ne írj felesleges bevezetést vagy udvariassági frázisokat.
+- Használj táblázatot vagy felsorolást, ahol az áttekinthetőbb.
+- Ha diagram/grafikon kell → írd bele a válaszba: "diagram_kell".
+- A válasz végén mindig legyen "## Forrásjegyzék" 3–6 releváns tétellel.
 `;
   }
-
-  return "You are the AMISEARCH educational assistant. Answer clearly and concisely.";
+  return "You are the AMISEARCH educational assistant. Answer clearly, concisely and helpfully.";
 }
 
-// --- JEGYZETEK BETÖLTÉSE ---
+// --- JEGYZETEK BETÖLTÉSE (optimalizált) ---
 async function loadUserNotesContext(user, inlineNotes = "") {
   const parts = [];
   const supabase = getSupabaseAdmin();
 
+  // Feltöltött inline jegyzet
   const inline = cleanText(inlineNotes, 30000);
   if (inline) {
-    parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===
-${inline}
-
-FONTOS: Használd ezt elsődlegesen!`);
+    parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}\n\nFONTOS: Elsődlegesen ezt használd!`);
   }
 
-  if (!supabase || !user?.id) {
-    return parts.join("
-
-");
-  }
+  if (!supabase || !user?.id) return parts.join("\n\n");
 
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("jegyzetek")
-      .select("id, cim, original_name, text_content, processed, created_at")
+      .select("cim, original_name, text_content, created_at")
       .eq("user_id", user.id)
       .eq("processed", true)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(6); // csökkentve a token fogyasztás miatt
+
+    if (error) console.error("Supabase query error:", error.message);
 
     if (Array.isArray(data)) {
       for (const note of data) {
-        const title = note.cim || note.original_name || `Jegyzet #${note.id}`;
-        const text = cleanText(note.text_content, 15000);
+        const title = note.cim || note.original_name || "Jegyzet";
+        const text = cleanText(note.text_content, 12000);
 
-        if (text && text.length > 50) {
-          parts.push(`=== JEGYZET: ${title} ===
-${text}`);
+        if (text && text.length > 80) {
+          parts.push(`=== JEGYZET: \( {title} ===\n \){text}`);
         }
       }
     }
-  } catch {}
+  } catch (err) {
+    console.error("Notes load error:", err?.message || err);
+  }
 
-  return parts.join("
-
-");
+  return parts.join("\n\n");
 }
 
 // --- PROMPT ÉPÍTŐ ---
@@ -155,42 +155,25 @@ function buildPrompt({ message, notesContext, history }) {
 
   const historyText = historyArray
     .map((item) => `${item.role === "assistant" ? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
-    .join("
-");
+    .join("\n");
 
   return [
-    notesContext ? `## Dokumentumok
-${notesContext}
-
-` : "",
-    historyText ? `## Előzmények
-${historyText}
-
-` : "",
-    `## Kérdés
-${message}`,
-  ]
-    .filter(Boolean)
-    .join("");
+    notesContext ? `## Dokumentumok és jegyzetek\n${notesContext}\n\n` : "",
+    historyText ? `## Előzmények\n${historyText}\n\n` : "",
+    `## Aktuális kérdés\n${message}`,
+  ].filter(Boolean).join("");
 }
 
 // --- DIAGRAM FELISMERÉS ---
 function needsDiagram(message) {
   const m = message.toLowerCase();
   return [
-    "diagram",
-    "grafikon",
-    "oszlopdiagram",
-    "vonaldiagram",
-    "kördiagram",
-    "chart",
-    "chart.js",
-    "adatpont",
-    "statisztika",
+    "diagram", "grafikon", "oszlopdiagram", "vonaldiagram", "kördiagram",
+    "chart", "chart.js", "adatvizualizáció", "statisztika"
   ].some((k) => m.includes(k));
 }
 
-// --- DIAGRAM MENTÉS SUPABASE-BE ---
+// --- DIAGRAM MENTÉS ---
 async function saveDiagram(userId, question, config, explanation) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
@@ -202,14 +185,14 @@ async function saveDiagram(userId, question, config, explanation) {
         user_id: userId,
         question,
         config,
-        explanation,
+        explanation: explanation || "Diagram magyarázat",
       })
       .select("id")
       .single();
 
-    if (error) return null;
-    return data.id;
-  } catch {
+    return error ? null : data?.id || null;
+  } catch (err) {
+    console.error("Save diagram error:", err);
     return null;
   }
 }
@@ -217,6 +200,7 @@ async function saveDiagram(userId, question, config, explanation) {
 // --- FŐ HANDLER ---
 export default async function handler(req) {
   try {
+    // CORS preflight
     if (req.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -232,16 +216,27 @@ export default async function handler(req) {
       return jsonResponse({ error: "Method not allowed" }, 405);
     }
 
-    if (!getEnv("GEMINI_API_KEY")) {
-      return jsonResponse({ error: "Az AI szolgáltatás jelenleg nem elérhető." }, 503);
+    // Felhasználó azonosítás
+    let user;
+    try {
+      user = await getSupabaseUser(req);
+    } catch (authErr) {
+      console.error("Auth error:", authErr);
+      return jsonResponse({ error: "Hitelesítési hiba. Jelentkezz be újra!" }, 401);
     }
 
-    const user = await getSupabaseUser(req);
     if (!user) {
       return jsonResponse({ error: "Jelentkezz be!" }, 401);
     }
 
-    const body = await req.json().catch(() => ({}));
+    // Body parse
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return jsonResponse({ error: "Érvénytelen JSON formátum." }, 400);
+    }
+
     const rawMessage = body.message || body.query || "";
     const message = cleanText(rawMessage, 12000);
 
@@ -249,59 +244,58 @@ export default async function handler(req) {
       return jsonResponse({ error: "Hiányzó üzenet." }, 400);
     }
 
+    // Nyelv detektálás
     let lang = body.lang && body.lang !== "auto" ? body.lang : detectLanguage(rawMessage);
-    if (lang !== "hu" && /[áéíóöőúüű]/i.test(rawMessage)) {
-      lang = "hu";
-    }
 
+    // Jegyzetek betöltése
     const notesContext = await loadUserNotesContext(user, body.notes || "");
+
+    // Prompt építés
     const promptText = buildPrompt({
       message,
       notesContext,
       history: body.history || [],
     });
 
-    const diagramRequested = needsDiagram(message);
+    // Diagram kérés kezelése
+    if (needsDiagram(message) && body.chartConfig) {
+      const id = await saveDiagram(
+        user.id,
+        message,
+        body.chartConfig,
+        body.explanation
+      );
 
-    if (diagramRequested) {
-      const diagramConfig = body.chartConfig || null;
-
-      if (diagramConfig) {
-        const id = await saveDiagram(
-          user.id,
-          message,
-          diagramConfig,
-          body.explanation || "Diagram magyarázat"
-        );
-
-        if (id) {
-          return jsonResponse({ redirect: `https://amisearch.org/diagram?id=${id}` });
-        }
+      if (id) {
+        return jsonResponse({ redirect: `https://amisearch.org/diagram?id=${id}` });
       }
     }
 
+    // AI hívás (javított SDK szerint)
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: promptText }] }],
-      config: {
-        temperature: 0.35,
-        systemInstruction: buildSystemInstruction(lang),
+      systemInstruction: buildSystemInstruction(lang),
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
       },
     });
 
+    // Stream válasz
     async function* generator() {
       for await (const chunk of stream) {
-        const text =
-          chunk?.text ||
-          chunk?.candidates?.[0]?.content?.parts?.[0]?.text ||
-          "";
+        const text = chunk?.text ||
+                     chunk?.candidates?.[0]?.content?.parts?.[0]?.text ||
+                     "";
         if (text) yield text;
       }
     }
 
     return textStreamResponse(generator());
+
   } catch (error) {
-    console.error("Chat AI error:", error?.message || error);
-    return jsonResponse({ error: error?.message || "Szerver hiba" }, 500);
+    console.error("Chat AI fatal error:", error);
+    return jsonResponse({ error: "Szerver hiba történt. Próbáld újra később." }, 500);
   }
 }
