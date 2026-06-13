@@ -138,6 +138,7 @@ Fontos szabályok:
 - Ha van feltöltött dokumentum, ELŐSZÖR ABBÓL DOLGOZZ.
 - Ne kezdj felesleges felvezetéssel (pl. "Rendben", "Persze").
 - Használj felsorolásokat, táblázatokat ahol érdemes.
+- Ismerd fel a neked feltöltött pdf,word,txt formátumot!
 
 VIZUÁLIS FORMÁZÁS (kötelező, ha releváns):
 - TÁBLÁZAT: markdown | Oszlop1 | Oszlop2 |
