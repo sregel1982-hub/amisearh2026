@@ -1,7 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
-import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -17,6 +16,7 @@ function getSupabaseAdmin() {
   });
 }
 
+// === SEGÉDFUNKCIÓK ===
 function cleanText(value, max = 70000) {
   return String(value || "")
     .replace(/\r\n/g, "\n")
@@ -26,46 +26,50 @@ function cleanText(value, max = 70000) {
     .slice(0, max);
 }
 
+function jsonError(message, status = 500, code = "error") {
+  return new Response(JSON.stringify({ error: message, code }), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+function aiUnavailableResponse() {
+  return jsonError("Az AI szolgáltatás jelenleg nem elérhető. Kérlek, próbáld újra később.", 503, "ai_unavailable");
+}
+
+function isAiConfigured() {
+  return !!getEnv("GEMINI_API_KEY");
+}
+
+// === NYELVDETEKTÁLÁS ===
 function detectLanguage(text = "") {
   const sample = String(text || "").toLowerCase();
-  const huMarkers = ["á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű", "hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "ábra", "halmaz"];
-  const esMarkers = ["¿", "¡", "ñ", "qué", "cómo", "porque", "explica", "ejercicio"];
-  if (esMarkers.some((marker) => sample.includes(marker))) return "es";
-  if (huMarkers.some((marker) => sample.includes(marker))) return "hu";
+  const huMarkers = ["á","é","í","ó","ö","ő","ú","ü","ű","hogy","mert","szerint","magyarázd","feladat","rajzold","ábra","halmaz"];
+  const esMarkers = ["¿","¡","ñ","qué","cómo","porque","explica","ejercicio"];
+  if (esMarkers.some((m) => sample.includes(m))) return "es";
+  if (huMarkers.some((m) => sample.includes(m))) return "hu";
   return "en";
 }
 
-function simpleScore(text, query) {
-  const haystack = String(text || "").toLowerCase();
-  const words = String(query || "")
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length >= 4)
-    .slice(0, 40);
-  let score = 0;
-  for (const word of words) {
-    if (haystack.includes(word)) score += 1;
-  }
-  return score;
-}
-
+// === JEGYZETEK BETÖLTÉSE ===
 async function loadUserNotesContext(user, query, inlineNotes = "") {
   const parts = [];
+  const images = []; // ÚJ: képek gyűjtése
 
-  // 1. INLINE DOKSI: + gombbal feltöltött fájl (PDF, Word, TXT)
+  // 1. Inline doksik
   const inline = cleanText(inlineNotes, 30000);
   if (inline) {
     parts.push(`=== FELTÖLTÖTT DOKUMENTUM (PDF/Word/TXT) ===\n${inline}\n\nFONTOS: Használd ezt elsődlegesen a válaszhoz és diagram készítéshez!`);
   }
 
-  // 2. DB-ben tárolt jegyzetek
+  // 2. DB jegyzetek
   const supabase = getSupabaseAdmin();
-  if (!supabase || !user?.id) return parts.join("\n\n");
+  if (!supabase || !user?.id) return { text: parts.join("\n\n"), images };
 
   try {
     const { data, error } = await supabase
       .from("jegyzetek")
-      .select("id, cim, original_name, tantargy, text_content, processed, created_at")
+      .select("id, cim, original_name, tantargy, text_content, processed, file_path, created_at")
       .eq("user_id", user.id)
       .eq("processed", true)
       .order("created_at", { ascending: false })
@@ -74,20 +78,22 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
     if (error) {
       console.warn("Jegyzetek betöltése sikertelen:", error.message);
     } else if (Array.isArray(data)) {
-      const ranked = data
-        .map((note) => ({
-          note,
-          score: simpleScore(`\( {note.cim || ""}\n \){note.original_name || ""}\n${note.text_content || ""}`, query),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
-
-      for (const item of ranked) {
-        const note = item.note;
+      for (const note of data) {
         const text = cleanText(note.text_content, 20000);
-        if (text) {
-          const title = note.cim || note.original_name || `Jegyzet #${note.id}`;
-          parts.push(`=== Mentett jegyzet: \( {title} ===\n \){text}`);
+        const title = note.cim || note.original_name || `Jegyzet #${note.id}`;
+        
+        // Ha van értelmes szöveg
+        if (text && text.length > 50) {
+          parts.push(`=== Mentett jegyzet: ${title} ===\n${text}`);
+        }
+        // Ha nincs szöveg, de van fájl útvonal → kép/PDF ként letöltjük
+        else if (note.file_path) {
+          console.log(`Kép/PDF letöltése: ${title} (${note.file_path})`);
+          const fileData = await downloadFileAsBase64(supabase, note.file_path);
+          if (fileData) {
+            images.push({ title, base64: fileData.base64, mimeType: fileData.mimeType });
+            parts.push(`=== Mentett jegyzet (kép): ${title} ===\n[A dokumentum képként lett feltöltve. Elemezd a képet.]`);
+          }
         }
       }
     }
@@ -95,107 +101,134 @@ async function loadUserNotesContext(user, query, inlineNotes = "") {
     console.warn("Jegyzetkontekstus hiba:", error?.message || error);
   }
 
-  return parts.join("\n\n");
+  return { text: parts.join("\n\n"), images };
 }
 
+// === FÁJL LETÖLTÉS SUPABASE-BÓL ===
+async function downloadFileAsBase64(supabase, filePath, bucket = "jegyzetek") {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).download(filePath);
+    if (error || !data) {
+      console.warn("Storage download hiba:", error?.message);
+      return null;
+    }
+    
+    const arrayBuffer = await data.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    
+    // MIME type detektálás
+    let mimeType = "application/octet-stream";
+    if (filePath.endsWith('.pdf')) mimeType = 'application/pdf';
+    else if (filePath.endsWith('.png')) mimeType = 'image/png';
+    else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) mimeType = 'image/jpeg';
+    
+    return { base64, mimeType };
+  } catch (err) {
+    console.error("Fájl letöltési hiba:", err);
+    return null;
+  }
+}
+
+// === RENDSZERUTASÍTÁS ===
 function buildSystemInstruction(lang = "hu") {
-  return `Te az AMISEARCH oktatási asszisztense vagy. Magyarul válaszolj, közérthetően, pontosan.
+  const instructions = {
+    hu: `Te az AMISEARCH oktatási asszisztense vagy. Magyarul válaszolj, közérthetően, pontosan.
+
 Fontos szabályok:
-- Ha van feltöltött dokumentum (PDF/Word/TXT), akkor ELŐSZÖR ABBÓL DOLGOZZ, és kezdd így: "A feltöltött dokumentum alapján..."
-- Ne kezdj felesleges felvezetéssel.
+- Ha van feltöltött dokumentum, ELŐSZÖR ABBÓL DOLGOZZ.
+- Ne kezdj felesleges felvezetéssel (pl. "Rendben", "Persze").
 - Használj felsorolásokat, táblázatokat ahol érdemes.
-- A válasz végén legyen "## Forrásjegyzék" szakasz.`;
+- VIZUÁLIS FORMÁZÁS:
+  * TÁBLÁZAT: markdown | Oszlop1 | Oszlop2 |
+  * DIAGRAM/ÁBRA: ASCII art (oszlopdiagram, folyamatábra)
+  * HÁROMSZÖG: ASCII rajz
+      /\\
+     /  \\
+    /____\\
+  * FOLYAMAT: számozott lépések
+- A válasz végén legyen "## Forrásjegyzék" szakasz 3-6 forrással.`,
+    
+    es: `Eres el asistente educativo de AMISEARCH. Responde en español.
+
+Reglas:
+- Sin introducciones de cortesía.
+- TABLAS: formato markdown
+- DIAGRAMAS: ASCII art
+- Fuentes al final.`,
+    
+    en: `You are the AMISEARCH educational assistant. Answer in English.
+
+Rules:
+- No filler openings.
+- TABLES: markdown format
+- DIAGRAMS: ASCII art
+- References at the end.`
+  };
+  
+  return instructions[lang] || instructions["en"];
 }
 
+// === PROMPT ÉPÍTŐ ===
 function buildPrompt({ message, notesContext, history }) {
   const historyText = history
     .map((item) => `${item.role === "assistant" ? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
     .filter(Boolean)
     .join("\n");
 
-  return `\( {notesContext ? `## Elérhető dokumentum/jegyzet kontextus\n \){notesContext}\n\n` : ""}\( {historyText ? `## Rövid beszélgetési előzmény\n \){historyText}\n\n` : ""}## Felhasználói kérés\n${message}`;
+  return `${notesContext ? `## Dokumentumok/jegyzetek\n${notesContext}\n\n` : ""}${historyText ? `## Előzmények\n${historyText}\n\n` : ""}## Kérdés\n${message}`;
 }
 
-async function handleChartRequest(user, question, notesContext) {
-  const chartKeywords = [
-    "rajzold", "ábrázold", "grafikon", "diagram", "chart", "függvény", "plot",
-    "oszlop", "kördiagram", "sin", "cos", "x^2", "ábra", "alakzat", "háromszög",
-    "négyzet", "kör", "geometria", "derékszög", "természetes szám", "számhalmaz",
-    "venn", "halmaz", "adatok", "statisztika", "éghajlat"
-  ];
-
-  if (!chartKeywords.some(k => question.toLowerCase().includes(k))) {
-    return null;
+// === STREAM HELPER ===
+async function* streamToGenerator(stream) {
+  for await (const chunk of stream) {
+    const text = chunk?.text || chunk?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (text) yield text;
   }
+}
 
-  const prompt = `
-Felhasználói kérés: ${question}
-
-Feltöltött dokumentum tartalma:
-${notesContext || "Nincs feltöltött dokumentum."}
-
-Feladat: Generálj Chart.js konfigot a fenti adatok alapján. Csak JSON-t adj vissza.`;
-
-  try {
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { temperature: 0.1 }
-    });
-
-    let text = result.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
-    
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (e) {
-      parsed = {
-        chartConfig: { type: "pie", data: { labels: ["Adat"], datasets: [{ data: [100] }] }, options: {} },
-        explanation: "Alap diagram a kérésedhez."
-      };
+function streamResponse(generator) {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of generator) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      } catch (err) {
+        console.error("Stream hiba:", err);
+        controller.error(err);
+      }
     }
-
-    const supabase = getSupabaseAdmin();
-    if (!supabase) return null;
-
-    const { data, error } = await supabase
-      .from("charts")
-      .insert({
-        user_id: user.id,
-        question: question,
-        config: parsed.chartConfig,
-        explanation: parsed.explanation || ""
-      })
-      .select()
-      .single();
-
-    if (error) return null;
-
-    const chartUrl = `/chart.html?id=${data.id}`;
-
-    const linkHtml = `
-${parsed.explanation || 'Elkészítettem a diagramot.'}
-
-📊 <strong><a href="${chartUrl}" target="_blank" rel="noopener noreferrer">🔗 Diagram megnyitása új lapon</a></strong>
-    `.trim();
-
-    return {
-      type: "chart_link",
-      answer: linkHtml,
-      url: chartUrl
-    };
-
-  } catch (error) {
-    console.error("Chart request error:", error);
-    return null;
-  }
+  });
+  
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
+  });
 }
 
+// === FŐ HANDLER ===
 export default async function handler(req) {
   try {
+    // CORS preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+
     if (req.method !== "POST") {
       return jsonError("Method not allowed", 405, "method_not_allowed");
     }
+
     if (!isAiConfigured()) {
       return aiUnavailableResponse();
     }
@@ -216,34 +249,46 @@ export default async function handler(req) {
     const lang = body.lang && body.lang !== "auto" ? body.lang : detectLanguage(rawMessage);
     const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
 
-    // Feltöltött fájl + jegyzetek betöltése
-    const notesContext = await loadUserNotesContext(user, message, body.notes || "");
+    // Jegyzetek betöltése (szöveg + képek)
+    const notesResult = await loadUserNotesContext(user, message, body.notes || "");
+    const notesContext = notesResult.text;
+    const noteImages = notesResult.images;
 
-    // Diagram kérés ellenőrzése
-    const chartResult = await handleChartRequest(user, message, notesContext);
-    if (chartResult) {
-      return new Response(JSON.stringify(chartResult), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
+    // Prompt összeállítása
+    const promptText = buildPrompt({ message, notesContext, history });
+
+    // Gemini contents összeállítása (szöveg + képek)
+    const parts = [{ text: promptText }];
+    
+    // Képek hozzáadása (max 3, mert a Gemini limitált)
+    for (const img of noteImages.slice(0, 3)) {
+      parts.push({
+        inlineData: {
+          mimeType: img.mimeType || "image/jpeg",
+          data: img.base64
+        }
       });
+      console.log(`Kép hozzáadva: ${img.title}`);
     }
 
-    // Normál AI válasz
-    const prompt = buildPrompt({ message, notesContext, history });
+    // System instruction + config
+    const systemInstruction = buildSystemInstruction(lang);
 
+    // Gemini hívás
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts }],
       config: {
-        systemInstruction: buildSystemInstruction(lang),
         temperature: 0.35,
+        systemInstruction: systemInstruction,
       },
     });
 
-    return streamText(stream);
+    // Stream válasz
+    return streamResponse(streamToGenerator(stream));
 
   } catch (error) {
     console.error("Chat AI error:", error?.message || error);
     return aiUnavailableResponse();
   }
-    }
+}
