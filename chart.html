@@ -4,62 +4,68 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Diagram - AMISEARCH</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
-    body { 
-      font-family: system-ui; 
-      max-width: 1000px; 
-      margin: 0 auto; 
-      padding: 20px; 
-      background: #f5f5f5; 
+    body {
+      font-family: system-ui;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
     }
-    .card { 
-      background: white; 
-      padding: 30px; 
-      border-radius: 12px; 
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      margin-bottom: 25px; 
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
       flex-wrap: wrap;
       gap: 10px;
     }
-    button { 
-      background: #6366f1; 
-      color: white; 
-      border: none; 
-      padding: 10px 20px; 
-      border-radius: 8px; 
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 16px;
     }
     button:hover { background: #4f52cc; }
-    .explanation { 
-      margin-top: 25px; 
-      padding: 20px; 
-      background: #f3f4f6; 
-      border-radius: 8px; 
-      border-left: 5px solid #6366f1; 
+    .explanation {
+      margin-top: 25px;
+      padding: 20px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      border-left: 5px solid #6366f1;
     }
     canvas { max-width: 100%; }
   </style>
 </head>
+
 <body>
   <div class="card">
     <div class="header">
       <h1>📊 Diagram</h1>
-      <button onclick="window.close(); window.location.href='/'">← Vissza a chathez</button>
+
+      <!-- JAVÍTOTT VISSZA GOMB -->
+      <button onclick="window.location.href='https://amisearch.org'">← Vissza a chathez</button>
     </div>
-    
+
     <div id="loading">Betöltés...</div>
-    
+
     <div id="content" style="display:none;">
       <h3 id="question"></h3>
       <canvas id="chartCanvas"></canvas>
+
       <div class="explanation">
         <strong>Magyarázat:</strong>
         <p id="explanationText"></p>
@@ -74,9 +80,13 @@
 
   async function init() {
     try {
+      // SESSION-BIZTOSÍTÁS
       const { data: { session } } = await supabase.auth.getSession();
+
       if (!session) {
-        window.location.href = '/';
+        // NEM DOB VISSZA, CSAK KIÍRJA
+        document.getElementById('loading').innerHTML =
+          '<strong>Hiba:</strong> Nincs bejelentkezve. Jelentkezz be az AMISEARCH főoldalán.';
         return;
       }
 
@@ -84,7 +94,8 @@
       const id = urlParams.get('id');
 
       if (!id) {
-        document.getElementById('loading').innerHTML = '<strong>Hiba:</strong> Hiányzó diagram ID';
+        document.getElementById('loading').innerHTML =
+          '<strong>Hiba:</strong> Hiányzó diagram ID.';
         return;
       }
 
@@ -95,29 +106,31 @@
         .single();
 
       if (error || !data) {
-        document.getElementById('loading').innerHTML = `<strong>Hiba:</strong> Diagram nem található (${error?.message || 'ismeretlen hiba'})`;
+        document.getElementById('loading').innerHTML =
+          `<strong>Hiba:</strong> Diagram nem található (${error?.message || 'ismeretlen hiba'})`;
         return;
       }
 
-      // Sikeres betöltés
+      // SIKERES BETÖLTÉS
       document.getElementById('loading').style.display = 'none';
       document.getElementById('content').style.display = 'block';
 
       document.getElementById('question').textContent = data.question || 'Diagram';
       document.getElementById('explanationText').textContent = data.explanation || 'Nincs magyarázat.';
 
-      // Chart létrehozása
+      // CHART RENDER
       const ctx = document.getElementById('chartCanvas');
       new Chart(ctx, data.config);
 
     } catch (err) {
       console.error(err);
-      document.getElementById('loading').innerHTML = 'Hiba történt a diagram betöltése közben.';
+      document.getElementById('loading').innerHTML =
+        'Hiba történt a diagram betöltése közben.';
     }
   }
 
-  // Indítás
   window.onload = init;
 </script>
+
 </body>
 </html>
