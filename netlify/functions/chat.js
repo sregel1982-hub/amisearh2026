@@ -426,3 +426,114 @@ export default async function handler(req) {
     return aiUnavailableResponse();
   }
 }
+// ===============================
+// OPENVERSE KÉPKERESŐ
+// ===============================
+async function searchImage(query) {
+  try {
+    const url = `https://api.openverse.engineering/v1/images/?q=${encodeURIComponent(query)}&size=medium&format=json`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    if (!json.results || json.results.length === 0) return [];
+
+    return json.results.slice(0, 3).map(img => ({
+      url: img.url,
+      title: img.title || "Kép",
+      source: img.foreign_landing_url
+    }));
+  } catch (err) {
+    console.error("Openverse hiba:", err);
+    return [];
+  }
+}
+
+// ===============================
+// AUTOMATIKUS CHART.JS CONFIG
+// ===============================
+function autoChartConfig(message) {
+  const labels = ["A", "B", "C", "D", "E"];
+  const values = labels.map(() => Math.floor(Math.random() * 100) + 10);
+
+  return {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: message.slice(0, 40) + "...",
+          data: values,
+          backgroundColor: "rgba(99, 102, 241, 0.6)"
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        title: { display: true, text: message }
+      }
+    }
+  };
+}
+
+// ===============================
+// DIAGRAM MENTÉS SUPABASE-BE
+// ===============================
+async function saveDiagram(user, question, explanation, config) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("charts")
+    .insert({
+      user_id: user.id,
+      question,
+      explanation,
+      config
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Diagram mentési hiba:", error.message);
+    return null;
+  }
+
+  return data.id;
+}
+
+// ===============================
+// KÉP- ÉS DIAGRAM-PIPELINE A VÁLASZ UTÁN
+// ===============================
+async function postProcessAIResponse(user, message, fullResponse) {
+  let finalText = fullResponse;
+
+  // --- KÉPKERESÉS ---
+  if (fullResponse.includes("image_needed:")) {
+    const topic = fullResponse.split("image_needed:")[1].trim();
+    const images = await searchImage(topic);
+
+    if (images.length > 0) {
+      finalText += "\n\n## Képek (Openverse)\n";
+      images.forEach(img => {
+        finalText += `- ${img.title}: ${img.url}\n  Forrás: ${img.source}\n`;
+      });
+    }
+  }
+
+  // --- DIAGRAM ---
+  if (fullResponse.includes("diagram_kell")) {
+    const config = autoChartConfig(message);
+    const explanation = fullResponse;
+
+    const id = await saveDiagram(user, message, explanation, config);
+
+    if (id) {
+      finalText += `\n\n📊 A diagram elkészült:\nhttps://amisearch.org/diagram?id=${id}\n`;
+    }
+  }
+
+  return finalText;
+}
