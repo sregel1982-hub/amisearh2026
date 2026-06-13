@@ -1,6 +1,6 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE
-// Javított, optimalizált verzió
+// Javított verzió – Diagram kezelés erősítve
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -60,7 +60,6 @@ function textStreamResponse(generator) {
 function getSupabaseAdmin() {
   const url = getEnv("SUPABASE_URL");
   const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
-
   if (!url || !key) return null;
 
   return createClient(url, key, {
@@ -82,38 +81,36 @@ function cleanText(value, max = 70000) {
 // --- NYELVDETEKTÁLÁS ---
 function detectLanguage(text = "") {
   const sample = String(text || "").toLowerCase();
-
   if (/[áéíóöőúüű]/i.test(sample)) return "hu";
-  if (["hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "mi az"].some((w) => sample.includes(w))) {
+  if (["hogy", "mert", "szerint", "magyarázd", "feladat", "rajzold", "mi az", "ábra", "diagram"].some((w) => sample.includes(w))) {
     return "hu";
   }
-
-  return "hu"; // alapértelmezett az oktatási app miatt
+  return "hu";
 }
 
-// --- RENDSZERUTASÍTÁS ---
+// --- RENDSZERUTASÍTÁS (erősítve) ---
 function buildSystemInstruction(lang = "hu") {
   if (lang === "hu") {
     return `
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 
-SZABÁLYOK:
-- Ha van feltöltött dokumentum vagy jegyzet → ELŐSZÖR abból dolgozz.
-- Ne írj felesleges bevezetést vagy udvariassági frázisokat.
-- Használj táblázatot vagy felsorolást, ahol az áttekinthetőbb.
-- Ha diagram/grafikon kell → írd bele a válaszba: "diagram_kell".
+FONTOS SZABÁLYOK:
+- Ha a felhasználó diagramot, grafikon, ábrát, idővonalat, gondolattérképet, oszlopdiagramot, vonaldiagramot vagy bármilyen vizualizációt kér → **SOHA ne mondd azt, hogy nem tudod megjeleníteni**.
+- Helyette készíts részletes Chart.js konfigurációt, vagy strukturált szöveges leírást, és írd bele a válaszba: "diagram_kell".
+- Használj Markdown táblázatot, felsorolást, kiemeléseket az áttekinthetőségért.
+- Ha van feltöltött dokumentum vagy jegyzet → elsődlegesen abból dolgozz.
+- Ne írj felesleges bevezetőt.
 - A válasz végén mindig legyen "## Forrásjegyzék" 3–6 releváns tétellel.
 `;
   }
   return "You are the AMISEARCH educational assistant. Answer clearly, concisely and helpfully.";
 }
 
-// --- JEGYZETEK BETÖLTÉSE (optimalizált) ---
+// --- JEGYZETEK BETÖLTÉSE ---
 async function loadUserNotesContext(user, inlineNotes = "") {
   const parts = [];
   const supabase = getSupabaseAdmin();
 
-  // Feltöltött inline jegyzet
   const inline = cleanText(inlineNotes, 30000);
   if (inline) {
     parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}\n\nFONTOS: Elsődlegesen ezt használd!`);
@@ -128,7 +125,7 @@ async function loadUserNotesContext(user, inlineNotes = "") {
       .eq("user_id", user.id)
       .eq("processed", true)
       .order("created_at", { ascending: false })
-      .limit(6); // csökkentve a token fogyasztás miatt
+      .limit(6);
 
     if (error) console.error("Supabase query error:", error.message);
 
@@ -136,14 +133,13 @@ async function loadUserNotesContext(user, inlineNotes = "") {
       for (const note of data) {
         const title = note.cim || note.original_name || "Jegyzet";
         const text = cleanText(note.text_content, 12000);
-
         if (text && text.length > 80) {
           parts.push(`=== JEGYZET: \( {title} ===\n \){text}`);
         }
       }
     }
   } catch (err) {
-    console.error("Notes load error:", err?.message || err);
+    console.error("Notes load error:", err);
   }
 
   return parts.join("\n\n");
@@ -164,12 +160,13 @@ function buildPrompt({ message, notesContext, history }) {
   ].filter(Boolean).join("");
 }
 
-// --- DIAGRAM FELISMERÉS ---
+// --- DIAGRAM FELISMERÉS (bővítve) ---
 function needsDiagram(message) {
   const m = message.toLowerCase();
   return [
-    "diagram", "grafikon", "oszlopdiagram", "vonaldiagram", "kördiagram",
-    "chart", "chart.js", "adatvizualizáció", "statisztika"
+    "diagram", "grafikon", "ábra", "idővonal", "gondolattérkép", "mindmap",
+    "chart", "oszlopdiagram", "vonaldiagram", "kördiagram", "vizualizáció",
+    "statisztika", "timeline", "rajzolj", "ábrázol"
   ].some((k) => m.includes(k));
 }
 
@@ -190,7 +187,7 @@ async function saveDiagram(userId, question, config, explanation) {
       .select("id")
       .single();
 
-    return error ? null : data?.id || null;
+    return error ? null : (data?.id || null);
   } catch (err) {
     console.error("Save diagram error:", err);
     return null;
@@ -200,7 +197,6 @@ async function saveDiagram(userId, question, config, explanation) {
 // --- FŐ HANDLER ---
 export default async function handler(req) {
   try {
-    // CORS preflight
     if (req.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -216,7 +212,6 @@ export default async function handler(req) {
       return jsonResponse({ error: "Method not allowed" }, 405);
     }
 
-    // Felhasználó azonosítás
     let user;
     try {
       user = await getSupabaseUser(req);
@@ -229,7 +224,6 @@ export default async function handler(req) {
       return jsonResponse({ error: "Jelentkezz be!" }, 401);
     }
 
-    // Body parse
     let body;
     try {
       body = await req.json();
@@ -244,34 +238,31 @@ export default async function handler(req) {
       return jsonResponse({ error: "Hiányzó üzenet." }, 400);
     }
 
-    // Nyelv detektálás
-    let lang = body.lang && body.lang !== "auto" ? body.lang : detectLanguage(rawMessage);
+    const lang = body.lang && body.lang !== "auto" ? body.lang : detectLanguage(rawMessage);
 
-    // Jegyzetek betöltése
     const notesContext = await loadUserNotesContext(user, body.notes || "");
 
-    // Prompt építés
     const promptText = buildPrompt({
       message,
       notesContext,
       history: body.history || [],
     });
 
-    // Diagram kérés kezelése
-    if (needsDiagram(message) && body.chartConfig) {
-      const id = await saveDiagram(
-        user.id,
-        message,
-        body.chartConfig,
-        body.explanation
-      );
-
-      if (id) {
-        return jsonResponse({ redirect: `https://amisearch.org/diagram?id=${id}` });
+    // === DIAGRAM KEZELÉS ===
+    if (needsDiagram(message)) {
+      if (body.chartConfig) {
+        const id = await saveDiagram(user.id, message, body.chartConfig, body.explanation);
+        if (id) {
+          return jsonResponse({ 
+            redirect: `https://amisearch.org/diagram?id=${id}`,
+            message: "Diagram generálása folyamatban..."
+          });
+        }
       }
+      // Ha nincs chartConfig, akkor az AI prompt fogja kezelni (diagram_kell)
     }
 
-    // AI hívás (javított SDK szerint)
+    // AI hívás
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: promptText }] }],
@@ -282,11 +273,10 @@ export default async function handler(req) {
       },
     });
 
-    // Stream válasz
     async function* generator() {
       for await (const chunk of stream) {
-        const text = chunk?.text ||
-                     chunk?.candidates?.[0]?.content?.parts?.[0]?.text ||
+        const text = chunk?.text || 
+                     chunk?.candidates?.[0]?.content?.parts?.[0]?.text || 
                      "";
         if (text) yield text;
       }
@@ -298,4 +288,4 @@ export default async function handler(req) {
     console.error("Chat AI fatal error:", error);
     return jsonResponse({ error: "Szerver hiba történt. Próbáld újra később." }, 500);
   }
-}
+      }
