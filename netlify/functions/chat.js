@@ -6,6 +6,31 @@
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
+// ===============================
+// OPENVERSE KÉPKERESŐ API
+// ===============================
+async function searchImage(query) {
+  try {
+    const url = `https://api.openverse.engineering/v1/images/?q=${encodeURIComponent(query)}&license_type=all&size=medium&format=json`;
+
+    const res = await fetch(url);
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    if (!json.results || json.results.length === 0) return [];
+
+    // Csak 1–3 képet adunk vissza
+    return json.results.slice(0, 3).map(img => ({
+      url: img.url,
+      title: img.title || "Kép",
+      source: img.foreign_landing_url
+    }));
+
+  } catch (err) {
+    console.error("Openverse hiba:", err);
+    return [];
+  }
+}
 
 // --- ENV KEZELÉS ---
 const getEnv = (key) =>
