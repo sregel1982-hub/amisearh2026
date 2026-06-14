@@ -19,7 +19,12 @@ const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" },
+    headers: { 
+      "Content-Type": "application/json; charset=utf-8", 
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    },
   });
 }
 
@@ -84,7 +89,6 @@ function stripHtml(value) {
   return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
-// --- INTELLIGENS RENDERSZINTŰ UTASÍTÁS ---
 function buildSystemInstructionText() {
   return `
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
@@ -109,7 +113,7 @@ VIZUALIZÁCIÓS SZABÁLYOK (VÁLASSZ AZ ALÁBBI 2 OPCIÓ KÖZÜL, HA VIZUALIZÁC
 
 2. HA SZÁMSZERŰ ADATOKAT, STATISZTIKÁT, IDŐBELI VÁLTOZÁST VAGY GRAFIKONT KÉRNEK (pl. lakosság, GDP, hőmérséklet):
    - Írj egy rövid magyar összefoglalót, majd tegyél be egy tiszta, érvényes Chart.js konfigurációt egy \`\`\`json-chart kódblokkba.
-   - Ne használj benne JavaScript függvényeket, csak tiszta JSON-t, amit a Chart.js be tud tölteni (type, data, options).
+   - Ne használj benne JavaScript függvényeket, csak tiszta JSON-t (type, data, options).
    - Példa formátum:
    \`\`\`json-chart
    {
@@ -205,7 +209,6 @@ Kérdés: "${message}"`
   }
 }
 
-// --- KÉPKERESŐK (Rövidítve a tisztaságért, a te kódod alapján) ---
 async function searchCommonsImage(query) {
   try {
     const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=3&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=800&format=json&origin=*`;
@@ -223,34 +226,37 @@ async function searchCommonsImage(query) {
   } catch { return null; }
 }
 
-async function searchFreeImage(query) {
-  // Elsődlegesen a Wikimedia Commons-ban keresünk
-  return await searchCommonsImage(query);
-}
-
 function buildImageMarkdown(image, message) {
   return `![${(image.title || "Kép").replace(/[\[\]]/g, "")}](${image.url})\n\n**${image.title}** — ${image.artist || "Ismeretlen"} (${image.license || "CC"})\nForrás: [${image.sourceName}](${image.sourcePage})\n\n## Forrásjegyzék\n- ${image.sourceName}`;
 }
 
-// --- ORCHESTRATOR HANDLER ---
+// --- NETLIFY COMPATIBLE EXPORT ---
 export default async function handler(req) {
   try {
     if (req.method === "OPTIONS") return corsOptionsResponse();
     if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
+    // Biztonságos JSON törzs beolvasás
+    let body = {};
+    try {
+      const rawBody = await req.text();
+      if (rawBody) body = JSON.parse(rawBody);
+    } catch (jsonErr) {
+      console.error("JSON parse error in body:", jsonErr);
+      return jsonResponse({ error: "Érvénytelen JSON kérés." }, 400);
+    }
+
     const user = await getSupabaseUser(req);
     if (!user) return jsonResponse({ error: "Jelentkezz be!" }, 401);
 
-    const body = await req.json().catch(() => ({}));
     const message = cleanText(body.message || body.query || "", 12000);
-
     if (!message) return jsonResponse({ error: "Hiányzó üzenet." }, 400);
 
     const classification = await classifyRequest(message);
 
     if (classification.type === "IMAGE") {
-      const image = await searchFreeImage(classification.searchQuery);
-      if (!image) return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet.");
+      const image = await searchCommonsImage(classification.searchQuery);
+      if (!image) return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet ehhez a témához.");
       return singleChunkStream(buildImageMarkdown(image, message));
     }
 
@@ -274,8 +280,7 @@ export default async function handler(req) {
     return textStreamResponse(generator());
 
   } catch (error) {
-    console.error("Fatal error:", error);
-    return jsonResponse({ error: "Szerver hiba" }, 500);
+    console.error("Fatal error inside function:", error);
+    return jsonResponse({ error: "Belső szerverhiba történt." }, 500);
   }
 }
-
