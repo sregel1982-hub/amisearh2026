@@ -100,17 +100,28 @@ Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 - Ha hasznos, használj táblázatot és felsorolást.
 
 DIAGRAM / ÁBRA / IDŐVONAL / FOLYAMATÁBRA / GONDOLATTÉRKÉP KÉRÉSEKOR:
-- Ha a felhasználó diagramot, ábrát, folyamatábrát, idővonalat, gondolattérképet vagy vizualizációt kér, és ez Mermaid diagrammal ábrázolható, írj egy rövid (1-3 mondatos) magyar magyarázatot, majd illessz be UTÁNA egy érvényes Mermaid kódblokkot, pontosan így:
+- Ha a felhasználó diagramot, ábrát, folyamatábrát, idővonalat, gondolattérképet vagy vizualizációt kér, írj egy rövid (1-3 mondatos) magyar magyarázatot, majd illessz be UTÁNA egy Mermaid MINDMAP kódblokkot, pontosan ezekkel a szabályokkal:
+
+1. Az első sor pontosan: mindmap
+2. A második sor a gyökér, pontosan így: root((Téma neve))
+3. A további sorok ágak, 2 szóköz behúzással szintenként (1. szint: 2 szóköz, 2. szint: 4 szóköz, stb.)
+4. Numerikus adatokat is hierarchikus ágként adj meg, például: 1990: 10.4 millió fő
+5. NE használj emojit, idézőjelet (kivéve ha a gyökérben muszáj), kapcsos {}, szögletes [] zárójelet, pipe | karaktert, vagy dupla zárójelet (kivéve a gyökérnél).
+6. Maximum 2 szint és összesen kb. 6-10 ág legyen – legyen tömör, áttekinthető, ne legyen túl sok elem.
+7. A kódblokk formátuma pontosan:
 
 \`\`\`mermaid
-flowchart TD
-    A[Példa] --> B[Másik elem]
+mindmap
+  root((Magyarország népessége))
+    1990: 10.4 millió fő
+    2000: 10.2 millió fő
+    2010: 10.0 millió fő
+    2020: 9.7 millió fő
+    2023: 9.6 millió fő
 \`\`\`
 
-- A diagram típusát (flowchart TD/LR, timeline, mindmap, pie, sequenceDiagram) a kérdéshez illően válaszd.
-- Számszerű adatokhoz használj "pie" vagy "xychart-beta" típust; ha nincs pontos adat, jelezd, hogy becslés.
-- Soha ne mondd, hogy "nem tudok képet/diagramot készíteni" – mindig próbálj Mermaid kódblokkot adni, ha a kérés vizualizációra vonatkozik.
-- Tilos JSON-t, kép-leírást vagy "image_description" mezőt írni a válaszba.
+- Soha ne mondd, hogy "nem tudok képet/diagramot készíteni" – mindig próbálj mindmap kódblokkot adni, ha a kérés vizualizációra vonatkozik.
+- Tilos JSON-t, kép-leírást, "image_description" mezőt, vagy más Mermaid típust (flowchart, xychart-beta, pie, sequenceDiagram) írni a válaszba – KIZÁRÓLAG mindmap típust használj.
 
 A válasz végén legyen "## Forrásjegyzék".
 `;
