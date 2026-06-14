@@ -10,22 +10,28 @@
     body { font-family: system-ui; background: #f5f5f5; margin: 0; padding: 20px; }
     .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; }
     button { background: #6366f1; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; }
-    .loading, .error { text-align: center; padding: 60px; font-size: 18px; }
-    .error { color: #dc2626; }
+    button:hover { background: #5558e3; }
+    .loading { text-align: center; padding: 60px; font-size: 18px; }
+    .error { color: #dc2626; text-align: center; padding: 40px; }
+    .explanation { margin-top: 25px; padding: 20px; background: #f3f4f6; border-radius: 8px; line-height: 1.6; }
+    .chart-container { position: relative; height: 400px; margin-top: 20px; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h1>📊 Diagram</h1>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
+      <h1>📊 Diagram Generálás</h1>
       <button onclick="window.location.href='https://amisearch.org'">← Vissza a chathez</button>
     </div>
 
     <div id="loading" class="loading">Diagram betöltése...</div>
+    <div id="error" class="error" style="display:none;"></div>
     <div id="content" style="display:none;">
       <h3 id="question"></h3>
-      <canvas id="chartCanvas" style="max-width:100%;"></canvas>
-      <div class="explanation" style="margin-top:25px; padding:20px; background:#f3f4f6; border-radius:8px;">
+      <div class="chart-container">
+        <canvas id="chartCanvas"></canvas>
+      </div>
+      <div class="explanation">
         <strong>Magyarázat:</strong>
         <p id="explanationText"></p>
       </div>
@@ -33,67 +39,200 @@
   </div>
 
 <script>
-  const supabase = window.supabase.createClient(
-    'https://rvgzvseejzbzmcqidnzc.supabase.co',
-    'sb_publishable_OFOpS0WMB4Sy0ciyIA9ySQ_59JH7Njh'
-  );
+  // --- SUPABASE KONFIGURÁCIÓ ---
+  // FIGYELEM: Ez az anon (publikus) kulcs, csak RLS-védett műveletekhez!
+  const SUPABASE_URL = 'https://rvgzvseejzbzmcqidnzc.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_OFOpS0WMB4Sy0ciyIA9ySQ_59JH7Njh'; // Ellenőrizd, hogy ez tényleg az ANON kulcs!
+  
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  function showError(message) {
-    const loading = document.getElementById('loading');
-    loading.className = 'error';
-    loading.textContent = message;
-  }
-
-  // A config a Supabase-ben jöhet stringként (text oszlop) vagy
-  // objektumként (JSONB oszlop) - mindkettőt kezeljük.
-  function parseConfig(rawConfig) {
-    if (!rawConfig) return null;
-    if (typeof rawConfig === 'object') return rawConfig;
-    if (typeof rawConfig === 'string') {
-      try {
-        return JSON.parse(rawConfig);
-      } catch (e) {
-        console.error('Config parse error:', e);
-        return null;
-      }
+  // --- CHART.JS KONFIGURÁCIÓ PARSOLÁSA ---
+  function parseChartConfig(text) {
+    // Keresünk json-chart blokkot
+    const chartMatch = text.match(/```json-chart\s*([\s\S]*?)\s*```/);
+    if (!chartMatch) return null;
+    
+    try {
+      const config = JSON.parse(chartMatch[1].trim());
+      // Alapértelmezett opciók hozzáadása
+      config.options = config.options || {};
+      config.options.responsive = true;
+      config.options.maintainAspectRatio = false;
+      config.options.plugins = config.options.plugins || {};
+      config.options.plugins.legend = config.options.plugins.legend || { position: 'top' };
+      return config;
+    } catch (e) {
+      console.error("Chart config parse error:", e);
+      return null;
     }
-    return null;
   }
 
+  // --- CHART MENTÉSE SUPABASE-BA ---
+  async function saveChart(question, config, explanation) {
+    try {
+      const { data, error } = await supabase
+        .from('charts')
+        .insert([{ 
+          question, 
+          config, 
+          explanation,
+          created_at: new Date().toISOString()
+        }])
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      return data.id;
+    } catch (e) {
+      console.error("Save chart error:", e);
+      return null;
+    }
+  }
+
+  // --- CHART RENDERELÉSE ---
+  let currentChart = null;
+
+  function renderChart(config) {
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+    
+    // Előző chart törlése
+    if (currentChart) {
+      currentChart.destroy();
+    }
+    
+    try {
+      currentChart = new Chart(ctx, config);
+      return true;
+    } catch (e) {
+      console.error("Chart render error:", e);
+      showError("Hiba a diagram megjelenítésekor: " + e.message);
+      return false;
+    }
+  }
+
+  // --- HIBA MEGJELENÍTÉS ---
+  function showError(msg) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'none';
+    const errorDiv = document.getElementById('error');
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+  }
+
+  // --- FŐ FUNKCIÓ ---
   async function init() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
+    const auto = params.get('auto') === 'true';
+    const question = params.get('question');
+    const explanation = params.get('explanation');
+    const chartJson = params.get('chart');
 
-    if (!id) {
-      showError('Hiányzó diagram azonosító.');
+    // AUTO MÓD: Új diagram generálása
+    if (auto && question) {
+      document.getElementById('loading').innerHTML = `
+        <p><strong>${decodeURIComponent(question)}</strong></p>
+        <p>Automatikus diagram generálás folyamatban...</p>
+      `;
+
+      try {
+        let config = null;
+        
+        // Ha van közvetlen chart JSON a URL-ben
+        if (chartJson) {
+          try {
+            config = JSON.parse(decodeURIComponent(chartJson));
+          } catch (e) {
+            console.error("URL chart JSON parse error:", e);
+          }
+        }
+
+        // Ha nincs config, hívjuk a chat API-t
+        if (!config) {
+          const token = localStorage.getItem('sb-token') || localStorage.getItem('supabase.auth.token');
+          const apiUrl = '/.netlify/functions/chat';
+          
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': token ? `Bearer ${token}` : ''
+            },
+            body: JSON.stringify({
+              message: `Készíts diagramot erről: ${decodeURIComponent(question)}`
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`API hiba: ${response.status}`);
+          }
+
+          const responseText = await response.text();
+          config = parseChartConfig(responseText);
+          
+          if (!config) {
+            throw new Error("Nem sikerült érvényes diagram konfigurációt generálni.");
+          }
+        }
+
+        // Chart megjelenítése
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+        document.getElementById('question').textContent = decodeURIComponent(question);
+        document.getElementById('explanationText').textContent = explanation ? decodeURIComponent(explanation) : 'Automatikusan generált diagram.';
+        
+        renderChart(config);
+
+        // Mentés az adatbázisba (opcionális)
+        const savedId = await saveChart(decodeURIComponent(question), config, explanation ? decodeURIComponent(explanation) : '');
+        if (savedId) {
+          // URL frissítése az ID-val
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.delete('auto');
+          newUrl.searchParams.delete('chart');
+          newUrl.searchParams.set('id', savedId);
+          window.history.replaceState({}, '', newUrl);
+        }
+
+      } catch (error) {
+        console.error("Auto chart error:", error);
+        showError("Hiba a diagram generálásakor: " + error.message);
+      }
       return;
     }
 
-    const { data, error } = await supabase.from('charts').select('*').eq('id', id).single();
+    // MEGLÉVŐ DIAGRAM BETÖLTÉSE ID ALAPJÁN
+    if (id) {
+      try {
+        const { data, error } = await supabase
+          .from('charts')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-    if (error || !data) {
-      showError('Diagram nem található.');
+        if (error || !data) {
+          showError('Diagram nem található az adatbázisban.');
+          return;
+        }
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+
+        document.getElementById('question').textContent = data.question || 'Ismeretlen kérdés';
+        document.getElementById('explanationText').textContent = data.explanation || '';
+
+        const success = renderChart(data.config);
+        if (!success) return;
+
+      } catch (error) {
+        console.error("Load chart error:", error);
+        showError('Hiba a diagram betöltésekor: ' + error.message);
+      }
       return;
     }
 
-    const config = parseConfig(data.config);
-    if (!config || !config.type) {
-      showError('A diagram konfigurációja érvénytelen.');
-      return;
-    }
-
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
-
-    document.getElementById('question').textContent = data.question || '';
-    document.getElementById('explanationText').textContent = data.explanation || '';
-
-    try {
-      new Chart(document.getElementById('chartCanvas'), config);
-    } catch (e) {
-      console.error('Chart render error:', e);
-      showError('A diagram megjelenítése sikertelen.');
-    }
+    // NINCS ID ÉS NINCS AUTO
+    showError('Hiányzó paraméterek. Használj ?auto=true&question=... vagy ?id=... URL-t.');
   }
 
   window.onload = init;
