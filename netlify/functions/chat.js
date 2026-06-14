@@ -1,7 +1,6 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE
-// EGYSÉGES KLASSZIFIKÁCIÓS VERZIÓ
-// (Gemini dönt: valódi kép kell-e, vagy szöveges/Mermaid válasz)
+// STRUKTURÁLT MINDMAP + TÖBBFORRÁSÚ KÉPKERESÉS
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -91,7 +90,7 @@ function stripHtml(value) {
   return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
-// --- RENDSZERUTASÍTÁS (normál + Mermaid válaszhoz) ---
+// --- RENDSZERUTASÍTÁS (normál + mindmap válaszhoz) ---
 function buildSystemInstructionText() {
   return `
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
@@ -99,16 +98,41 @@ Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 - Adj pontos, jól strukturált, oktatási célú válaszokat.
 - Ha hasznos, használj táblázatot és felsorolást.
 
+JEGYZETEK HASZNÁLATA:
+- A feltöltött jegyzetek és előzmények csak KIEGÉSZÍTŐ kontextusként szolgálnak.
+- A válaszokhoz, és különösen a diagramokhoz/gondolattérképekhez, szabadon használd az általános tudásodat is.
+- Ha a jegyzetek nem tartalmaznak elég információt a kérdéses témáról, NE korlátozd a választ vagy a diagramot a jegyzetek tartalmára – egészítsd ki általános, megbízható tudással.
+
 DIAGRAM / ÁBRA / IDŐVONAL / FOLYAMATÁBRA / GONDOLATTÉRKÉP KÉRÉSEKOR:
 - Ha a felhasználó diagramot, ábrát, folyamatábrát, idővonalat, gondolattérképet vagy vizualizációt kér, írj egy rövid (1-3 mondatos) magyar magyarázatot, majd illessz be UTÁNA egy Mermaid MINDMAP kódblokkot, pontosan ezekkel a szabályokkal:
 
 1. Az első sor pontosan: mindmap
 2. A második sor a gyökér, pontosan így: root((Téma neve))
-3. A további sorok ágak, 2 szóköz behúzással szintenként (1. szint: 2 szóköz, 2. szint: 4 szóköz, stb.)
-4. Numerikus adatokat is hierarchikus ágként adj meg, például: 1990: 10.4 millió fő
-5. NE használj emojit, idézőjelet (kivéve ha a gyökérben muszáj), kapcsos {}, szögletes [] zárójelet, pipe | karaktert, vagy dupla zárójelet (kivéve a gyökérnél).
-6. Maximum 2 szint és összesen kb. 6-10 ág legyen – legyen tömör, áttekinthető, ne legyen túl sok elem.
-7. A kódblokk formátuma pontosan:
+3. A további sorok ágak, 2 szóköz behúzással szintenként (1. szint: 2 szóköz, 2. szint: 4 szóköz, 3. szint: 6 szóköz).
+4. STRUKTÚRA: ha a téma több alterületre bontható (pl. egy uralkodó élete, egy folyamat szakaszai, egy fogalom kategóriái), az 1. szintű ágak legyenek 3-5 FŐ TÉMAKÖR (kategória), és minden fő témakör alá tegyél 2-3 konkrét, részletes 2. szintű ágat. Ez adja a jól strukturált, áttekinthető elrendezést.
+5. Ha a kérés egyszerű, lineáris adatsor (pl. évek szerinti számadatok), akkor az 1. szintű ágak közvetlenül az adatpontok lehetnek, pl.: 1990: 10.4 millió fő
+6. NE használj emojit, idézőjelet (kivéve ha a gyökérben muszáj), kapcsos {}, szögletes [] zárójelet, pipe | karaktert, vagy dupla zárójelet (kivéve a gyökérnél).
+7. Összesen maximum kb. 12-15 ág legyen – legyen tömör és áttekinthető, ne legyen túl sok vagy túl kusza.
+8. A kódblokk formátuma – KATEGORIZÁLT téma esetén (példa):
+
+\`\`\`mermaid
+mindmap
+  root((Mátyás uralkodása))
+    Belső politika
+      Trónra lépés 1458
+      Központosított állam
+    Gazdasági reformok
+      Adóreform
+      Vámok
+    Kultúra és tudomány
+      Corvinák
+      Egyetemek
+    Külpolitika
+      Ausztria elleni háborúk
+      Cseh háborúk
+\`\`\`
+
+   – LINEÁRIS adatsor esetén (példa):
 
 \`\`\`mermaid
 mindmap
@@ -131,7 +155,7 @@ A válasz végén legyen "## Forrásjegyzék".
 async function loadUserNotesContext(user, inlineNotes = "") {
   const parts = [];
   const inline = cleanText(inlineNotes, 30000);
-  if (inline) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}\n\nFONTOS: Elsődlegesen ezt használd!`);
+  if (inline) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}\n\nFONTOS: Elsődlegesen ezt használd, de szükség esetén egészítsd ki általános tudással!`);
 
   const supabase = getSupabaseAdmin();
   if (supabase && user?.id) {
@@ -166,13 +190,13 @@ function buildPrompt({ message, notesContext, history }) {
     .join("\n");
 
   return [
-    notesContext ? `## Dokumentumok és jegyzetek\n${notesContext}\n\n` : "",
+    notesContext ? `## Dokumentumok és jegyzetek (kiegészítő kontextus)\n${notesContext}\n\n` : "",
     historyText ? `## Előzmények\n${historyText}\n\n` : "",
     `## Aktuális kérdés\n${message}`,
   ].filter(Boolean).join("");
 }
 
-// --- KLASSZIFIKÁCIÓ: valódi kép kell, vagy szöveges/Mermaid válasz ---
+// --- KLASSZIFIKÁCIÓ: valódi kép kell, vagy szöveges/mindmap válasz ---
 async function classifyRequest(message) {
   try {
     const result = await ai.models.generateContent({
@@ -180,7 +204,7 @@ async function classifyRequest(message) {
       contents: [{
         role: "user",
         parts: [{
-          text: `Döntsd el, hogy a következő magyar nyelvű kérés egy VALÓDI FÉNYKÉPET vagy ILLUSZTRÁCIÓT kér egy konkrét személyről, helyről, tárgyról vagy eseményről (pl. "kép", "ábra", "fotó", "hogy néz ki", "mutass", "kellene egy ábra X-ről", "nézzük meg X-et"), vagy egy NORMÁL VÁLASZT, MAGYARÁZATOT, DIAGRAMOT, FOLYAMATÁBRÁT, IDŐVONALAT kér (ezeket Mermaid diagrammal lehet ábrázolni, NEM fényképpel).
+          text: `Döntsd el, hogy a következő magyar nyelvű kérés egy VALÓDI FÉNYKÉPET vagy ILLUSZTRÁCIÓT kér egy konkrét személyről, helyről, tárgyról vagy eseményről (pl. "kép", "ábra", "fotó", "hogy néz ki", "mutass", "kellene egy ábra X-ről", "nézzük meg X-et"), vagy egy NORMÁL VÁLASZT, MAGYARÁZATOT, DIAGRAMOT, FOLYAMATÁBRÁT, IDŐVONALAT, GONDOLATTÉRKÉPET kér (ezeket mindmap diagrammal lehet ábrázolni, NEM fényképpel).
 
 Válaszolj KIZÁRÓLAG ebben a formátumban, két sorban, semmi mást:
 TIPUS: IMAGE vagy TEXT
@@ -208,7 +232,14 @@ Kérdés: "${message}"`
   }
 }
 
-// Wikimedia Commons keresés és az első valódi kép kiválasztása
+// ===============================
+// KÉPKERESÉS – TÖBB INGYENES FORRÁS
+// Sorban próbálkozunk, az első találatot használjuk.
+// Minden forrás ugyanazt a formát adja vissza:
+// { url, title, artist, license, sourcePage, sourceName }
+// ===============================
+
+// 1. Wikimedia Commons
 async function searchCommonsImage(query) {
   try {
     const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=800&format=json&origin=*`;
@@ -227,7 +258,7 @@ async function searchCommonsImage(query) {
       if (!info) continue;
 
       const mime = info.mime || "";
-      if (!mime.startsWith("image/")) continue; // videó/hang/pdf kihagyása
+      if (!mime.startsWith("image/")) continue;
 
       const meta = info.extmetadata || {};
       return {
@@ -236,6 +267,7 @@ async function searchCommonsImage(query) {
         artist: stripHtml(meta.Artist?.value),
         license: stripHtml(meta.LicenseShortName?.value),
         sourcePage: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
+        sourceName: "Wikimedia Commons",
       };
     }
     return null;
@@ -243,6 +275,158 @@ async function searchCommonsImage(query) {
     console.error("Commons search error:", err);
     return null;
   }
+}
+
+// 2. Openverse – nagy CC-licencű képaggregátor (Flickr Commons, Europeana, múzeumok, stb.)
+async function searchOpenverseImage(query) {
+  try {
+    const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=5`;
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const results = Array.isArray(data?.results) ? data.results : [];
+
+    for (const item of results) {
+      const imgUrl = item.thumbnail || item.url;
+      if (!imgUrl) continue;
+
+      return {
+        url: imgUrl,
+        title: item.title || "",
+        artist: item.creator || "",
+        license: [item.license, item.license_version].filter(Boolean).join(" ").toUpperCase(),
+        sourcePage: item.foreign_landing_url || item.url || "",
+        sourceName: "Openverse",
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("Openverse search error:", err);
+    return null;
+  }
+}
+
+// 3. NASA Image and Video Library – űrkutatás, csillagászat témákhoz
+async function searchNasaImage(query) {
+  try {
+    const url = `https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=image`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const items = data?.collection?.items || [];
+
+    for (const item of items) {
+      const links = Array.isArray(item.links) ? item.links : [];
+      const imageLink = links.find(l => l.render === "image") || links[0];
+      if (!imageLink?.href) continue;
+
+      const meta = item.data?.[0] || {};
+      return {
+        url: imageLink.href,
+        title: meta.title || "",
+        artist: meta.center || meta.photographer || "NASA",
+        license: "Közkincs (NASA)",
+        sourcePage: meta.nasa_id ? `https://images.nasa.gov/details/${meta.nasa_id}` : "https://images.nasa.gov",
+        sourceName: "NASA Image and Video Library",
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("NASA search error:", err);
+    return null;
+  }
+}
+
+// 4. The Metropolitan Museum of Art – Open Access gyűjtemény (művészet, történelem)
+async function searchMetMuseumImage(query) {
+  try {
+    const searchUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(query)}`;
+    const searchRes = await fetch(searchUrl);
+    if (!searchRes.ok) return null;
+
+    const searchData = await searchRes.json();
+    const ids = Array.isArray(searchData?.objectIDs) ? searchData.objectIDs.slice(0, 5) : [];
+
+    for (const id of ids) {
+      const objRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`);
+      if (!objRes.ok) continue;
+
+      const obj = await objRes.json();
+      const imgUrl = obj.primaryImageSmall || obj.primaryImage;
+      if (!imgUrl) continue;
+
+      return {
+        url: imgUrl,
+        title: obj.title || "",
+        artist: obj.artistDisplayName || "Ismeretlen alkotó",
+        license: "Közkincs (The Met, Open Access)",
+        sourcePage: obj.objectURL || "https://www.metmuseum.org",
+        sourceName: "The Metropolitan Museum of Art",
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("Met Museum search error:", err);
+    return null;
+  }
+}
+
+// 5. Library of Congress – történelmi fotók, dokumentumok
+async function searchLocImage(query) {
+  try {
+    const url = `https://www.loc.gov/photos/?q=${encodeURIComponent(query)}&fo=json&c=5`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const results = Array.isArray(data?.results) ? data.results : [];
+
+    for (const item of results) {
+      let imgUrl = null;
+      if (Array.isArray(item.image_url) && item.image_url.length) {
+        imgUrl = item.image_url[0];
+      }
+      if (!imgUrl) continue;
+
+      const rights = stripHtml(item.rights_advisory?.join?.(" ") || item.rights || "");
+
+      return {
+        url: imgUrl,
+        title: item.title || "",
+        artist: Array.isArray(item.contributor) ? item.contributor.join(", ") : (item.contributor || ""),
+        license: rights || "Lásd a forrásnál a jogi információkat",
+        sourcePage: item.url || "https://www.loc.gov",
+        sourceName: "Library of Congress",
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("Library of Congress search error:", err);
+    return null;
+  }
+}
+
+// Orchestrátor: sorban próbálkozik az összes forrással
+async function searchFreeImage(query) {
+  const sources = [
+    searchCommonsImage,
+    searchOpenverseImage,
+    searchNasaImage,
+    searchMetMuseumImage,
+    searchLocImage,
+  ];
+
+  for (const source of sources) {
+    try {
+      const result = await source(query);
+      if (result?.url) return result;
+    } catch (err) {
+      console.error("Image source error:", err);
+    }
+  }
+  return null;
 }
 
 // Markdown szöveg összeállítása a kép-eredményből (a meglévő marked+CSS rendereli)
@@ -263,12 +447,12 @@ function buildImageMarkdown(image, message) {
   }
 
   if (image.sourcePage) {
-    lines.push(`Forrás: [Wikimedia Commons](${image.sourcePage})`);
+    lines.push(`Forrás: [${image.sourceName || "kép forrása"}](${image.sourcePage})`);
   }
 
   lines.push("");
   lines.push("## Forrásjegyzék");
-  lines.push("- Wikimedia Commons");
+  lines.push(`- ${image.sourceName || "Külső képforrás"}`);
 
   return lines.join("\n");
 }
@@ -291,20 +475,20 @@ export default async function handler(req) {
     const notesContext = await loadUserNotesContext(user, body.notes || "");
     const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
 
-    // --- DÖNTÉS: kép vagy szöveges/Mermaid válasz ---
+    // --- DÖNTÉS: kép vagy szöveges/mindmap válasz ---
     const classification = await classifyRequest(message);
 
     if (classification.type === "IMAGE") {
-      const image = await searchCommonsImage(classification.searchQuery);
+      const image = await searchFreeImage(classification.searchQuery);
 
       if (!image) {
-        return singleChunkStream("Sajnálom, nem találtam megfelelő képet ehhez a témához a Wikimedia Commons-on. Próbáld másképp megfogalmazni a kérdést.");
+        return singleChunkStream("Sajnálom, nem találtam megfelelő, ingyenesen felhasználható képet ehhez a témához. Próbáld másképp megfogalmazni a kérdést.");
       }
 
       return singleChunkStream(buildImageMarkdown(image, message));
     }
 
-    // --- NORMÁL SZÖVEGES VÁLASZ (ide tartozik a diagram/Mermaid is) ---
+    // --- NORMÁL SZÖVEGES VÁLASZ (ide tartozik a mindmap is) ---
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: promptText }] }],
@@ -329,3 +513,4 @@ export default async function handler(req) {
     return jsonResponse({ error: "Szerver hiba történt." }, 500);
   }
 }
+  
