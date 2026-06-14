@@ -1,6 +1,7 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE
-// MERMAID + KÉPKERESÉS VERZIÓ (egységes szöveges stream)
+// EGYSÉGES KLASSZIFIKÁCIÓS VERZIÓ
+// (Gemini dönt: valódi kép kell-e, vagy szöveges/Mermaid válasz)
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -60,7 +61,7 @@ function textStreamResponse(generator) {
   });
 }
 
-// Egyetlen szöveges darab streamként visszaadása (kép-eredményhez)
+// Egyetlen szöveges darab streamként visszaadása (kép-eredményhez / hibaüzenethez)
 function singleChunkStream(text) {
   async function* gen() {
     yield text;
@@ -90,7 +91,7 @@ function stripHtml(value) {
   return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
-// --- RENDSZERUTASÍTÁS ---
+// --- RENDSZERUTASÍTÁS (normál + Mermaid válaszhoz) ---
 function buildSystemInstructionText() {
   return `
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
@@ -98,16 +99,16 @@ Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 - Adj pontos, jól strukturált, oktatási célú válaszokat.
 - Ha hasznos, használj táblázatot és felsorolást.
 
-DIAGRAM / ÁBRA / IDŐVONAL / FOLYAMATÁBRA KÉRÉSEKOR:
-- Ha a felhasználó diagramot, ábrát, folyamatábrát, idővonalat vagy vizualizációt kér, és ez Mermaid diagrammal ábrázolható (pl. flowchart, idővonal, sequence diagram, mindmap, pie chart), írj egy rövid (1-3 mondatos) magyar magyarázatot, majd illessz be UTÁNA egy érvényes Mermaid kódblokkot, pontosan így:
+DIAGRAM / ÁBRA / IDŐVONAL / FOLYAMATÁBRA / GONDOLATTÉRKÉP KÉRÉSEKOR:
+- Ha a felhasználó diagramot, ábrát, folyamatábrát, idővonalat, gondolattérképet vagy vizualizációt kér, és ez Mermaid diagrammal ábrázolható, írj egy rövid (1-3 mondatos) magyar magyarázatot, majd illessz be UTÁNA egy érvényes Mermaid kódblokkot, pontosan így:
 
 \`\`\`mermaid
 flowchart TD
     A[Példa] --> B[Másik elem]
 \`\`\`
 
-- A Mermaid kódblokk szintaxisa legyen helyes (flowchart TD/LR, timeline, mindmap, pie, sequenceDiagram stb. közül a kérdéshez legjobban illőt válaszd).
-- Számszerű adatok ábrázolásához használj "pie" típust vagy "xychart-beta" típust, ha van rá adat; ha nincs pontos adat, jelezd, hogy becslés.
+- A diagram típusát (flowchart TD/LR, timeline, mindmap, pie, sequenceDiagram) a kérdéshez illően válaszd.
+- Számszerű adatokhoz használj "pie" vagy "xychart-beta" típust; ha nincs pontos adat, jelezd, hogy becslés.
 - Soha ne mondd, hogy "nem tudok képet/diagramot készíteni" – mindig próbálj Mermaid kódblokkot adni, ha a kérés vizualizációra vonatkozik.
 - Tilos JSON-t, kép-leírást vagy "image_description" mezőt írni a válaszba.
 
@@ -160,31 +161,39 @@ function buildPrompt({ message, notesContext, history }) {
   ].filter(Boolean).join("");
 }
 
-// Valódi kép/fotó/illusztráció kérése (nem diagram!)
-function needsImageSearch(message) {
-  const m = message.toLowerCase();
-  return /fénykép|fotó|illusztráci|hogy néz ki|hogy nézett ki|mutass (egy )?képet|képet (mutat|kér)|nézzünk meg egy képet|képen/.test(m);
-}
-
-// Rövid, angol keresőkifejezés kinyerése a Commons kereséshez
-async function extractImageSearchQuery(message) {
+// --- KLASSZIFIKÁCIÓ: valódi kép kell, vagy szöveges/Mermaid válasz ---
+async function classifyRequest(message) {
   try {
     const result = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{
         role: "user",
         parts: [{
-          text: `Adj vissza egy rövid (1-4 szavas) ANGOL keresési kifejezést a Wikimedia Commons képkereséséhez, ami a következő kérdéshez illő fényképet/illusztrációt találja meg. Csak a kifejezést írd vissza, idézőjel és magyarázat nélkül.\n\nKérdés: "${message}"`
+          text: `Döntsd el, hogy a következő magyar nyelvű kérés egy VALÓDI FÉNYKÉPET vagy ILLUSZTRÁCIÓT kér egy konkrét személyről, helyről, tárgyról vagy eseményről (pl. "kép", "ábra", "fotó", "hogy néz ki", "mutass", "kellene egy ábra X-ről", "nézzük meg X-et"), vagy egy NORMÁL VÁLASZT, MAGYARÁZATOT, DIAGRAMOT, FOLYAMATÁBRÁT, IDŐVONALAT kér (ezeket Mermaid diagrammal lehet ábrázolni, NEM fényképpel).
+
+Válaszolj KIZÁRÓLAG ebben a formátumban, két sorban, semmi mást:
+TIPUS: IMAGE vagy TEXT
+KERESES: <ha TIPUS=IMAGE, egy rövid 1-4 szavas ANGOL keresőkifejezés a témához (pl. "Budapest Parliament building"); ha TIPUS=TEXT, írj egyetlen kötőjelet ->
+
+Kérdés: "${message}"`
         }],
       }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 30 },
+      generationConfig: { temperature: 0, maxOutputTokens: 40 },
     });
+
     const text = result?.text || result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const cleaned = cleanText(text, 100).replace(/["'`]/g, "");
-    return cleaned || message.slice(0, 60);
+    const typeMatch = text.match(/T[ÍI]PUS:\s*(IMAGE|TEXT)/i);
+    const searchMatch = text.match(/KERES[ÉE]S:\s*(.+)/i);
+
+    const type = typeMatch ? typeMatch[1].toUpperCase() : "TEXT";
+    let searchQuery = searchMatch ? searchMatch[1].trim() : "";
+    searchQuery = searchQuery.replace(/["'`]/g, "");
+    if (searchQuery === "-" || !searchQuery) searchQuery = message.slice(0, 60);
+
+    return { type, searchQuery };
   } catch (err) {
-    console.error("Image query extraction error:", err);
-    return message.slice(0, 60);
+    console.error("Classify error:", err);
+    return { type: "TEXT", searchQuery: "" };
   }
 }
 
@@ -271,10 +280,11 @@ export default async function handler(req) {
     const notesContext = await loadUserNotesContext(user, body.notes || "");
     const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
 
-    // --- KÉP/FOTÓ KERESÉS ÁG (Wikimedia Commons) – markdown szövegként streamelve ---
-    if (needsImageSearch(message)) {
-      const searchQuery = await extractImageSearchQuery(message);
-      const image = await searchCommonsImage(searchQuery);
+    // --- DÖNTÉS: kép vagy szöveges/Mermaid válasz ---
+    const classification = await classifyRequest(message);
+
+    if (classification.type === "IMAGE") {
+      const image = await searchCommonsImage(classification.searchQuery);
 
       if (!image) {
         return singleChunkStream("Sajnálom, nem találtam megfelelő képet ehhez a témához a Wikimedia Commons-on. Próbáld másképp megfogalmazni a kérdést.");
