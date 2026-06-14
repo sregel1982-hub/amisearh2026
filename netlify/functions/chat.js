@@ -1,6 +1,6 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE
-// JAVÍTOTT VERZIÓ – diagram generálás Chart.js configgal
+// MERMAID + KÉPKERESÉS VERZIÓ (egységes szöveges stream)
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -60,6 +60,14 @@ function textStreamResponse(generator) {
   });
 }
 
+// Egyetlen szöveges darab streamként visszaadása (kép-eredményhez)
+function singleChunkStream(text) {
+  async function* gen() {
+    yield text;
+  }
+  return textStreamResponse(gen());
+}
+
 // --- HELPERS ---
 function getSupabaseAdmin() {
   const url = getEnv("SUPABASE_URL");
@@ -78,79 +86,32 @@ function cleanText(value, max = 70000) {
     .slice(0, max);
 }
 
-// Próbálja kiszedni az első { ... } JSON objektumot egy szövegből,
-// még akkor is, ha a modell ```json blokkba csomagolta vagy egyéb szöveget tett elé/mögé.
-function extractJsonObject(text) {
-  if (!text) return null;
-  let cleaned = String(text).trim();
-
-  // ```json ... ``` vagy ``` ... ``` blokkok eltávolítása
-  cleaned = cleaned.replace(/```json/gi, "```").trim();
-  if (cleaned.startsWith("```")) {
-    const firstFence = cleaned.indexOf("```");
-    const lastFence = cleaned.lastIndexOf("```");
-    if (lastFence > firstFence) {
-      cleaned = cleaned.slice(firstFence + 3, lastFence).trim();
-    }
-  }
-
-  // Ha közvetlenül parse-olható, kész
-  try {
-    return JSON.parse(cleaned);
-  } catch (_) {
-    // folytatjuk a tisztítást
-  }
-
-  // Az első '{' és az utolsó '}' közötti rész kivágása
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return null;
-
-  const candidate = cleaned.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch (_) {
-    return null;
-  }
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
-// --- RENDSZERUTASÍTÁS – normál szöveges válaszhoz (NINCS diagram_kell jelző) ---
+// --- RENDSZERUTASÍTÁS ---
 function buildSystemInstructionText() {
   return `
 Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 
 - Adj pontos, jól strukturált, oktatási célú válaszokat.
 - Ha hasznos, használj táblázatot és felsorolást.
-- Ne generálj diagramot, ábrát vagy vizualizációt szövegesen (azt a rendszer külön kezeli).
-- A válasz végén legyen "## Forrásjegyzék".
-`;
-}
 
-// --- RENDSZERUTASÍTÁS – diagram generáláshoz (csak JSON választ várunk) ---
-function buildChartSystemInstruction() {
-  return `
-Te egy adatvizualizációs asszisztens vagy. A bemenet egy magyar nyelvű oktatási kérdés (és opcionálisan kontextus jegyzetek/előzmények).
+DIAGRAM / ÁBRA / IDŐVONAL / FOLYAMATÁBRA KÉRÉSEKOR:
+- Ha a felhasználó diagramot, ábrát, folyamatábrát, idővonalat vagy vizualizációt kér, és ez Mermaid diagrammal ábrázolható (pl. flowchart, idővonal, sequence diagram, mindmap, pie chart), írj egy rövid (1-3 mondatos) magyar magyarázatot, majd illessz be UTÁNA egy érvényes Mermaid kódblokkot, pontosan így:
 
-A FELADATOD: készíts egy Chart.js kompatibilis konfigurációt, ami a kérdésben szereplő adatokat/folyamatot/összefüggést jól ábrázolja.
+\`\`\`mermaid
+flowchart TD
+    A[Példa] --> B[Másik elem]
+\`\`\`
 
-KIMENETI FORMÁTUM – KIZÁRÓLAG egy érvényes JSON objektum, semmi más (nincs markdown, nincs magyarázó szöveg a JSON előtt/után):
-{
-  "config": {
-    "type": "bar" | "line" | "pie" | "doughnut" | "radar" | "scatter",
-    "data": {
-      "labels": [...],
-      "datasets": [ { "label": "...", "data": [...], ... } ]
-    },
-    "options": { ... }
-  },
-  "explanation": "Rövid, magyar nyelvű magyarázat a diagramról (2-4 mondat)."
-}
+- A Mermaid kódblokk szintaxisa legyen helyes (flowchart TD/LR, timeline, mindmap, pie, sequenceDiagram stb. közül a kérdéshez legjobban illőt válaszd).
+- Számszerű adatok ábrázolásához használj "pie" típust vagy "xychart-beta" típust, ha van rá adat; ha nincs pontos adat, jelezd, hogy becslés.
+- Soha ne mondd, hogy "nem tudok képet/diagramot készíteni" – mindig próbálj Mermaid kódblokkot adni, ha a kérés vizualizációra vonatkozik.
+- Tilos JSON-t, kép-leírást vagy "image_description" mezőt írni a válaszba.
 
-Szabályok:
-- A "config" objektumnak közvetlenül a Chart.js "new Chart(ctx, config)" hívásba behelyettesíthetőnek kell lennie.
-- Ha pontos számadat nincs megadva, adj becsült, realisztikus értékeket, és az "explanation"-ben jelezd, hogy becslés.
-- Ne használj függvényeket, kommenteket vagy bármilyen nem-JSON elemet a konfigurációban.
-- A válasz csak a JSON objektum legyen, kódblokk-jelölés (\`\`\`) nélkül.
+A válasz végén legyen "## Forrásjegyzék".
 `;
 }
 
@@ -199,19 +160,10 @@ function buildPrompt({ message, notesContext, history }) {
   ].filter(Boolean).join("");
 }
 
-function needsVisualization(message) {
-  const m = message.toLowerCase();
-  return /diagram|grafikon|oszlopdiagram|vonaldiagram|kördiagram|chart|vizualizáció|tutaj|idővonal/.test(m);
-}
-
 // Valódi kép/fotó/illusztráció kérése (nem diagram!)
 function needsImageSearch(message) {
   const m = message.toLowerCase();
   return /fénykép|fotó|illusztráci|hogy néz ki|hogy nézett ki|mutass (egy )?képet|képet (mutat|kér)|nézzünk meg egy képet|képen/.test(m);
-}
-
-function stripHtml(value) {
-  return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
 // Rövid, angol keresőkifejezés kinyerése a Commons kereséshez
@@ -248,7 +200,6 @@ async function searchCommonsImage(query) {
     const pages = data?.query?.pages;
     if (!pages) return null;
 
-    // Rendezzük az index szerint, hogy a legjobb találat legyen elöl
     const ordered = Object.values(pages).sort((a, b) => (a.index || 0) - (b.index || 0));
 
     for (const page of ordered) {
@@ -261,12 +212,9 @@ async function searchCommonsImage(query) {
       const meta = info.extmetadata || {};
       return {
         url: info.thumburl || info.url,
-        fullUrl: info.url,
         title: String(page.title || "").replace(/^File:/, ""),
         artist: stripHtml(meta.Artist?.value),
         license: stripHtml(meta.LicenseShortName?.value),
-        licenseUrl: meta.LicenseUrl?.value || "",
-        description: stripHtml(meta.ImageDescription?.value).slice(0, 500),
         sourcePage: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
       };
     }
@@ -277,29 +225,32 @@ async function searchCommonsImage(query) {
   }
 }
 
-// --- DIAGRAM SAVE ---
-async function saveDiagram(userId, question, config, explanation) {
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase
-      .from("charts")
-      .insert({
-        user_id: userId,
-        question,
-        // A config objektumot stringként mentjük el, mert nem ismert, hogy a
-        // 'config' oszlop JSONB vagy text típusú-e. A diagram.html mindkét
-        // esetet kezeli (JSON.parse, ha string-ként jön vissza).
-        config: JSON.stringify(config),
-        explanation: explanation || "Vizualizáció",
-      })
-      .select("id")
-      .single();
-    return error ? null : data?.id || null;
-  } catch (err) {
-    console.error("Save diagram error:", err);
-    return null;
+// Markdown szöveg összeállítása a kép-eredményből (a meglévő marked+CSS rendereli)
+function buildImageMarkdown(image, message) {
+  const altText = (image.title || message || "Kép").replace(/[\[\]]/g, "");
+  const lines = [];
+
+  lines.push(`![${altText}](${image.url})`);
+  lines.push("");
+
+  const attributionParts = [];
+  if (image.title) attributionParts.push(`**${image.title}**`);
+  if (image.artist) attributionParts.push(`Szerző: ${image.artist}`);
+  if (image.license) attributionParts.push(`Licenc: ${image.license}`);
+
+  if (attributionParts.length) {
+    lines.push(attributionParts.join(" — "));
   }
+
+  if (image.sourcePage) {
+    lines.push(`Forrás: [Wikimedia Commons](${image.sourcePage})`);
+  }
+
+  lines.push("");
+  lines.push("## Forrásjegyzék");
+  lines.push("- Wikimedia Commons");
+
+  return lines.join("\n");
 }
 
 // --- HANDLER ---
@@ -320,69 +271,19 @@ export default async function handler(req) {
     const notesContext = await loadUserNotesContext(user, body.notes || "");
     const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
 
-    // --- DIAGRAM ÁG ---
-    if (needsVisualization(message)) {
-      const chartPrompt = `${promptText}\n\nKészíts a fenti kérdéshez Chart.js konfigurációt a megadott formátum szerint.`;
-
-      let chartResultText = "";
-      try {
-        const chartResult = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: [{ role: "user", parts: [{ text: chartPrompt }] }],
-          systemInstruction: buildChartSystemInstruction(),
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 2048,
-            responseMimeType: "application/json",
-          },
-        });
-        chartResultText = chartResult?.text
-          || chartResult?.candidates?.[0]?.content?.parts?.[0]?.text
-          || "";
-      } catch (e) {
-        console.error("Chart generation error:", e);
-        return jsonResponse({ error: "Nem sikerült a diagramot legenerálni." }, 500);
-      }
-
-      const parsed = extractJsonObject(chartResultText);
-
-      if (!parsed || !parsed.config || !parsed.config.type) {
-        console.error("Invalid chart JSON:", chartResultText);
-        return jsonResponse({ error: "A diagram generálása sikertelen volt, próbáld újrafogalmazni a kérdést." }, 500);
-      }
-
-      const id = await saveDiagram(user.id, message, parsed.config, parsed.explanation);
-      if (!id) return jsonResponse({ error: "A diagram mentése sikertelen volt." }, 500);
-
-      return jsonResponse({ redirect: `https://amisearch.org/diagram?id=${id}` });
-    }
-
-    // --- KÉP/FOTÓ KERESÉS ÁG (Wikimedia Commons) ---
+    // --- KÉP/FOTÓ KERESÉS ÁG (Wikimedia Commons) – markdown szövegként streamelve ---
     if (needsImageSearch(message)) {
       const searchQuery = await extractImageSearchQuery(message);
       const image = await searchCommonsImage(searchQuery);
 
       if (!image) {
-        return jsonResponse({ error: "Nem található kép a témához." }, 404);
+        return singleChunkStream("Sajnálom, nem találtam megfelelő képet ehhez a témához a Wikimedia Commons-on. Próbáld másképp megfogalmazni a kérdést.");
       }
 
-      return jsonResponse({
-        type: "image",
-        question: message,
-        image: {
-          url: image.url,
-          fullUrl: image.fullUrl,
-          title: image.title,
-          artist: image.artist,
-          license: image.license,
-          licenseUrl: image.licenseUrl,
-          description: image.description,
-          sourcePage: image.sourcePage,
-        },
-      });
+      return singleChunkStream(buildImageMarkdown(image, message));
     }
 
-    // --- NORMÁL SZÖVEGES VÁLASZ ---
+    // --- NORMÁL SZÖVEGES VÁLASZ (ide tartozik a diagram/Mermaid is) ---
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: promptText }] }],
