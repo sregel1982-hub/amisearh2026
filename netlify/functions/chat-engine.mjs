@@ -1,6 +1,6 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE (MULTIMODAL)
-// STRUKTURÁLT MINDMAP + CHART.JS JSON + KÉPKERESÉS
+// STRUKTURÁLT MINDMAP + CHART.JS JSON + KÉPKERESÉS + AUTO-REDIRECTS
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
@@ -98,7 +98,7 @@ Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
 JEGYZETEK HASZNÁLATA:
 - A feltöltött jegyzetek és előzmények csak KIEGÉSZÍTŐ kontextusként szolgálnak. Szabadon használd az általános tudásodat is.
 
-VIZUALIZÁCIÓS SZABÁLYOK (VÁLASSZ AZ ALÁBBI 2 OPCIÓ KÖZÜL, HA VIZUALIZÁCIÓT KÉRNEK):
+VIZUALIZÁCIÓS ÉS ÁTIRÁNYÍTÁSI SZABÁLYOK (MANDATORY):
 
 1. HA FOLYAMATOT, STRUKTÚRÁT, FOGALMI ÖSSZEFÜGGÉST VAGY GONDOLATTÉRKÉPET KÉRNEK:
    - Írj egy rövid magyarázatot, majd illessz be egy Mermaid MINDMAP kódblokkot:
@@ -130,6 +130,18 @@ VIZUALIZÁCIÓS SZABÁLYOK (VÁLASSZ AZ ALÁBBI 2 OPCIÓ KÖZÜL, HA VIZUALIZÁC
      }
    }
    \`\`\`
+
+3. DINAMIKUS REDIRECT (ÁTIRÁNYÍTÁS) KÓD GENERÁLÁSA:
+   Ha a felhasználó interaktív geometriai ábrát, molekulát vagy kvízt kér, a válaszod legvégén, egy különálló sorban kötelező elhelyezned a megfelelő redirect címkét!
+   - Deltoid esetén: [REDIRECT:graph:geometry:deltoid]
+   - Egyenlő szárú háromszög esetén: [REDIRECT:graph:geometry:triangle]
+   - Paralelogramma esetén: [REDIRECT:graph:geometry:parallelogram]
+   - Szabályos hatszög esetén: [REDIRECT:graph:geometry:hexagon]
+   - Só rács (NaCl) / Sómolekula esetén: [REDIRECT:graph:molecule:nacl]
+   - Víz (H2O) esetén: [REDIRECT:graph:molecule:h2o]
+   - Szén-dioxid (CO2) esetén: [REDIRECT:graph:molecule:co2]
+   - Metán (CH4) esetén: [REDIRECT:graph:molecule:ch4]
+   - Kvíz (bármelyik teszt felület) esetén: [REDIRECT:quiz]
 
 A válasz végén legyen "## Forrásjegyzék".
 `;
