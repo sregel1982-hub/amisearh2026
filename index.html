@@ -1423,18 +1423,38 @@
     btnEn.className = 'flex-1 py-2 rounded-[14px] font-medium text-sm transition-all ' + (!isHu ? 'bg-white shadow' : '');
   }
 
-  window.updateDashboardUI = function(profile) {
-    if (!profile) return;
-    window.userProfile = profile;
-    const username = profile.username || profile.fullName || 'User';
-    const initial = username.charAt(0).toUpperCase();
-    const statusLabel = profile.status === 'teacher'
-      ? (window.currentLang === 'hu' ? 'Tanár' : 'Teacher')
-      : (window.currentLang === 'hu' ? 'Diák' : 'Student');
+	  window.isProProfile = function(profile) {
+	    if (!profile) return false;
+	    if (String(profile.plan || '').toLowerCase() !== 'pro') return false;
+	    const rawExpiresAt = profile.planExpiresAt || profile.plan_expires_at;
+	    if (!rawExpiresAt) return true;
+	    const expiresAt = new Date(rawExpiresAt);
+	    return Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() > Date.now();
+	  };
 
-    document.getElementById('headerAvatar').textContent = initial;
-    document.getElementById('headerUsername').textContent = username;
-    document.getElementById('headerPlan').textContent = '• ' + (profile.plan || 'Free');
+	  window.getPlanLabel = function(profile) {
+	    return window.isProProfile(profile) ? 'Pro' : 'Free';
+	  };
+
+  	  window.canUseFreeUpload = function(profile) {
+	    if (window.isProProfile(profile)) return true;
+	    const used = Number(profile && (profile.uploadsThisMonthCount ?? profile.uploadsMonthCount ?? profile.uploadsTodayCount ?? profile.uploads_today_count ?? 0)) || 0;
+	    return used < 5;
+	  };
+
+	  window.updateDashboardUI = function(profile) {
+	    if (!profile) return;
+	    window.userProfile = profile;
+	    const username = profile.username || profile.fullName || 'User';
+	    const initial = username.charAt(0).toUpperCase();
+	    const planLabel = window.getPlanLabel(profile);
+	    const statusLabel = profile.status === 'teacher'
+	      ? (window.currentLang === 'hu' ? 'Tanár' : 'Teacher')
+	      : (window.currentLang === 'hu' ? 'Diák' : 'Student');
+
+	    document.getElementById('headerAvatar').textContent = initial;
+	    document.getElementById('headerUsername').textContent = username;
+	    document.getElementById('headerPlan').textContent = '• ' + planLabel;
     const headerStatusEl = document.getElementById('headerStatusLabel');
     if (headerStatusEl) headerStatusEl.textContent = statusLabel;
 
@@ -1442,11 +1462,11 @@
     document.getElementById('dropdownName').textContent = profile.fullName || username;
     document.getElementById('dropdownStatus').textContent = statusLabel;
     document.getElementById('dropdownPoints').textContent = profile.points || '0';
-    document.getElementById('dropdownPlan').textContent = profile.plan || 'Free';
+	    document.getElementById('dropdownPlan').textContent = planLabel;
 
-    document.getElementById('mobileAvatar').textContent = initial;
-    document.getElementById('mobileUsername').textContent = username;
-    document.getElementById('mobilePlan').textContent = profile.plan || 'Free';
+	    document.getElementById('mobileAvatar').textContent = initial;
+	    document.getElementById('mobileUsername').textContent = username;
+	    document.getElementById('mobilePlan').textContent = planLabel;
     document.getElementById('mobilePoints').textContent = profile.points || '0';
 
     const heroDash = document.getElementById('heroDashboard');
@@ -1456,15 +1476,15 @@
       document.getElementById('dashAvatar').textContent = initial;
       document.getElementById('dashStatus').textContent = statusLabel;
       document.getElementById('dashPoints').textContent = profile.points || '0';
-      document.getElementById('dashSub').textContent = profile.plan || 'Free';
-    }
+	      document.getElementById('dashSub').textContent = planLabel;
+	    }
 
-    document.getElementById('dashboardAvatar').textContent = initial;
-    document.getElementById('dashboardFullName').textContent = profile.fullName || username;
-    document.getElementById('dashboardStatus').textContent = statusLabel;
-    document.getElementById('dashboardPlan').textContent = profile.plan || 'Free';
-    document.getElementById('dashboardPoints').textContent = profile.points || '0';
-    document.getElementById('dashboardSub').textContent = profile.plan || 'Free';
+	    document.getElementById('dashboardAvatar').textContent = initial;
+	    document.getElementById('dashboardFullName').textContent = profile.fullName || username;
+	    document.getElementById('dashboardStatus').textContent = statusLabel;
+	    document.getElementById('dashboardPlan').textContent = planLabel;
+	    document.getElementById('dashboardPoints').textContent = profile.points || '0';
+	    document.getElementById('dashboardSub').textContent = planLabel;
   }
 
   window.waitForSupabaseClient = async function(timeoutMs) {
@@ -1595,10 +1615,12 @@
       });
       if (res.ok) {
         const data = await res.json();
-        if (window.userProfile) {
-          window.userProfile.points = data.points;
-          window.updateDashboardUI(window.userProfile);
-        }
+	        if (window.userProfile) {
+	          window.userProfile.points = data.points;
+	          if (data.plan) window.userProfile.plan = data.plan;
+	          if (data.planExpiresAt) window.userProfile.planExpiresAt = data.planExpiresAt;
+	          window.updateDashboardUI(window.userProfile);
+	        }
         // Sikeres pont jóváírás → toast
         if (data.awarded && data.awarded > 0) {
           try {
@@ -1829,9 +1851,17 @@
       duplicate: { hu: 'Ezt a fájlt már feltöltötted egyszer.', en: 'You have already uploaded this file.' }[lang]
     }[k]);
 
-    if (!window.currentUser) { setUploadStatus('error', t('need_login')); return; }
+	    if (!window.currentUser) { setUploadStatus('error', t('need_login')); return; }
+	    if (!window.userProfile && typeof window.loadUserProfile === 'function') {
+	      try { await window.loadUserProfile(); } catch (e) {}
+	    }
+	    if (window.userProfile && !window.canUseFreeUpload(window.userProfile)) {
+	      window.showFreeExpiredWarning();
+	      setUploadStatus('warn', lang === 'hu' ? 'Elérted az ingyenes havi feltöltési keretet. Válts Pro-ra a folytatáshoz.' : 'You reached the free monthly upload limit. Upgrade to Pro to continue.');
+	      return;
+	    }
 
-    const title = document.getElementById('uploadTitle').value.trim();
+	    const title = document.getElementById('uploadTitle').value.trim();
     const subject = document.getElementById('uploadSubject').value.trim();
     const language = (document.querySelector('input[name="uploadLang"]:checked') || {}).value || 'hu';
     const fileInputEl = document.getElementById('uploadFileInput');
@@ -1897,13 +1927,28 @@
         try { await supabase.storage.from('jegyzetek').remove([filePath]); } catch (e) { /* ok */ }
         return;
       }
-      if (!regResp.ok) {
-        const txt = await regResp.text();
-        setUploadStatus('error', '<i class="fa-solid fa-triangle-exclamation mr-2"></i>' + (lang === 'hu' ? 'Regisztrációs hiba: ' : 'Registration error: ') + escapeHtml(txt.slice(0, 200)));
-        try { await supabase.storage.from('jegyzetek').remove([filePath]); } catch (e) {}
-        return;
-      }
-      const regData = await regResp.json();
+	      if (regResp.status === 402) {
+	        window.showFreeExpiredWarning();
+	        setUploadStatus('warn', '<i class="fa-solid fa-crown mr-2"></i>' + (lang === 'hu' ? 'Elérted az ingyenes havi feltöltési keretet. Válts Pro-ra a folytatáshoz.' : 'You reached the free monthly upload limit. Upgrade to Pro to continue.'));
+	        try { await supabase.storage.from('jegyzetek').remove([filePath]); } catch (e) {}
+	        return;
+	      }
+	      if (!regResp.ok) {
+	        const txt = await regResp.text();
+	        setUploadStatus('error', '<i class="fa-solid fa-triangle-exclamation mr-2"></i>' + (lang === 'hu' ? 'Regisztrációs hiba: ' : 'Registration error: ') + escapeHtml(txt.slice(0, 200)));
+	        try { await supabase.storage.from('jegyzetek').remove([filePath]); } catch (e) {}
+	        return;
+	      }
+	      const regData = await regResp.json();
+	      if (regData.profile && window.userProfile) {
+	        window.userProfile.plan = regData.profile.plan || window.userProfile.plan;
+	        window.userProfile.planExpiresAt = regData.profile.planExpiresAt || window.userProfile.planExpiresAt;
+        window.userProfile.uploadsThisMonthCount = regData.profile.uploadsThisMonthCount ?? regData.profile.uploadsTodayCount ?? window.userProfile.uploadsThisMonthCount;
+        window.userProfile.uploadsMonthPeriod = regData.profile.uploadsMonthPeriod || regData.profile.uploadsTodayDate || window.userProfile.uploadsMonthPeriod;
+        window.userProfile.uploadsTodayCount = regData.profile.uploadsTodayCount ?? regData.profile.uploadsThisMonthCount ?? window.userProfile.uploadsTodayCount;
+        window.userProfile.uploadsTodayDate = regData.profile.uploadsTodayDate || regData.profile.uploadsMonthPeriod || window.userProfile.uploadsTodayDate;
+	        window.updateDashboardUI(window.userProfile);
+	      }
 
       /* 4) PONT JUTALOM AZONNAL — előbb mint az indexelés, hogy biztos járjon */
       if (window.userProfile) {
@@ -1954,21 +1999,83 @@
     }
   };
 
-  /* Régi handleFiles megőrizve kompatibilitás miatt – csak megnyitja a modalt */
+  /* Chat plusz gomb: közvetlen jegyzet-feldolgozás az AI Tutor kontextusába */
+  async function loadMammothForChat() {
+    if (window.mammoth) return window.mammoth;
+    await new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-mammoth-chat="1"]');
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.dataset.mammothChat = '1';
+      script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.12.0/mammoth.browser.min.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('DOCX olvasó betöltése sikertelen.'));
+      document.head.appendChild(script);
+    });
+    return window.mammoth;
+  }
+
+  async function extractTextFromChatFile(file) {
+    const name = file?.name || 'feltöltött fájl';
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    const textLike = file.type.startsWith('text/') || ['txt', 'md', 'csv', 'json', 'html', 'htm', 'rtf'].includes(ext);
+
+    if (textLike) {
+      return (await file.text()).trim();
+    }
+
+    if (ext === 'pdf' && window.pdfjsLib) {
+      const buffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+      const maxPages = Math.min(pdf.numPages, 25);
+      const chunks = [];
+      for (let pageNo = 1; pageNo <= maxPages; pageNo += 1) {
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        chunks.push(content.items.map(item => item.str || '').join(' '));
+      }
+      return chunks.join('\n\n').trim();
+    }
+
+    if (ext === 'docx') {
+      const mammoth = await loadMammothForChat();
+      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+      return (result && result.value ? result.value : '').trim();
+    }
+
+    return '';
+  }
+
   window.handleFiles = async function(files) {
-    if (files && files[0]) {
-      window.openUploadModal(window.activeUploadBoxId || 'uploadBox');
-      const modalFileInput = document.getElementById('uploadFileInput');
-      if (modalFileInput) {
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        modalFileInput.files = dt.files;
-        const titleEl = document.getElementById('uploadTitle');
-        if (titleEl && !titleEl.value) {
-          titleEl.value = files[0].name.replace(/\.[^.]+$/, '').slice(0, 200);
+    const list = Array.from(files || []);
+    const result = { processed: 0, failed: 0, names: [], warnings: [] };
+    if (!list.length) return result;
+
+    window.uploadedNotes = window.uploadedNotes || '';
+    for (const file of list) {
+      try {
+        const rawText = await extractTextFromChatFile(file);
+        const text = (rawText || '').replace(/\r\n/g, '\n').trim();
+        if (!text || text.length < 20) {
+          result.failed += 1;
+          result.warnings.push(file.name + ': nem sikerült elég szöveget kinyerni. PDF/TXT/MD/DOCX fájlt tölts fel, vagy másold be a szöveget a chatbe.');
+          continue;
         }
+        const clipped = text.slice(0, 60000);
+        window.uploadedNotes += '\n\n=== Közvetlenül a chat plusz gombbal feltöltött jegyzet: ' + file.name + ' ===\n' + clipped;
+        result.processed += 1;
+        result.names.push(file.name);
+      } catch (error) {
+        console.warn('Chat fájl feldolgozási hiba:', error);
+        result.failed += 1;
+        result.warnings.push(file.name + ': ' + (error?.message || 'feldolgozási hiba'));
       }
     }
+    return result;
   };
 
 
@@ -2389,7 +2496,7 @@
       alert(window.currentLang === 'hu' ? 'Írd be előbb a gondolattérkép témáját.' : 'Please type the mind map topic first.');
       return;
     }
-    window.open('mindmap.html?topic=' + encodeURIComponent(cleanTopic), '_blank', 'noopener');
+    window.location.href = '/mindmap.html?topic=' + encodeURIComponent(cleanTopic);
   };
 
   window.downloadMindMapPdf = async function(btn) {
@@ -2945,8 +3052,12 @@
         const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
         chatArea.innerHTML += '<div class="flex items-start space-x-3 mb-4 justify-end"><div class="bg-purple-100 text-[#6C5CE7] rounded-xl p-3 shadow-sm max-w-[80%]"><p class="text-sm"><i class="fa-solid fa-paperclip mr-1"></i>' + escapeHtml(fileNames) + '</p></div></div>';
         chatArea.scrollTop = chatArea.scrollHeight;
-        await window.handleFiles(e.target.files);
-        chatArea.innerHTML += '<div class="flex items-start space-x-3 mb-4"><div class="w-8 h-8 bg-[#6C5CE7] rounded-full flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-face-smile-beam text-white text-sm"></i></div><div class="bg-white rounded-xl p-3 shadow-sm"><p class="text-sm text-green-600"><i class="fa-solid fa-check-circle mr-1"></i>' + (window.currentLang === 'hu' ? 'Dokumentum feltöltve! Kérdezz bátran.' : 'Document uploaded! Feel free to ask.') + '</p></div></div>';
+        const uploadResult = await window.handleFiles(e.target.files);
+        const okText = window.currentLang === 'hu' ? 'A jegyzet szövegét beolvastam. Most már kérdezhetsz belőle.' : 'I extracted the note text. You can now ask about it.';
+        const warnText = window.currentLang === 'hu' ? 'A fájlt megkaptam, de nem sikerült belőle használható szöveget kinyerni. PDF, TXT, MD vagy DOCX fájlt tölts fel, vagy másold be a szöveget.' : 'I received the file, but could not extract usable text. Please upload PDF, TXT, MD or DOCX, or paste the text.';
+        const msgClass = uploadResult.processed > 0 ? 'text-green-600' : 'text-amber-700';
+        const iconClass = uploadResult.processed > 0 ? 'fa-check-circle' : 'fa-triangle-exclamation';
+        chatArea.innerHTML += '<div class="flex items-start space-x-3 mb-4"><div class="w-8 h-8 bg-[#6C5CE7] rounded-full flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-face-smile-beam text-white text-sm"></i></div><div class="bg-white rounded-xl p-3 shadow-sm"><p class="text-sm ' + msgClass + '"><i class="fa-solid ' + iconClass + ' mr-1"></i>' + escapeHtml(uploadResult.processed > 0 ? okText : warnText) + '</p></div></div>';
         chatArea.scrollTop = chatArea.scrollHeight;
         e.target.value = '';
       }
