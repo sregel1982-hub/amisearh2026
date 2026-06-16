@@ -3,239 +3,1364 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Diagram - AMISEARCH</title>
+  <title>AMISEARCH - Ábra-, Molekula- és Kvízgenerátor</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- KaTeX a gyönyörű matematikai képletekhez -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  
+  <!-- Chart.js a statisztikai diagramokhoz -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Mermaid.js az informatikai folyamat- és rendszerábrákhoz -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
   <style>
-    body { font-family: system-ui; background: #f5f5f5; margin: 0; padding: 20px; }
-    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; }
-    button { background: #6366f1; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; }
-    button:hover { background: #5558e3; }
-    .loading { text-align: center; padding: 60px; font-size: 18px; }
-    .error { color: #dc2626; text-align: center; padding: 40px; }
-    .explanation { margin-top: 25px; padding: 20px; background: #f3f4f6; border-radius: 8px; line-height: 1.6; }
-    .chart-container { position: relative; height: 400px; margin-top: 20px; }
+    :root {
+      --primary: #6C5CE7;
+      --primary-dark: #5A4BD1;
+      --primary-soft: #F3F0FF;
+      --accent: #A29BFE;
+      --dark: #2D3436;
+      --light: #F9FAFB;
+    }
+    
+    * {
+      font-family: 'Poppins', sans-serif;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #F9FAFB;
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(108, 92, 231, 0.1);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(108, 92, 231, 0.4);
+    }
+
+    /* Aktív fül egyedi stílusa */
+    .tab-active {
+      border-color: var(--primary);
+      color: var(--primary);
+      background-color: var(--primary-soft);
+    }
+
+    /* Animációk */
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.6; }
+    }
+    .loading-pulse {
+      animation: pulse-slow 2s infinite ease-in-out;
+    }
   </style>
 </head>
-<body>
-  <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
-      <h1>📊 Diagram Generálás</h1>
-      <button onclick="window.location.href='https://amisearch.org'">← Vissza a chathez</button>
-    </div>
+<body class="text-gray-900 min-h-screen flex flex-col">
 
-    <div id="loading" class="loading">Diagram betöltése...</div>
-    <div id="error" class="error" style="display:none;"></div>
-    <div id="content" style="display:none;">
-      <h3 id="question"></h3>
-      <div class="chart-container">
-        <canvas id="chartCanvas"></canvas>
+  <!-- Fejléc / Header -->
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 md:h-20">
+        <!-- Logo -->
+        <div class="flex items-center space-x-2">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] flex items-center justify-center">
+            <i class="fa-solid fa-graduation-cap text-white text-xl"></i>
+          </div>
+          <span class="text-2xl font-extrabold gradient-text">AMISEARCH</span>
+          <span class="text-xs bg-purple-100 text-[#6C5CE7] px-2 py-1 rounded-full font-bold">Multitool</span>
+        </div>
+        
+        <!-- Vissza gomb -->
+        <a href="javascript:history.back()" class="text-gray-600 hover:text-[#6C5CE7] transition flex items-center gap-2 font-medium">
+          <i class="fa-solid fa-arrow-left"></i> Vissza
+        </a>
       </div>
-      <div class="explanation">
-        <strong>Magyarázat:</strong>
-        <p id="explanationText"></p>
-      </div>
     </div>
-  </div>
+  </header>
 
-<script>
-  // --- SUPABASE KONFIGURÁCIÓ ---
-  // FIGYELEM: Ez az anon (publikus) kulcs, csak RLS-védett műveletekhez!
-  const SUPABASE_URL = 'https://rvgzvseejzbzmcqidnzc.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_OFOpS0WMB4Sy0ciyIA9ySQ_59JH7Njh'; // Ellenőrizd, hogy ez tényleg az ANON kulcs!
-  
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  // --- CHART.JS KONFIGURÁCIÓ PARSOLÁSA ---
-  function parseChartConfig(text) {
-    // Keresünk json-chart blokkot
-    const chartMatch = text.match(/```json-chart\s*([\s\S]*?)\s*```/);
-    if (!chartMatch) return null;
+  <!-- Fő munkaterület -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
     
-    try {
-      const config = JSON.parse(chartMatch[1].trim());
-      // Alapértelmezett opciók hozzáadása
-      config.options = config.options || {};
-      config.options.responsive = true;
-      config.options.maintainAspectRatio = false;
-      config.options.plugins = config.options.plugins || {};
-      config.options.plugins.legend = config.options.plugins.legend || { position: 'top' };
-      return config;
-    } catch (e) {
-      console.error("Chart config parse error:", e);
-      return null;
-    }
-  }
+    <!-- Üdvözlő szöveg -->
+    <div class="mb-8 text-center md:text-left">
+      <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Vizualizációs & Tesztközpont</h1>
+      <p class="text-gray-600">Ábrázolj képleteket, geometriai formákat, kémiai rácsokat, vagy teszteld a tudásod a kvízgenerátorral.</p>
+    </div>
 
-  // --- CHART MENTÉSE SUPABASE-BA ---
-  async function saveChart(question, config, explanation) {
-    try {
-      const { data, error } = await supabase
-        .from('charts')
-        .insert([{ 
-          question, 
-          config, 
-          explanation,
-          created_at: new Date().toISOString()
-        }])
-        .select('id')
-        .single();
+    <!-- Navigációs fülek (Tabs) -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-8">
+      <button onclick="switchTab('math')" id="tab-math" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2 tab-active">
+        <i class="fa-solid fa-chart-line text-2xl text-[#6C5CE7]"></i>
+        <span class="font-bold text-sm">Függvényábrázoló</span>
+      </button>
       
-      if (error) throw error;
-      return data.id;
-    } catch (e) {
-      console.error("Save chart error:", e);
-      return null;
-    }
-  }
+      <button onclick="switchTab('graph')" id="tab-graph" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
+        <i class="fa-solid fa-circle-nodes text-2xl text-gray-500" id="icon-graph"></i>
+        <span class="font-bold text-sm">Struktúrák, Molekulák & Geometria</span>
+      </button>
 
-  // --- CHART RENDERELÉSE ---
-  let currentChart = null;
+      <button onclick="switchTab('mermaid')" id="tab-mermaid" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
+        <i class="fa-solid fa-diagram-project text-2xl text-gray-500" id="icon-mermaid"></i>
+        <span class="font-bold text-sm">Folyamat / Architektúra</span>
+      </button>
 
-  function renderChart(config) {
-    const ctx = document.getElementById('chartCanvas').getContext('2d');
-    
-    // Előző chart törlése
-    if (currentChart) {
-      currentChart.destroy();
-    }
-    
-    try {
-      currentChart = new Chart(ctx, config);
-      return true;
-    } catch (e) {
-      console.error("Chart render error:", e);
-      showError("Hiba a diagram megjelenítésekor: " + e.message);
-      return false;
-    }
-  }
+      <button onclick="switchTab('stats')" id="tab-stats" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
+        <i class="fa-solid fa-chart-pie text-2xl text-gray-500" id="icon-stats"></i>
+        <span class="font-bold text-sm">Statisztika & Chartok</span>
+      </button>
 
-  // --- HIBA MEGJELENÍTÉS ---
-  function showError(msg) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'none';
-    const errorDiv = document.getElementById('error');
-    errorDiv.textContent = msg;
-    errorDiv.style.display = 'block';
-  }
+      <button onclick="switchTab('quiz')" id="tab-quiz" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
+        <i class="fa-solid fa-lightbulb text-2xl text-gray-500" id="icon-quiz"></i>
+        <span class="font-bold text-sm">AI Kvízgenerátor</span>
+      </button>
+    </div>
 
-  // --- FŐ FUNKCIÓ ---
-  async function init() {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    const auto = params.get('auto') === 'true';
-    const question = params.get('question');
-    const explanation = params.get('explanation');
-    const chartJson = params.get('chart');
-
-    // AUTO MÓD: Új diagram generálása
-    if (auto && question) {
-      document.getElementById('loading').innerHTML = `
-        <p><strong>${decodeURIComponent(question)}</strong></p>
-        <p>Automatikus diagram generálás folyamatban...</p>
-      `;
-
-      try {
-        let config = null;
+    <!-- SZEKCIÓK ÉS KEZELŐPANEL -->
+    <div class="grid lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Bal oldal: Vezérlő pult -->
+      <div class="lg:col-span-4 space-y-6">
         
-        // Ha van közvetlen chart JSON a URL-ben
-        if (chartJson) {
-          try {
-            config = JSON.parse(decodeURIComponent(chartJson));
-          } catch (e) {
-            console.error("URL chart JSON parse error:", e);
-          }
-        }
-
-        // Ha nincs config, hívjuk a chat API-t
-        if (!config) {
-          const token = localStorage.getItem('sb-token') || localStorage.getItem('supabase.auth.token');
-          const apiUrl = '/.netlify/functions/chat';
+        <!-- 1. Fül vezérlője: Matematika -->
+        <div id="controls-math" class="glass-card rounded-2xl p-6 shadow-md space-y-4">
+          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-square-root-variable text-[#6C5CE7] mr-2"></i>Függvény Beállítások</h3>
           
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : ''
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Matematikai Formula (f(x) = ...)</label>
+            <input type="text" id="mathFormula" class="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#6C5CE7]/30" value="Math.sin(x) * Math.cos(x/2)">
+            <p class="text-[10px] text-gray-400 mt-1">Használhatsz standard Math függvényeket (pl. Math.sin(x), Math.cos(x), Math.pow(x,2), Math.sqrt(x)).</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">X Min</label>
+              <input type="number" id="xMin" class="w-full px-3 py-2 border rounded-xl outline-none" value="-10">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">X Max</label>
+              <input type="number" id="xMax" class="w-full px-3 py-2 border rounded-xl outline-none" value="10">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Vonal színe</label>
+            <select id="lineColor" class="w-full px-3 py-2 border rounded-xl outline-none">
+              <option value="#6C5CE7">AMISEARCH Lila</option>
+              <option value="#FF7675">Korall Piros</option>
+              <option value="#0984E3">Kék</option>
+              <option value="#00B894">Zöld</option>
+            </select>
+          </div>
+
+          <button onclick="drawMathFunction()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Ábrázolás frissítése
+          </button>
+        </div>
+
+        <!-- 2. Fül vezérlője: Gráfok, Molekulák és Geometria -->
+        <div id="controls-graph" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-circle-nodes text-[#6C5CE7] mr-2"></i>Struktúra Kiválasztása</h3>
+          
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Kategória</label>
+            <select id="graphCategory" class="w-full px-3 py-2 border rounded-xl outline-none" onchange="onGraphCategoryChange()">
+              <option value="bst">Informatika: Bináris Keresőfa (BST)</option>
+              <option value="custom">Informatika: Tetszőleges Gráf</option>
+              <option value="molecule">Kémia: Molekulák (NaCl, H2O stb.)</option>
+              <option value="geometry">Geometria: Alakzatok (Deltoid stb.)</option>
+            </select>
+          </div>
+
+          <!-- Al-vezérlők a kategória alapján -->
+          <div id="group-bst" class="space-y-2">
+            <label class="block text-xs font-semibold text-gray-500">Fa elemei (vesszővel)</label>
+            <input type="text" id="bstData" class="w-full px-3 py-2 border rounded-xl outline-none" value="50, 30, 70, 20, 40, 60, 80">
+          </div>
+
+          <div id="group-custom" class="hidden space-y-2">
+            <label class="block text-xs font-semibold text-gray-500">Élek listája (A-B, B-C formátumban)</label>
+            <textarea id="customGraphData" rows="3" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" placeholder="A-B, B-C, C-D, D-A, B-D"></textarea>
+          </div>
+
+          <div id="group-molecule" class="hidden space-y-2">
+            <label class="block text-xs font-semibold text-gray-500">Kiválasztott Molekula</label>
+            <select id="selectedMolecule" class="w-full px-3 py-2 border rounded-xl outline-none">
+              <option value="nacl">Sómolekula / Konyhasó rács (NaCl)</option>
+              <option value="h2o">Vízmolekula (H₂O)</option>
+              <option value="co2">Szén-dioxid (CO₂)</option>
+              <option value="ch4">Metán (CH₄)</option>
+            </select>
+          </div>
+
+          <div id="group-geometry" class="hidden space-y-2">
+            <label class="block text-xs font-semibold text-gray-500">Geometriai Alakzat</label>
+            <select id="selectedGeometry" class="w-full px-3 py-2 border rounded-xl outline-none" onchange="onGeometryShapeChange()">
+              <option value="deltoid">Deltoid (Átlókkal és oldaljelölésekkel)</option>
+              <option value="triangle">Egyenlő szárú háromszög (Magassággal)</option>
+              <option value="parallelogram">Paralelogramma</option>
+              <option value="hexagon">Szabályos hatszög</option>
+              <option value="custom_polygon">Egyedi sokszög (Szabadon megadott koordinátákkal)</option>
+            </select>
+
+            <!-- Bővített egyedi koordináta beviteli mező -->
+            <div id="customPolygonCoordsWrapper" class="hidden mt-2 space-y-1">
+              <label class="block text-[11px] font-semibold text-gray-500">Sokszög pontjai (X,Y párok szóközzel)</label>
+              <input type="text" id="customPolygonPoints" class="w-full px-3 py-2 border rounded-xl text-xs outline-none" value="300,60 420,180 300,300 180,180">
+              <p class="text-[9px] text-gray-400">Példa: 4 sarokpont egy deltoidhoz: 300,60 (fent) 420,180 (jobb) 300,300 (lent) 180,180 (bal).</p>
+            </div>
+          </div>
+
+          <button onclick="drawInformaticsGraph()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Kirajzolás indítása
+          </button>
+        </div>
+
+        <!-- 3. Fül vezérlője: Mermaid -->
+        <div id="controls-mermaid" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-code text-[#6C5CE7] mr-2"></i>Mermaid Folyamatdiagram</h3>
+          
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Mermaid szintaxis kód</label>
+            <textarea id="mermaidCode" rows="8" class="w-full p-3 border rounded-xl font-mono text-xs bg-gray-50 outline-none focus:ring-2 focus:ring-[#6C5CE7]/30">graph TD
+  A[Felhasználó] -->|Kérést küld| B(AMISEARCH Router)
+  B --> C{Autentikáció?}
+  C -->|Sikeres| D[AI Tutor Betöltése]
+  C -->|Sikertelen| E[Regisztrációs ablak]</textarea>
+          </div>
+
+          <button onclick="renderMermaidDiagram()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Ábra Újragenerálása
+          </button>
+        </div>
+
+        <!-- 4. Fül vezérlője: Statisztika -->
+        <div id="controls-stats" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-database text-[#6C5CE7] mr-2"></i>Diagram Adatok</h3>
+          
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Diagram típusa</label>
+            <select id="chartType" class="w-full px-3 py-2 border rounded-xl outline-none" onchange="drawStatsChart()">
+              <option value="bar">Oszlopdiagram (Bar)</option>
+              <option value="line">Vonaldiagram (Line)</option>
+              <option value="pie">Kördiagram (Pie)</option>
+              <option value="radar">Pókháló (Radar)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Címkék (vesszővel elválasztva)</label>
+            <input type="text" id="chartLabels" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" value="Hétfő, Kedd, Szerda, Csütörtök, Péntek">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Értékek (vesszővel elválasztva)</label>
+            <input type="text" id="chartValues" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" value="12, 19, 3, 5, 2">
+          </div>
+
+          <button onclick="drawStatsChart()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg">
+            Diagram Frissítése
+          </button>
+        </div>
+
+        <!-- 5. Fül vezérlője: Kvízgenerátor -->
+        <div id="controls-quiz" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-circle-question text-[#6C5CE7] mr-2"></i>Kvíz Beállítások</h3>
+          
+          <!-- BIZTONSÁGOS API KULCS BEVITELI MEZŐ (GitHub Pages-kompatibilis) -->
+          <div class="bg-purple-50/50 p-3 rounded-xl border border-[#6C5CE7]/20 space-y-2">
+            <label class="block text-xs font-bold text-[#6C5CE7] flex items-center justify-between">
+              <span>Gemini API Kulcsod</span>
+              <span class="text-[9px] font-normal text-gray-400 uppercase">Helyben mentve</span>
+            </label>
+            <div class="relative">
+              <input type="password" id="userGeminiKey" class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#6C5CE7]" placeholder="Beillesztés a generáláshoz...">
+              <button onclick="toggleKeyVisibility()" class="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600 focus:outline-none">
+                <i class="fa-solid fa-eye" id="keyEyeIcon"></i>
+              </button>
+            </div>
+            <p class="text-[9px] text-gray-400 leading-tight">A kulcsod csak a böngésződben tárolódik, nem kerül fel GitHub-ra. <a href="https://aistudio.google.com/" target="_blank" class="text-[#6C5CE7] underline font-medium">Kulcs igénylése ingyen</a></p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nyelv / Language</label>
+            <select id="quizLanguage" class="w-full px-3 py-2 border rounded-xl outline-none">
+              <option value="hu">Magyar</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Szint / Level</label>
+            <select id="quizLevel" class="w-full px-3 py-2 border rounded-xl outline-none">
+              <option value="highschool">Középiskola / High School</option>
+              <option value="university">Egyetem / University</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Tantárgy / Subject</label>
+            <select id="quizSubject" class="w-full px-3 py-2 border rounded-xl outline-none">
+              <option value="math">Matematika</option>
+              <option value="cs">Informatika / CS</option>
+              <option value="chemistry">Kémia / Chemistry</option>
+            </select>
+          </div>
+
+          <!-- Szabad téma megadása -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Egyedi téma megadása (Opcionális)</label>
+            <input type="text" id="quizCustomTopic" class="w-full px-3 py-2 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#6C5CE7]/30" placeholder="Pl: Szabadkőművesség Pécsen, Fotoszintézis, Római jog">
+            <p class="text-[9px] text-gray-400 mt-1">Ha beírsz ide egy egyedi témát, a Gemini AI közvetlenül arra fog ráfókuszálni.</p>
+          </div>
+
+          <div class="space-y-2 pt-2">
+            <button onclick="startQuiz(false)" class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition">
+              Beépített kvíz indítása
+            </button>
+            <button onclick="startQuiz(true)" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-sm"></i> Generálás Gemini AI-val
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Jobb oldal: Előnézeti kép / Megjelenítő konténer -->
+      <div class="lg:col-span-8 flex flex-col gap-6">
+        
+        <div class="glass-card rounded-2xl p-6 shadow-md flex-1 flex flex-col min-h-[480px]">
+          
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" id="statusIndicator"></span>
+              <span class="font-bold text-gray-800" id="output-title">Aktív Ábra / Kijelző</span>
+            </div>
+            
+            <button id="downloadBtn" onclick="downloadAsPNG()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition flex items-center gap-1">
+              <i class="fa-solid fa-download"></i> Letöltés Képként (PNG)
+            </button>
+          </div>
+
+          <!-- Dinamikus megjelenítők -->
+          <div class="flex-1 flex items-center justify-center relative bg-white rounded-xl border border-gray-100 p-4 overflow-hidden min-h-[380px]">
+            
+            <!-- 1. Matematikai Függvény Canvas -->
+            <canvas id="mathCanvas" class="w-full h-full max-h-[400px] block"></canvas>
+
+            <!-- 2. Gráf, Molekula és Geometria SVG Konténer -->
+            <div id="graphContainer" class="hidden w-full h-full min-h-[350px] flex items-center justify-center">
+              <svg id="graphSvg" class="w-full h-full min-h-[350px]"></svg>
+            </div>
+
+            <!-- 3. Mermaid Diagram Megjelenítő -->
+            <div id="mermaidDisplay" class="hidden w-full h-full overflow-auto flex items-center justify-center p-4"></div>
+
+            <!-- 4. Statisztikai Chart.js Canvas wrapper -->
+            <div id="statsChartWrapper" class="hidden w-full h-full max-h-[380px] p-2">
+              <canvas id="statsCanvas"></canvas>
+            </div>
+
+            <!-- 5. Kvíz Interaktív Felület -->
+            <div id="quizContainer" class="hidden w-full max-w-xl flex flex-col gap-4 py-4 px-2">
+              
+              <!-- Töltő állapot (Loading screen) -->
+              <div id="quizLoadingScreen" class="hidden flex flex-col items-center justify-center py-12 space-y-4">
+                <div class="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"></div>
+                <p class="text-sm font-semibold text-purple-600 loading-pulse">A Gemini AI éppen összeállítja a kvízedet...</p>
+                <span class="text-xs text-gray-400">Ez csak néhány másodpercet vesz igénybe.</span>
+              </div>
+
+              <!-- Valódi Kvíz Kártya -->
+              <div id="quizMainCard" class="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-4">
+                <div class="flex justify-between items-center text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                  <span id="quizProgressLabel">Kérdés: 1/5</span>
+                  <span id="quizScoreLabel">Pontszám: 0</span>
+                </div>
+                <!-- Kérdés szövege -->
+                <div id="quizQuestionText" class="font-bold text-lg text-gray-900 leading-snug">Kvíz kérdés betöltése...</div>
+                
+                <!-- Válaszlehetőségek -->
+                <div id="quizAnswersGrid" class="grid gap-3 pt-2">
+                  <!-- Válasz gombok ide jönnek dinamikusan -->
+                </div>
+              </div>
+
+              <!-- Magyarázó Box -->
+              <div id="quizExplanationBox" class="hidden p-4 rounded-xl text-sm leading-relaxed border transition"></div>
+            </div>
+
+          </div>
+
+          <!-- Információs kártya -->
+          <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wider mb-2">Vizualizációs / Oktatási Információ</h4>
+            <div id="interactive-info" class="text-xs text-gray-600">
+              A kiválasztott modul dinamikusan követi a bal oldalon megadott beállításokat és adatokat.
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Lábléc / Footer -->
+  <footer class="bg-gray-900 text-white py-8 mt-16 border-t border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
+      <p>© 2026 AMISEARCH. Minden jog fenntartva. Matematikai és Informatikai vizualizációs modul v2.5</p>
+    </div>
+  </footer>
+
+  <!-- Kvíz Adatbázis (Beépített statikus kártyák mintának) -->
+  <script>
+    const QUIZ_DATABASE = {
+      hu: {
+        highschool: {
+          math: [
+            {
+              question: "Melyik állítás igaz a deltoid átlóira?",
+              answers: ["Mindig egyenlő hosszúak.", "Egymásra merőlegesek.", "Párhuzamosak egymással.", "Nincs közös metszéspontjuk."],
+              correctIndex: 1,
+              explanation: "A deltoid egy olyan négyszög, amelynek az átlói merőlegesek egymásra, és legalább az egyik átló felezi a másikat."
             },
-            body: JSON.stringify({
-              message: `Készíts diagramot erről: ${decodeURIComponent(question)}`
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error(`API hiba: ${response.status}`);
-          }
-
-          const responseText = await response.text();
-          config = parseChartConfig(responseText);
-          
-          if (!config) {
-            throw new Error("Nem sikerült érvényes diagram konfigurációt generálni.");
-          }
+            {
+              question: "Mennyi az egyenlő szárú háromszög belső szögeinek összege?",
+              answers: ["90°", "180°", "360°", "120°"],
+              correctIndex: 1,
+              explanation: "Bármely síkbeli háromszög belső szögeinek összege pontosan 180°."
+            }
+          ],
+          cs: [
+            {
+              question: "Mi az elsődleges feladata a routernek (útválasztónak)?",
+              answers: ["Képek és videók tárolása.", "Adatcsomagok továbbítása hálózatok között.", "A számítógép hűtése.", "HTML kódok írása."],
+              correctIndex: 1,
+              explanation: "A router (útválasztó) feladata az adatcsomagok irányítása és továbbítása a különböző hálózatok (például az otthoni LAN és az Internet) között."
+            }
+          ],
+          chemistry: [
+            {
+              question: "Mi a konyhasó (sómolekula) stabil rácsszerkezetének típusa?",
+              answers: ["Molekularács", "Ionrács", "Fémrács", "Atomrács"],
+              correctIndex: 1,
+              explanation: "A konyhasó (NaCl, nátrium-klorid) egy ionrácsos vegyület, ahol a pozitív Na⁺ és negatív Cl⁻ ionokat erős elektrosztatikus vonzás tartja össze."
+            }
+          ]
+        },
+        university: {
+          math: [
+            {
+              question: "Mennyi a lim (x -> 0) [sin(x) / x] határértéke?",
+              answers: ["0", "Végtelen", "1", "Nem létezik"],
+              correctIndex: 2,
+              explanation: "Ez egy nevezetes határérték a matematikai analízisben. A L'Hôpital szabállyal vagy geometriai úton is bizonyítható, hogy a határérték 1."
+            }
+          ]
         }
-
-        // Chart megjelenítése
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
-        document.getElementById('question').textContent = decodeURIComponent(question);
-        document.getElementById('explanationText').textContent = explanation ? decodeURIComponent(explanation) : 'Automatikusan generált diagram.';
-        
-        renderChart(config);
-
-        // Mentés az adatbázisba (opcionális)
-        const savedId = await saveChart(decodeURIComponent(question), config, explanation ? decodeURIComponent(explanation) : '');
-        if (savedId) {
-          // URL frissítése az ID-val
-          const newUrl = new URL(window.location);
-          newUrl.searchParams.delete('auto');
-          newUrl.searchParams.delete('chart');
-          newUrl.searchParams.set('id', savedId);
-          window.history.replaceState({}, '', newUrl);
-        }
-
-      } catch (error) {
-        console.error("Auto chart error:", error);
-        showError("Hiba a diagram generálásakor: " + error.message);
       }
-      return;
+    };
+  </script>
+
+  <!-- Ábra, Molekula, Geometria és Kvíz Logika -->
+  <script>
+    let activeTab = 'math';
+    let graphType = 'bst';
+    let myChartInstance = null;
+
+    // Kvíz állapotváltozói
+    let currentQuizQuestions = [];
+    let currentQuestionIndex = 0;
+    let currentScore = 0;
+    let quizAnswered = false;
+
+    // Gemini API konfiguráció
+    const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+
+    window.onload = function() {
+      // API Key betöltése local storage-ból ha létezik
+      const savedKey = localStorage.getItem('amisearch_gemini_key');
+      if (savedKey) {
+        document.getElementById('userGeminiKey').value = savedKey;
+      }
+      switchTab('math');
     }
 
-    // MEGLÉVŐ DIAGRAM BETÖLTÉSE ID ALAPJÁN
-    if (id) {
-      try {
-        const { data, error } = await supabase
-          .from('charts')
-          .select('*')
-          .eq('id', id)
-          .single();
+    // Kulcs elrejtése/megjelenítése
+    function toggleKeyVisibility() {
+      const input = document.getElementById('userGeminiKey');
+      const icon = document.getElementById('keyEyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    }
 
-        if (error || !data) {
-          showError('Diagram nem található az adatbázisban.');
+    /**
+     * Fülek közötti navigáció
+     */
+    function switchTab(tabId) {
+      activeTab = tabId;
+      
+      const tabs = ['math', 'graph', 'mermaid', 'stats', 'quiz'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const controls = document.getElementById(`controls-${t}`);
+        const icon = document.getElementById(`icon-${t}`);
+
+        if (t === tabId) {
+          btn.classList.add('tab-active');
+          controls.classList.remove('hidden');
+          if (icon) {
+            icon.classList.remove('text-gray-500');
+            icon.classList.add('text-[#6C5CE7]');
+          }
+        } else {
+          btn.classList.remove('tab-active');
+          controls.classList.add('hidden');
+          if (icon) {
+            icon.classList.remove('text-[#6C5CE7]');
+            icon.classList.add('text-gray-500');
+          }
+        }
+      });
+
+      // Megjelenítők alaphelyzetbe állítása
+      document.getElementById('mathCanvas').classList.add('hidden');
+      document.getElementById('graphContainer').classList.add('hidden');
+      document.getElementById('mermaidDisplay').classList.add('hidden');
+      document.getElementById('statsChartWrapper').classList.add('hidden');
+      document.getElementById('quizContainer').classList.add('hidden');
+      document.getElementById('downloadBtn').classList.remove('hidden');
+
+      const title = document.getElementById('output-title');
+      const info = document.getElementById('interactive-info');
+
+      if (tabId === 'math') {
+        document.getElementById('mathCanvas').classList.remove('hidden');
+        title.innerHTML = '<i class="fa-solid fa-wave-square text-[#6C5CE7] mr-1"></i> Matematikai Függvénygörbe (2D)';
+        info.innerHTML = 'Dinamikusan skálázódó koordinátarendszer. Változtasd meg a formulát!';
+        drawMathFunction();
+      } else if (tabId === 'graph') {
+        document.getElementById('graphContainer').classList.remove('hidden');
+        title.innerHTML = '<i class="fa-solid fa-circle-nodes text-[#6C5CE7] mr-1"></i> Struktúrák, Molekulák & Geometria';
+        info.innerHTML = 'Interaktív tudományos SVG ábrázoló matematikai alakzatokhoz, kémiai kötésekhez és algoritmusokhoz.';
+        drawInformaticsGraph();
+      } else if (tabId === 'mermaid') {
+        document.getElementById('mermaidDisplay').classList.remove('hidden');
+        title.innerHTML = '<i class="fa-solid fa-network-wired text-[#6C5CE7] mr-1"></i> Rendszerarchitektúra & Folyamat';
+        info.innerHTML = 'Folyamatábra renderelő Mermaid.js segítségével.';
+        renderMermaidDiagram();
+      } else if (tabId === 'stats') {
+        document.getElementById('statsChartWrapper').classList.remove('hidden');
+        title.innerHTML = '<i class="fa-solid fa-chart-pie text-[#6C5CE7] mr-1"></i> Statisztika';
+        info.innerHTML = 'Diagramok elemzése Chart.js alapon.';
+        drawStatsChart();
+      } else if (tabId === 'quiz') {
+        document.getElementById('quizContainer').classList.remove('hidden');
+        document.getElementById('downloadBtn').classList.add('hidden');
+        title.innerHTML = '<i class="fa-solid fa-brain text-[#6C5CE7] mr-1"></i> AI Kvíz tesztfelület';
+        info.innerHTML = 'Teszteld a tudásodat középiskolai vagy egyetemi szinten matematika, informatika és kémia témákban!';
+        startQuiz(false); // Alapértelmezetten a lokálisból tölt be egyet indításnak
+      }
+    }
+
+    /**
+     * Kategória váltás a Gráfok / Alakzatok fülön
+     */
+    function onGraphCategoryChange() {
+      const cat = document.getElementById('graphCategory').value;
+      document.getElementById('group-bst').classList.add('hidden');
+      document.getElementById('group-custom').classList.add('hidden');
+      document.getElementById('group-molecule').classList.add('hidden');
+      document.getElementById('group-geometry').classList.add('hidden');
+
+      if (cat === 'bst') {
+        document.getElementById('group-bst').classList.remove('hidden');
+      } else if (cat === 'custom') {
+        document.getElementById('group-custom').classList.remove('hidden');
+      } else if (cat === 'molecule') {
+        document.getElementById('group-molecule').classList.remove('hidden');
+      } else if (cat === 'geometry') {
+        document.getElementById('group-geometry').classList.remove('hidden');
+        onGeometryShapeChange(); // Ellenőrzi az egyedi sokszög mezőt
+      }
+    }
+
+    /**
+     * Geometria alakzat változásának kezelése (egyedi koordináták támogatása)
+     */
+    function onGeometryShapeChange() {
+      const shape = document.getElementById('selectedGeometry').value;
+      const customWrapper = document.getElementById('customPolygonCoordsWrapper');
+      if (shape === 'custom_polygon') {
+        customWrapper.classList.remove('hidden');
+      } else {
+        customWrapper.classList.add('hidden');
+      }
+    }
+
+    /**
+     * 1. 2D Függvényábrázolás
+     */
+    function drawMathFunction() {
+      const canvas = document.getElementById('mathCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = Math.max(350, canvas.parentElement.clientHeight);
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const xMin = parseFloat(document.getElementById('xMin').value) || -10;
+      const xMax = parseFloat(document.getElementById('xMax').value) || 10;
+      const lineColor = document.getElementById('lineColor').value;
+      const formula = document.getElementById('mathFormula').value;
+
+      const points = [];
+      const steps = 300;
+      let yMin = -5;
+      let yMax = 5;
+
+      const evalFormula = (x) => {
+        try {
+          const sin = Math.sin, cos = Math.cos, tan = Math.tan, pow = Math.pow, sqrt = Math.sqrt, pi = Math.PI;
+          return eval(formula);
+        } catch(e) { return 0; }
+      };
+
+      for (let i = 0; i <= steps; i++) {
+        const x = xMin + (i / steps) * (xMax - xMin);
+        const y = evalFormula(x);
+        if (!isNaN(y) && isFinite(y)) points.push({ x, y });
+      }
+
+      if (points.length > 0) {
+        const yValues = points.map(p => p.y);
+        yMax = Math.max(...yValues) * 1.2 || 5;
+        yMin = Math.min(...yValues) * 1.2 || -5;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      const toScreenX = (x) => ((x - xMin) / (xMax - xMin)) * width;
+      const toScreenY = (y) => height - ((y - yMin) / (yMax - yMin)) * height;
+
+      // Rácsok
+      ctx.strokeStyle = '#F1F2F6';
+      for (let x = Math.floor(xMin); x <= xMax; x++) {
+        ctx.beginPath(); ctx.moveTo(toScreenX(x), 0); ctx.lineTo(toScreenX(x), height); ctx.stroke();
+      }
+      for (let y = Math.floor(yMin); y <= yMax; y++) {
+        ctx.beginPath(); ctx.moveTo(0, toScreenY(y)); ctx.lineTo(width, toScreenY(y)); ctx.stroke();
+      }
+
+      // Tengelyek
+      ctx.strokeStyle = '#2D3436'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, toScreenY(0)); ctx.lineTo(width, toScreenY(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(toScreenX(0), 0); ctx.lineTo(toScreenX(0), height); ctx.stroke();
+
+      // Görbe
+      ctx.strokeStyle = lineColor; ctx.lineWidth = 3; ctx.beginPath();
+      let started = false;
+      points.forEach(p => {
+        const sx = toScreenX(p.x), sy = toScreenY(p.y);
+        if (sy >= 0 && sy <= height) {
+          if (!started) { ctx.moveTo(sx, sy); started = true; }
+          else ctx.lineTo(sx, sy);
+        } else { started = false; }
+      });
+      ctx.stroke();
+    }
+
+    /**
+     * 2. Gráf, Molekula és Geometria SVG rajzoló
+     */
+    function drawInformaticsGraph() {
+      const svg = document.getElementById('graphSvg');
+      svg.innerHTML = '';
+      const category = document.getElementById('graphCategory').value;
+
+      if (category === 'bst') {
+        drawBinarySearchTree(svg);
+      } else if (category === 'custom') {
+        drawCustomGraph(svg);
+      } else if (category === 'molecule') {
+        drawMolecule(svg);
+      } else if (category === 'geometry') {
+        drawGeometryShape(svg);
+      }
+    }
+
+    // BST ábrázolás
+    function drawBinarySearchTree(svg) {
+      const raw = document.getElementById('bstData').value;
+      const nums = raw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+      if (nums.length === 0) return;
+
+      class Node {
+        constructor(val) { this.val = val; this.left = null; this.right = null; this.x = 0; this.y = 0; }
+      }
+      const insertNode = (r, v) => {
+        if (!r) return new Node(v);
+        if (v < r.val) r.left = insertNode(r.left, v);
+        else r.right = insertNode(r.right, v);
+        return r;
+      };
+
+      let root = null;
+      nums.forEach(n => { root = insertNode(root, n); });
+
+      const assignCoordinates = (node, depth, left, right) => {
+        if (!node) return;
+        node.x = (left + right) / 2;
+        node.y = 50 + depth * 70;
+        assignCoordinates(node.left, depth + 1, left, node.x);
+        assignCoordinates(node.right, depth + 1, node.x, right);
+      };
+
+      const svgWidth = svg.parentElement.clientWidth || 600;
+      assignCoordinates(root, 0, 20, svgWidth - 20);
+
+      const drawB = (node) => {
+        if (!node) return;
+        if (node.left) { drawSvgLine(svg, node.x, node.y, node.left.x, node.left.y); drawB(node.left); }
+        if (node.right) { drawSvgLine(svg, node.x, node.y, node.right.x, node.right.y); drawB(node.right); }
+      };
+      const drawN = (node) => {
+        if (!node) return;
+        drawSvgNode(svg, node.x, node.y, node.val, '#6C5CE7', '#FFFFFF');
+        drawN(node.left); drawN(node.right);
+      };
+      drawB(root); drawN(root);
+    }
+
+    // Egyedi hálózati gráf ábrázolása
+    function drawCustomGraph(svg) {
+      const rawEdges = document.getElementById('customGraphData').value || "A-B, B-C, C-D, D-A, A-C";
+      const edges = rawEdges.split(',').map(e => e.trim().split('-')).filter(e => e.length === 2);
+      const nodesSet = new Set();
+      edges.forEach(e => { nodesSet.add(e[0]); nodesSet.add(e[1]); });
+      const nodes = Array.from(nodesSet);
+      if (nodes.length === 0) return;
+
+      const svgWidth = svg.parentElement.clientWidth || 600;
+      const svgHeight = 350;
+      const centerX = svgWidth / 2, centerY = svgHeight / 2;
+      const radius = Math.min(centerX, centerY) - 50;
+
+      const coords = {};
+      nodes.forEach((n, i) => {
+        const angle = (i / nodes.length) * 2 * Math.PI;
+        coords[n] = { x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle) };
+      });
+
+      edges.forEach(e => {
+        const from = coords[e[0]], to = coords[e[1]];
+        if (from && to) drawSvgLine(svg, from.x, from.y, to.x, to.y);
+      });
+      nodes.forEach(n => {
+        drawSvgNode(svg, coords[n].x, coords[n].y, n, '#5A4BD1', '#FFFFFF');
+      });
+    }
+
+    // KÉMIAI MOLEKULA RAJZOLÓ (NaCl rács, H2O, CO2, CH4)
+    function drawMolecule(svg) {
+      const mol = document.getElementById('selectedMolecule').value;
+      const svgWidth = svg.parentElement.clientWidth || 600;
+      const svgHeight = 350;
+      const cx = svgWidth / 2, cy = svgHeight / 2;
+
+      if (mol === 'nacl') {
+        const size = 80;
+        const pts = [
+          { x: cx - size, y: cy - size, val: 'Cl⁻', col: '#10B981', r: 18 },
+          { x: cx, y: cy - size - 20, val: 'Na⁺', col: '#6C5CE7', r: 12 },
+          { x: cx + size, y: cy - size, val: 'Cl⁻', col: '#10B981', r: 18 },
+          { x: cx - size, y: cy, val: 'Na⁺', col: '#6C5CE7', r: 12 },
+          { x: cx, y: cy, val: 'Cl⁻', col: '#10B981', r: 18 },
+          { x: cx + size, y: cy, val: 'Na⁺', col: '#6C5CE7', r: 12 },
+          { x: cx - size, y: cy + size, val: 'Cl⁻', col: '#10B981', r: 18 },
+          { x: cx, y: cy + size + 20, val: 'Na⁺', col: '#6C5CE7', r: 12 },
+          { x: cx + size, y: cy + size, val: 'Cl⁻', col: '#10B981', r: 18 }
+        ];
+
+        for(let i=0; i<pts.length; i++) {
+          for(let j=i+1; j<pts.length; j++) {
+            const dist = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+            if (dist < 120) {
+              drawSvgLine(svg, pts[i].x, pts[i].y, pts[j].x, pts[j].y, '#D1D5DB', '1.5', true);
+            }
+          }
+        }
+        pts.forEach(p => drawSvgNode(svg, p.x, p.y, p.val, p.col, '#FFFFFF', p.r));
+
+      } else if (mol === 'h2o') {
+        const oX = cx, oY = cy - 20;
+        const h1X = cx - 80, h1Y = cy + 50;
+        const h2X = cx + 80, h2Y = cy + 50;
+
+        drawSvgLine(svg, oX, oY, h1X, h1Y, '#2D3436', '4');
+        drawSvgLine(svg, oX, oY, h2X, h2Y, '#2D3436', '4');
+
+        drawSvgNode(svg, oX, oY, 'O', '#EF4444', '#FFFFFF', 24);
+        drawSvgNode(svg, h1X, h1Y, 'H', '#9CA3AF', '#FFFFFF', 16);
+        drawSvgNode(svg, h2X, h2Y, 'H', '#9CA3AF', '#FFFFFF', 16);
+
+        drawSvgArc(svg, oX, oY, 40, 50, 130, '104.5°');
+
+      } else if (mol === 'co2') {
+        const cX = cx, cY = cy;
+        const o1X = cx - 110, o1Y = cy;
+        const o2X = cx + 110, o2Y = cy;
+
+        drawSvgLine(svg, cX, cY - 6, o1X, o1Y - 6, '#2D3436', '3');
+        drawSvgLine(svg, cX, cY + 6, o1X, o1Y + 6, '#2D3436', '3');
+        drawSvgLine(svg, cX, cY - 6, o2X, o2Y - 6, '#2D3436', '3');
+        drawSvgLine(svg, cX, cY + 6, o2X, o2Y + 6, '#2D3436', '3');
+
+        drawSvgNode(svg, cX, cY, 'C', '#4B5563', '#FFFFFF', 22);
+        drawSvgNode(svg, o1X, o1Y, 'O', '#EF4444', '#FFFFFF', 20);
+        drawSvgNode(svg, o2X, o2Y, 'O', '#EF4444', '#FFFFFF', 20);
+
+      } else if (mol === 'ch4') {
+        const cX = cx, cY = cy;
+        const h1X = cx, h1Y = cy - 90;
+        const h2X = cx - 80, h2Y = cy + 50;
+        const h3X = cx + 70, h3Y = cy + 60;
+        const h4X = cx + 30, h4Y = cy - 30;
+
+        drawSvgLine(svg, cX, cY, h1X, h1Y, '#2D3436', '3');
+        drawSvgLine(svg, cX, cY, h2X, h2Y, '#2D3436', '3');
+        drawSvgLine(svg, cX, cY, h3X, h3Y, '#6C5CE7', '6');
+        drawSvgLine(svg, cX, cY, h4X, h4Y, '#9CA3AF', '2', true);
+
+        drawSvgNode(svg, cX, cY, 'C', '#4B5563', '#FFFFFF', 22);
+        drawSvgNode(svg, h1X, h1Y, 'H', '#D1D5DB', '#2D3436', 15);
+        drawSvgNode(svg, h2X, h2Y, 'H', '#D1D5DB', '#2D3436', 15);
+        drawSvgNode(svg, h3X, h3Y, 'H', '#D1D5DB', '#2D3436', 15);
+        drawSvgNode(svg, h4X, h4Y, 'H', '#D1D5DB', '#2D3436', 12);
+      }
+    }
+
+    // GEOMETRIAI ALAKZATOK RAJZOLÓJA (Deltoid, Háromszög, Hatszög, Paralelogramma, Egyedi sokszög)
+    function drawGeometryShape(svg) {
+      const shape = document.getElementById('selectedGeometry').value;
+      const svgWidth = svg.parentElement.clientWidth || 600;
+      const svgHeight = 350;
+      const cx = svgWidth / 2, cy = svgHeight / 2;
+
+      if (shape === 'deltoid') {
+        const topY = cy - 110, bottomY = cy + 120;
+        const leftX = cx - 80, rightX = cx + 80;
+        const midY = cy - 20;
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', `${cx},${topY} ${rightX},${midY} ${cx},${bottomY} ${leftX},${midY}`);
+        poly.setAttribute('fill', 'rgba(108, 92, 231, 0.08)');
+        poly.setAttribute('stroke', '#6C5CE7');
+        poly.setAttribute('stroke-width', '3');
+        svg.appendChild(poly);
+
+        drawSvgLine(svg, cx, topY, cx, bottomY, '#FF7675', '2', true);
+        drawSvgLine(svg, leftX, midY, rightX, midY, '#0984E3', '2', true);
+
+        drawSvgText(svg, cx, topY - 12, 'A', '14px', 'bold');
+        drawSvgText(svg, rightX + 15, midY + 5, 'B', '14px', 'bold');
+        drawSvgText(svg, cx, bottomY + 18, 'C', '14px', 'bold');
+        drawSvgText(svg, leftX - 15, midY + 5, 'D', '14px', 'bold');
+
+        drawSvgText(svg, (cx + leftX)/2 - 15, (topY + midY)/2, 'a', '13px', 'italic');
+        drawSvgText(svg, (cx + rightX)/2 + 15, (topY + midY)/2, 'a', '13px', 'italic');
+        drawSvgText(svg, (cx + leftX)/2 - 15, (bottomY + midY)/2 + 10, 'b', '13px', 'italic');
+        drawSvgText(svg, (cx + rightX)/2 + 15, (bottomY + midY)/2 + 10, 'b', '13px', 'italic');
+
+        drawSvgText(svg, cx - 15, midY - 25, 'f', '13px', 'italic', '#FF7675');
+        drawSvgText(svg, cx + 30, midY - 8, 'e', '13px', 'italic', '#0984E3');
+
+      } else if (shape === 'triangle') {
+        const topY = cy - 100, bottomY = cy + 100;
+        const leftX = cx - 110, rightX = cx + 110;
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', `${cx},${topY} ${leftX},${bottomY} ${rightX},${bottomY}`);
+        poly.setAttribute('fill', 'rgba(0, 184, 148, 0.08)');
+        poly.setAttribute('stroke', '#00B894');
+        poly.setAttribute('stroke-width', '3');
+        svg.appendChild(poly);
+
+        drawSvgLine(svg, cx, topY, cx, bottomY, '#FF7675', '2', true);
+
+        drawSvgText(svg, cx, topY - 12, 'C', '14px', 'bold');
+        drawSvgText(svg, leftX - 10, bottomY + 15, 'A', '14px', 'bold');
+        drawSvgText(svg, rightX + 10, bottomY + 15, 'B', '14px', 'bold');
+
+        drawSvgText(svg, (cx + leftX)/2 - 15, (topY + bottomY)/2, 'b', '13px', 'italic');
+        drawSvgText(svg, (cx + rightX)/2 + 15, (topY + bottomY)/2, 'a', '13px', 'italic');
+        drawSvgText(svg, cx, bottomY + 20, 'c (alap)', '13px', 'italic');
+        drawSvgText(svg, cx + 12, (topY + bottomY)/2, 'm_c', '13px', 'italic', '#FF7675');
+
+      } else if (shape === 'parallelogram') {
+        const topY = cy - 60, bottomY = cy + 60;
+        const x1 = cx - 130, x2 = cx + 60;
+        const offset = 60;
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', `${x1 + offset},${topY} ${x2 + offset},${topY} ${x2},${bottomY} ${x1},${bottomY}`);
+        poly.setAttribute('fill', 'rgba(9, 132, 227, 0.08)');
+        poly.setAttribute('stroke', '#0984E3');
+        poly.setAttribute('stroke-width', '3');
+        svg.appendChild(poly);
+
+        drawSvgLine(svg, x1 + offset, topY, x1 + offset, bottomY, '#EF4444', '2', true);
+
+        drawSvgText(svg, x1 + offset - 10, topY - 10, 'D', '13px', 'bold');
+        drawSvgText(svg, x2 + offset + 10, topY - 10, 'C', '13px', 'bold');
+        drawSvgText(svg, x2 + 10, bottomY + 18, 'B', '13px', 'bold');
+        drawSvgText(svg, x1 - 10, bottomY + 18, 'A', '13px', 'bold');
+
+        drawSvgText(svg, cx, bottomY + 20, 'a', '13px', 'italic');
+        drawSvgText(svg, x2 + offset/2 + 15, cy, 'b', '13px', 'italic');
+        drawSvgText(svg, x1 + offset - 15, cy, 'm_a', '13px', 'italic', '#EF4444');
+
+      } else if (shape === 'hexagon') {
+        const r = 110;
+        const pts = [];
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * 60 * Math.PI) / 180;
+          pts.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+        }
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+        poly.setAttribute('fill', 'rgba(234, 88, 12, 0.08)');
+        poly.setAttribute('stroke', '#EA580C');
+        poly.setAttribute('stroke-width', '3');
+        svg.appendChild(poly);
+
+        pts.forEach(p => drawSvgLine(svg, cx, cy, p.x, p.y, '#FDBA74', '1.5', true));
+
+        pts.forEach((p, i) => {
+          const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+          const dx = p.x > cx ? 15 : -15;
+          const dy = p.y > cy ? 15 : -15;
+          drawSvgText(svg, p.x + dx, p.y + dy, letters[i], '13px', 'bold');
+        });
+
+        drawSvgText(svg, cx, cy - 10, 'O', '12px', 'bold');
+        drawSvgText(svg, cx + r/2, cy + 20, 'r', '12px', 'italic', '#EA580C');
+
+      } else if (shape === 'custom_polygon') {
+        // EGYEDI SOKSZÖG (SZABADON MEGADOTT KOORDINÁTÁK)
+        const pointsStr = document.getElementById('customPolygonPoints').value.trim();
+        if (!pointsStr) return;
+
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', pointsStr);
+        poly.setAttribute('fill', 'rgba(108, 92, 231, 0.08)');
+        poly.setAttribute('stroke', '#6C5CE7');
+        poly.setAttribute('stroke-width', '3');
+        svg.appendChild(poly);
+
+        // Csúcsok megjelölése
+        const pts = pointsStr.split(' ').map(p => {
+          const coords = p.split(',');
+          return { x: parseFloat(coords[0]), y: parseFloat(coords[1]) };
+        }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+        pts.forEach((p, idx) => {
+          drawSvgNode(svg, p.x, p.y, (idx + 1).toString(), '#A29BFE', '#2D3436', 12);
+        });
+      }
+    }
+
+    // Helper SVG rajzoló eljárások
+    function drawSvgLine(svg, x1, y1, x2, y2, color='#A29BFE', width='2', dashed=false) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', color); line.setAttribute('stroke-width', width);
+      if (dashed) line.setAttribute('stroke-dasharray', '5,5');
+      svg.appendChild(line);
+    }
+
+    function drawSvgNode(svg, x, y, label, color, textColor, r=20) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circ.setAttribute('cx', x); circ.setAttribute('cy', y); circ.setAttribute('r', r);
+      circ.setAttribute('fill', color); circ.setAttribute('stroke', '#2D3436'); circ.setAttribute('stroke-width', '2');
+      
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', x); txt.setAttribute('y', y + 4); txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('fill', textColor); txt.setAttribute('font-size', r > 15 ? '12px' : '10px');
+      txt.setAttribute('font-weight', 'bold'); txt.textContent = label;
+
+      g.appendChild(circ); g.appendChild(txt);
+      svg.appendChild(g);
+    }
+
+    function drawSvgText(svg, x, y, text, size='12px', weight='normal', color='#2D3436') {
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', x); txt.setAttribute('y', y); txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('fill', color); txt.setAttribute('font-size', size);
+      txt.setAttribute('font-weight', weight); txt.textContent = text;
+      svg.appendChild(txt);
+    }
+
+    function drawSvgArc(svg, cx, cy, r, startAngle, endAngle, label) {
+      const startRad = (startAngle * Math.PI) / 180;
+      const endRad = (endAngle * Math.PI) / 180;
+      const x1 = cx + r * Math.cos(startRad);
+      const y1 = cy + r * Math.sin(startRad);
+      const x2 = cx + r * Math.cos(endRad);
+      const y2 = cy + r * Math.sin(endRad);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`);
+      path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#EF4444'); path.setAttribute('stroke-width', '1.5');
+      svg.appendChild(path);
+
+      const midRad = ((startAngle + endAngle) / 2 * Math.PI) / 180;
+      drawSvgText(svg, cx + (r + 15) * Math.cos(midRad), cy + (r + 15) * Math.sin(midRad), label, '11px', 'bold', '#EF4444');
+    }
+
+    /**
+     * 3. Mermaid ábra renderelése
+     */
+    async function renderMermaidDiagram() {
+      const display = document.getElementById('mermaidDisplay');
+      const code = document.getElementById('mermaidCode').value;
+      display.innerHTML = `<pre class="mermaid">${code}</pre>`;
+      try {
+        await mermaid.run({ nodes: [display.querySelector('.mermaid')] });
+      } catch(e) {
+        display.innerHTML = `<p class="text-red-500 text-sm">Szintaktikai hiba a Mermaid kódban!</p>`;
+      }
+    }
+
+    /**
+     * 4. Statisztikai diagramok
+     */
+    function drawStatsChart() {
+      const canvas = document.getElementById('statsCanvas');
+      const ctx = canvas.getContext('2d');
+      const labels = document.getElementById('chartLabels').value.split(',').map(l => l.trim());
+      const values = document.getElementById('chartValues').value.split(',').map(v => parseFloat(v.trim()));
+      const type = document.getElementById('chartType').value;
+
+      if (myChartInstance) myChartInstance.destroy();
+
+      myChartInstance = new Chart(ctx, {
+        type: type,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Mért értékek',
+            data: values,
+            backgroundColor: ['rgba(108, 92, 231, 0.6)', 'rgba(162, 155, 254, 0.6)', 'rgba(255, 118, 117, 0.6)', 'rgba(0, 184, 148, 0.6)', 'rgba(9, 132, 227, 0.6)'],
+            borderColor: ['#6C5CE7', '#A29BFE', '#FF7675', '#00B894', '#0984E3'],
+            borderWidth: 2
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    /**
+     * Exponential Backoff API Call implementation
+     */
+    async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(url, options);
+          if (response.ok) {
+            return await response.json();
+          }
+        } catch (err) {
+          // Do not log retry to console as per guidelines
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // exponential backoff
+      }
+      throw new Error("Minden próbálkozás meghiúsult az API hívása közben.");
+    }
+
+    /**
+     * Dynamic Kvíz Generálása a Gemini 2.5 Flash API segítségével
+     */
+    async function generateQuizWithGemini(lang, level, subject, customTopic, targetApiKey) {
+      const topicText = customTopic.trim() ? customTopic.trim() : subject;
+      const promptText = `Készíts egy prémium minőségű, izgalmas 5 kérdéses kvízt a következő témában: ${topicText}. 
+Nyelv: ${lang === 'hu' ? 'magyar' : 'angol'}. 
+Szint: ${level === 'highschool' ? 'középiskola' : 'egyetem'}. 
+Kérlek, ügyelj rá, hogy pontosan 4 válaszlehetőség legyen kérdésenként, és az egyik index jelölje ki a helyes választ (0-3 között). Minden válaszhoz írj egy részletes magyarázatot is.`;
+
+      const systemPrompt = "Te egy egyetemi professzor és zseniális kvízkészítő vagy. Feladatod egy magas szintű oktatási kvíz generálása. Kötelezően igazodj a megadott JSON sémához, semmilyen más kiegészítő szöveget vagy formázást ne adj vissza a JSON-on kívül.";
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${targetApiKey}`;
+
+      const payload = {
+        contents: [{
+          parts: [{ text: promptText }]
+        }],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              questions: {
+                type: "ARRAY",
+                description: "A generált kérdések listája",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    question: { type: "STRING" },
+                    answers: { 
+                      type: "ARRAY", 
+                      items: { type: "STRING" }
+                    },
+                    correctIndex: { type: "INTEGER" },
+                    explanation: { type: "STRING" }
+                  },
+                  required: ["question", "answers", "correctIndex", "explanation"]
+                }
+              }
+            },
+            required: ["questions"]
+          }
+        }
+      };
+
+      const options = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      };
+
+      try {
+        const result = await fetchWithRetry(url, options);
+        const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResponse) {
+          throw new Error("Üres válasz érkezett az AI-tól.");
+        }
+        const parsed = JSON.parse(textResponse);
+        return parsed.questions || [];
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    /**
+     * 5. Kvízmotor Elindítása
+     */
+    async function startQuiz(useAi = false) {
+      const lang = document.getElementById('quizLanguage').value;
+      const level = document.getElementById('quizLevel').value;
+      const sub = document.getElementById('quizSubject').value;
+      const customTopic = document.getElementById('quizCustomTopic').value;
+
+      const mainCard = document.getElementById('quizMainCard');
+      const loadingScreen = document.getElementById('quizLoadingScreen');
+      const quizContainer = document.getElementById('quizContainer');
+      const explanationBox = document.getElementById('quizExplanationBox');
+
+      quizContainer.classList.remove('hidden');
+      explanationBox.classList.add('hidden');
+
+      if (useAi) {
+        // API kulcs ellenőrzése és helyi mentése
+        const inputKey = document.getElementById('userGeminiKey').value.trim();
+        if (!inputKey) {
+          alert("Kérjük, előbb add meg a Gemini API kulcsodat a Kvíz Beállítások panelen az AI funkció használatához!");
           return;
         }
+        localStorage.setItem('amisearch_gemini_key', inputKey);
 
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
+        // AI Generált folyamat indítása
+        mainCard.classList.add('hidden');
+        loadingScreen.classList.remove('hidden');
 
-        document.getElementById('question').textContent = data.question || 'Ismeretlen kérdés';
-        document.getElementById('explanationText').textContent = data.explanation || '';
+        try {
+          const aiQuestions = await generateQuizWithGemini(lang, level, sub, customTopic, inputKey);
+          if (aiQuestions && aiQuestions.length > 0) {
+            currentQuizQuestions = aiQuestions;
+            currentQuestionIndex = 0;
+            currentScore = 0;
+            quizAnswered = false;
+            
+            loadingScreen.classList.add('hidden');
+            mainCard.classList.remove('hidden');
+            loadQuizQuestion();
+          } else {
+            throw new Error("Nem sikerült kérdéseket generálni.");
+          }
+        } catch (err) {
+          loadingScreen.classList.add('hidden');
+          mainCard.classList.remove('hidden');
+          document.getElementById('quizQuestionText').innerHTML = `<span class="text-red-500"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Hiba történt a generálás során:</span><br><span class="text-sm text-gray-500 font-normal">Nem sikerült elérni a Gemini AI szervert. Ellenőrizd az API kulcsodat, vagy próbálkozz újra később!</span>`;
+          document.getElementById('quizAnswersGrid').innerHTML = "";
+        }
+      } else {
+        // Statikus helyi adatbázis betöltése
+        loadingScreen.classList.add('hidden');
+        mainCard.classList.remove('hidden');
 
-        const success = renderChart(data.config);
-        if (!success) return;
+        currentQuizQuestions = QUIZ_DATABASE[lang]?.[level]?.[sub] || [];
+        currentQuestionIndex = 0;
+        currentScore = 0;
+        quizAnswered = false;
 
-      } catch (error) {
-        console.error("Load chart error:", error);
-        showError('Hiba a diagram betöltésekor: ' + error.message);
+        if (currentQuizQuestions.length === 0) {
+          document.getElementById('quizQuestionText').innerText = "Nem találtunk beépített kérdést ehhez a konfigurációhoz. Próbáld ki a fenti 'Generálás Gemini AI-val' gombot egyedi kulcs megadásával!";
+          document.getElementById('quizAnswersGrid').innerHTML = "";
+          return;
+        }
+        loadQuizQuestion();
       }
-      return;
     }
 
-    // NINCS ID ÉS NINCS AUTO
-    showError('Hiányzó paraméterek. Használj ?auto=true&question=... vagy ?id=... URL-t.');
-  }
+    function loadQuizQuestion() {
+      quizAnswered = false;
+      document.getElementById('quizExplanationBox').classList.add('hidden');
+      
+      const q = currentQuizQuestions[currentQuestionIndex];
+      const progressText = document.getElementById('quizProgressLabel');
+      const scoreText = document.getElementById('quizScoreLabel');
+      
+      const isHu = document.getElementById('quizLanguage').value === 'hu';
+      progressText.innerText = isHu ? `Kérdés: ${currentQuestionIndex + 1}/${currentQuizQuestions.length}` : `Question: ${currentQuestionIndex + 1}/${currentQuizQuestions.length}`;
+      scoreText.innerText = isHu ? `Pontszám: ${currentScore}` : `Score: ${currentScore}`;
 
-  window.onload = init;
-</script>
+      document.getElementById('quizQuestionText').innerText = q.question;
+
+      const grid = document.getElementById('quizAnswersGrid');
+      grid.innerHTML = "";
+
+      q.answers.forEach((ans, idx) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left p-4 rounded-xl border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 transition font-medium text-sm focus:outline-none";
+        btn.innerHTML = ans;
+        btn.onclick = () => selectQuizAnswer(idx, btn);
+        grid.appendChild(btn);
+      });
+    }
+
+    function selectQuizAnswer(selectedIndex, clickedBtn) {
+      if (quizAnswered) return;
+      quizAnswered = true;
+
+      const q = currentQuizQuestions[currentQuestionIndex];
+      const grid = document.getElementById('quizAnswersGrid');
+      const buttons = grid.getElementsByTagName('button');
+
+      const isCorrect = selectedIndex === q.correctIndex;
+      if (isCorrect) {
+        currentScore++;
+        clickedBtn.className = "w-full text-left p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 font-bold text-sm";
+      } else {
+        clickedBtn.className = "w-full text-left p-4 rounded-xl border-2 border-red-500 bg-red-50 text-red-900 font-bold text-sm";
+        if (buttons[q.correctIndex]) {
+          buttons[q.correctIndex].className = "w-full text-left p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 font-bold text-sm";
+        }
+      }
+
+      const expBox = document.getElementById('quizExplanationBox');
+      expBox.classList.remove('hidden');
+      if (isCorrect) {
+        expBox.className = "p-4 rounded-xl text-sm leading-relaxed border bg-emerald-50 border-emerald-200 text-emerald-800";
+        expBox.innerHTML = `<strong>Helyes válasz!</strong><br>${q.explanation}`;
+      } else {
+        expBox.className = "p-4 rounded-xl text-sm leading-relaxed border bg-red-50 border-red-200 text-red-800";
+        expBox.innerHTML = `<strong>Helytelen válasz!</strong> A helyes opció: <em>${q.answers[q.correctIndex]}</em>.<br>${q.explanation}`;
+      }
+
+      const isHu = document.getElementById('quizLanguage').value === 'hu';
+      document.getElementById('quizScoreLabel').innerText = isHu ? `Pontszám: ${currentScore}` : `Score: ${currentScore}`;
+
+      const nextBtn = document.createElement('button');
+      nextBtn.className = "mt-3 px-4 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white text-xs font-bold rounded-lg transition";
+      nextBtn.innerText = isHu ? "Következő kérdés" : "Next Question";
+      
+      if (currentQuestionIndex === currentQuizQuestions.length - 1) {
+        nextBtn.innerText = isHu ? "Kvíz Befejezése" : "Finish Quiz";
+        nextBtn.onclick = () => {
+          expBox.className = "p-6 rounded-xl text-center border bg-purple-50 border-purple-200 text-purple-950";
+          expBox.innerHTML = isHu 
+            ? `<strong>Gratulálunk!</strong> Befejezted a kvízt.<br>Végső pontszámod: <strong>${currentScore} / ${currentQuizQuestions.length}</strong>`
+            : `<strong>Congratulations!</strong> You have finished the quiz.<br>Final Score: <strong>${currentScore} / ${currentQuizQuestions.length}</strong>`;
+        };
+      } else {
+        nextBtn.onclick = () => {
+          currentQuestionIndex++;
+          loadQuizQuestion();
+        };
+      }
+      expBox.appendChild(document.createElement('br'));
+      expBox.appendChild(nextBtn);
+    }
+
+    /**
+     * Letöltés PNG képként (Canvas / SVG)
+     */
+    function downloadAsPNG() {
+      let downloadUrl = "";
+      
+      if (activeTab === 'math') {
+        const canvas = document.getElementById('mathCanvas');
+        downloadUrl = canvas.toDataURL("image/png");
+      } else if (activeTab === 'stats') {
+        const canvas = document.getElementById('statsCanvas');
+        downloadUrl = canvas.toDataURL("image/png");
+      } else if (activeTab === 'graph') {
+        const svg = document.getElementById('graphSvg');
+        const serializer = new XMLSerializer();
+        const source = serializer.serializeToString(svg);
+        downloadUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source);
+      } else {
+        alert("Ez a diagramtípus közvetlenül nem tölthető le PNG-ként!");
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `amisearch-diagram-${activeTab}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
 </body>
 </html>
