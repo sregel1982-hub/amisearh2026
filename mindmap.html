@@ -6,228 +6,142 @@
 <title>AMISEARCH - Gondolattérkép</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.iife.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18.12/dist/browser/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <style>
-  body { font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
-  #loading { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 58vh; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; }
+  .mermaid { background: #fff; border-radius: 12px; padding: 20px; }
+  .mermaid svg { max-width: 100%; height: auto; }
+  #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; }
   #error { display: none; text-align: center; padding: 40px; }
   #result { display: none; }
-  .btn-primary { background: linear-gradient(135deg, #6C5CE7 0%, #8B5CF6 100%); }
-  .btn-primary:hover { opacity: 0.94; transform: translateY(-1px); }
-  .mindmap-shell {
-    background:
-      radial-gradient(circle at top left, rgba(108,92,231,.14), transparent 28%),
-      radial-gradient(circle at bottom right, rgba(16,185,129,.10), transparent 24%),
-      #ffffff;
-  }
-  #mindmapSvg {
-    width: 100%;
-    height: min(74vh, 760px);
-    min-height: 520px;
-    display: block;
-    background: transparent;
-  }
-  #mindmapSvg .markmap-node text {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-weight: 600;
-  }
-  #mindmapSvg .markmap-link {
-    stroke-width: 2.2px;
-    opacity: .72;
-  }
-  #markdownSource {
-    tab-size: 2;
-    line-height: 1.45;
-  }
-  @media (max-width: 720px) {
-    #mindmapSvg { min-height: 460px; height: 65vh; }
-  }
+  .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
 </style>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900">
+<body class="bg-gray-50 min-h-screen">
 
-<header class="bg-white/95 backdrop-blur shadow-sm border-b border-gray-200 sticky top-0 z-40">
-  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6C5CE7] to-[#8B5CF6] flex items-center justify-center text-white font-bold text-lg shadow-md">A</div>
-      <h1 class="text-lg sm:text-xl font-bold text-gray-800 truncate">AMISEARCH <span class="text-[#6C5CE7] font-normal">Gondolattérkép</span></h1>
+<!-- Header -->
+<header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6C5CE7] to-[#8B5CF6] flex items-center justify-center text-white font-bold text-lg">A</div>
+      <h1 class="text-xl font-bold text-gray-800">AMISEARCH <span class="text-[#6C5CE7] font-normal">Gondolattérkép</span></h1>
     </div>
-    <a href="/" class="text-sm text-gray-500 hover:text-[#6C5CE7] transition flex items-center gap-2 shrink-0">
-      <i class="fa-solid fa-arrow-left"></i> Vissza
+    <a href="/" class="text-sm text-gray-500 hover:text-[#6C5CE7] transition flex items-center gap-2">
+      <i class="fa-solid fa-arrow-left"></i> Vissza az oldalra
     </a>
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-4 py-8">
+<main class="max-w-6xl mx-auto px-4 py-8">
 
-  <section id="inputSection" class="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-purple-100">
-    <div class="flex flex-col lg:flex-row lg:items-end gap-4">
-      <div class="flex-1">
-        <label class="block text-sm font-semibold text-gray-700 mb-2">
-          <i class="fa-solid fa-brain text-[#6C5CE7] mr-2"></i>Miről készüljön gondolattérkép?
-        </label>
-        <input
-          type="text"
-          id="topicInput"
-          placeholder="Pl.: Matematikai analízis, Világháború, Fotoszintézis..."
-          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent outline-none text-gray-700"
-          onkeypress="if(event.key==='Enter') generateMindmap()"
-        >
-      </div>
-      <button
-        onclick="generateMindmap()"
+  <!-- Input szekció -->
+  <div id="inputSection" class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+      <i class="fa-solid fa-brain text-[#6C5CE7] mr-2"></i>Miről készüljön gondolattérkép?
+    </label>
+    <div class="flex gap-3">
+      <input 
+        type="text" 
+        id="topicInput" 
+        placeholder="Pl.: Matematikai analízis, Világháború, Fotoszintézis..." 
+        class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent outline-none text-gray-700"
+        onkeypress="if(event.key==='Enter') generateMindmap()"
+      >
+      <button 
+        onclick="generateMindmap()" 
         id="genBtn"
-        class="btn-primary text-white px-6 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2 shadow-lg"
+        class="btn-primary text-white px-6 py-3 rounded-xl font-medium transition flex items-center gap-2 shadow-lg"
       >
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         <span>Generálás</span>
       </button>
     </div>
-    <p class="text-xs text-gray-500 mt-3">
-      <i class="fa-solid fa-circle-info mr-1 text-[#6C5CE7]"></i>
-      Markmap-alapú, interaktív gondolattérkép: nagyítható, mozgatható, szerkeszthető Markdown forrással.
+    <p class="text-xs text-gray-400 mt-2">
+      <i class="fa-solid fa-circle-info mr-1"></i>
+      Az AI automatikusan felépíti a témakör struktúráját és kapcsolatait.
     </p>
-  </section>
+  </div>
 
-  <section id="loading">
+  <!-- Betöltés -->
+  <div id="loading">
     <div class="w-16 h-16 border-4 border-gray-200 border-t-[#6C5CE7] rounded-full animate-spin mb-4"></div>
-    <p class="text-gray-600 font-semibold">Gondolattérkép generálása...</p>
-    <p class="text-sm text-gray-400 mt-1">Ez 10-20 másodpercig is eltarthat.</p>
-  </section>
+    <p class="text-gray-500 font-medium">Gondolattérkép generálása...</p>
+    <p class="text-sm text-gray-400 mt-1">Ez 10-20 másodpercig is eltarthat</p>
+  </div>
 
-  <section id="error" class="bg-red-50 rounded-2xl p-8 border border-red-100">
+  <!-- Hiba -->
+  <div id="error" class="bg-red-50 rounded-2xl p-8">
     <i class="fa-solid fa-circle-exclamation text-red-400 text-4xl mb-4"></i>
     <h3 class="text-lg font-bold text-red-700 mb-2">Hiba történt</h3>
     <p id="errorText" class="text-red-600 mb-4">Nem sikerült generálni a gondolattérképet.</p>
     <button onclick="resetForm()" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition">
       <i class="fa-solid fa-rotate-left mr-1"></i> Újrapróbálás
     </button>
-  </section>
+  </div>
 
-  <section id="result">
-    <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3 border border-gray-100">
-      <div class="flex items-center gap-2 min-w-0">
+  <!-- Eredmény -->
+  <div id="result">
+    <!-- Toolbar -->
+    <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
         <i class="fa-solid fa-sitemap text-[#6C5CE7]"></i>
-        <span id="resultTitle" class="font-semibold text-gray-700 truncate"></span>
+        <span id="resultTitle" class="font-medium text-gray-700"></span>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button onclick="fitMap()" class="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-[#6C5CE7] rounded-lg text-sm transition flex items-center gap-2 font-semibold">
-          <i class="fa-solid fa-compress"></i> Illesztés
+      <div class="flex gap-2">
+        <button onclick="downloadSVG()" class="px-4 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white rounded-lg text-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-download"></i> SVG letöltés
         </button>
-        <button onclick="downloadSVG()" class="px-4 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white rounded-lg text-sm transition flex items-center gap-2 font-semibold">
-          <i class="fa-solid fa-download"></i> SVG
+        <button onclick="downloadPNG()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-image"></i> PNG letöltés
         </button>
-        <button onclick="downloadPNG()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center gap-2 font-semibold">
-          <i class="fa-solid fa-image"></i> PNG
-        </button>
-        <button onclick="resetForm()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center gap-2 font-semibold">
+        <button onclick="resetForm()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition flex items-center gap-2">
           <i class="fa-solid fa-plus"></i> Új térkép
         </button>
       </div>
     </div>
 
-    <div class="mindmap-shell bg-white rounded-2xl shadow-lg p-3 sm:p-5 overflow-hidden border border-purple-100">
-      <svg id="mindmapSvg"></svg>
-    </div>
-
-    <div class="mt-4 bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-      <button onclick="toggleCode()" class="flex items-center gap-2 text-sm text-gray-700 hover:text-[#6C5CE7] transition font-semibold">
-        <i id="codeChevron" class="fa-solid fa-chevron-right"></i>
-        <span>Markdown forrás megtekintése és szerkesztése</span>
-      </button>
-      <div id="codeBlock" class="hidden mt-3">
-        <textarea id="markdownSource" class="w-full h-56 p-3 font-mono text-xs bg-gray-900 text-green-300 rounded-lg resize-y" spellcheck="false"></textarea>
-        <div class="flex flex-wrap gap-2 mt-3">
-          <button onclick="renderFromTextarea()" class="px-3 py-2 bg-[#6C5CE7] text-white rounded-lg text-xs font-semibold">
-            <i class="fa-solid fa-rotate mr-1"></i>Újrarenderelés
-          </button>
-          <button onclick="copyMarkdown()" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200">
-            <i class="fa-regular fa-copy mr-1"></i>Markdown másolása
-          </button>
-        </div>
+    <!-- Gondolattérkép container -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 overflow-x-auto">
+      <div id="mindmapContainer" class="mermaid flex justify-center min-h-[400px]">
+        <!-- Ide jön a Mermaid kód -->
       </div>
     </div>
-  </section>
+
+    <!-- Mermaid szöveges változat (összecsukható) -->
+    <div class="mt-4 bg-gray-100 rounded-xl p-4">
+      <button onclick="toggleCode()" class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition">
+        <i id="codeChevron" class="fa-solid fa-chevron-right"></i>
+        <span>Mermaid kód megtekintése (szerkeszthető)</span>
+      </button>
+      <div id="codeBlock" class="hidden mt-3">
+        <textarea id="mermaidCode" class="w-full h-48 p-3 font-mono text-xs bg-gray-800 text-green-400 rounded-lg resize-y" onchange="renderFromTextarea()"></textarea>
+        <button onclick="renderFromTextarea()" class="mt-2 px-3 py-1 bg-[#6C5CE7] text-white rounded text-xs">
+          <i class="fa-solid fa-rotate mr-1"></i>Újrarenderelés
+        </button>
+      </div>
+    </div>
+  </div>
 
 </main>
 
 <script>
-let currentMarkdown = '';
-let currentTopic = '';
-let currentMap = null;
-
-const urlParams = new URLSearchParams(window.location.search);
-const topicFromUrl = urlParams.get('topic');
-const directSourceFromUrl = urlParams.get('content') || urlParams.get('markdown') || urlParams.get('code') || urlParams.get('mindmap');
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('loading').style.display = 'none';
-  if (topicFromUrl && !directSourceFromUrl) {
-    document.getElementById('topicInput').value = topicFromUrl;
-    generateMindmap();
-  }
+// Inicializálás
+mermaid.initialize({ 
+  startOnLoad: false,
+  theme: 'default',
+  mindmap: { useMaxWidth: true }
 });
 
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-}
+let currentCode = '';
+let currentTopic = '';
 
-function stripEmoji(text) {
-  return String(text || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, '').trim();
-}
-
-function cleanLabel(raw) {
-  let s = stripEmoji(raw)
-    .replace(/^[-*•]+\s*/, '')
-    .replace(/^root\s*\(\(\s*/i, '')
-    .replace(/^root\s*\(\s*/i, '')
-    .replace(/^root\s*\[\s*/i, '')
-    .replace(/[\]\)]\s*$/g, '')
-    .replace(/^['"`]+|['"`]+$/g, '')
-    .replace(/[{}\[\]<>|]/g, ' ')
-    .replace(/\(\((.*?)\)\)/g, '$1')
-    .replace(/"/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return s || 'Téma';
-}
-
-function mermaidMindmapToMarkdown(code, topic) {
-  const raw = String(code || '')
-    .replace(/^```(?:mermaid|mindmap)?\s*/i, '')
-    .replace(/```\s*$/i, '')
-    .replace(/\r/g, '')
-    .trim();
-
-  if (/^#\s+/m.test(raw) || /^-\s+/m.test(raw)) {
-    return raw;
-  }
-
-  const lines = raw.split('\n').filter(line => line.trim());
-  let title = cleanLabel(topic || currentTopic || 'Gondolattérkép');
-  const items = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || /^mindmap\s*$/i.test(trimmed) || /^```/.test(trimmed)) continue;
-    const leading = (line.match(/^\s*/) || [''])[0].length;
-    const label = cleanLabel(trimmed);
-
-    if (/^root\s*[\(\[]/i.test(trimmed)) {
-      title = label || title;
-      continue;
-    }
-
-    const depth = Math.max(0, Math.round(leading / 2) - 1);
-    items.push('  '.repeat(depth) + '- ' + label);
-  }
-
-  if (!items.length) {
-    items.push('- Fő fogalmak', '  - Meghatározás', '  - Példák', '- Kapcsolódó témák', '  - Ismétlés', '  - Gyakorlás');
-  }
-
-  return '# ' + title + '\n\n' + items.join('\n');
+// URL paraméter ellenőrzése (ha az AI tutor küldött témát)
+const urlParams = new URLSearchParams(window.location.search);
+const topicFromUrl = urlParams.get('topic');
+if (topicFromUrl) {
+  document.getElementById('topicInput').value = decodeURIComponent(topicFromUrl);
+  generateMindmap();
 }
 
 async function generateMindmap() {
@@ -244,65 +158,54 @@ async function generateMindmap() {
     const resp = await fetch('/.netlify/functions/generate-mindmap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, lang: 'hu', format: 'markdown' })
+      body: JSON.stringify({ topic, lang: 'hu' })
     });
 
     if (!resp.ok) throw new Error('Szerver hiba: ' + resp.status);
+    
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    const source = data.markdown || data.code || data.text || '';
-    if (!source) throw new Error('Üres válasz érkezett');
+    if (!data.code) throw new Error('Üres válasz érkezett');
 
-    currentMarkdown = mermaidMindmapToMarkdown(source, topic);
-    await renderMarkmap(currentMarkdown);
+    currentCode = data.code;
+    await renderMindmap(currentCode);
     showResult(topic);
+
   } catch (e) {
     console.error('Generálási hiba:', e);
-    showError(e.message || String(e));
+    showError(e.message);
   }
 }
 
-async function renderMarkmap(markdown) {
-  const svg = document.getElementById('mindmapSvg');
-  svg.innerHTML = '';
-  currentMarkdown = markdown;
-  document.getElementById('markdownSource').value = markdown;
+async function renderMindmap(code) {
+  const container = document.getElementById('mindmapContainer');
+  
+  let cleanCode = code
+    .replace(/^```mermaid\n?/, '')
+    .replace(/```$/, '')
+    .trim();
+  
+  if (!cleanCode.startsWith('mindmap')) {
+    cleanCode = 'mindmap\n' + cleanCode;
+  }
+
+  container.innerHTML = '<div class="mermaid-inner">\n' + cleanCode + '\n</div>';
+  document.getElementById('mermaidCode').value = cleanCode;
 
   try {
-    if (!window.d3) {
-      throw new Error('A D3 könyvtár nem töltődött be. Ellenőrizd az internetkapcsolatot vagy a CDN elérést.');
-    }
-    if (!window.markmap || !window.markmap.Transformer || !window.markmap.Markmap) {
-      throw new Error('A Markmap könyvtár nem töltődött be. A javított fájl markmap-lib@0.18.12 és markmap-view@0.18.12 CDN buildet használ.');
-    }
-    const transformer = new window.markmap.Transformer();
-    const { root } = transformer.transform(markdown);
-    currentMap = window.markmap.Markmap.create(svg, {
-      duration: 450,
-      maxWidth: 320,
-      colorFreezeLevel: 2,
-      initialExpandLevel: 3,
-      spacingHorizontal: 88,
-      spacingVertical: 14,
-      paddingX: 12,
-      autoFit: true
-    }, root);
-    setTimeout(fitMap, 250);
+    await mermaid.run({
+      querySelector: '#mindmapContainer .mermaid-inner'
+    });
   } catch (e) {
-    console.error('Markmap render hiba:', e);
-    svg.innerHTML = '<foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Segoe UI,sans-serif;padding:24px;color:#7f1d1d;background:#fef2f2;border-radius:16px;">Nem sikerült renderelni a Markmap térképet.<br><small>' + escapeHtml(e.message || e) + '</small></div></foreignObject>';
+    console.error('Mermaid render hiba:', e);
+    container.innerHTML = '<pre class="text-red-500 p-4">Hiba a renderelésnél:\n' + e.message + '\n\nKód:\n' + cleanCode.replace(/</g, '&lt;') + '</pre>';
   }
-}
-
-function fitMap() {
-  try {
-    if (currentMap && typeof currentMap.fit === 'function') currentMap.fit();
-  } catch (_) {}
 }
 
 async function renderFromTextarea() {
-  const markdown = document.getElementById('markdownSource').value;
-  await renderMarkmap(markdown);
+  const code = document.getElementById('mermaidCode').value;
+  currentCode = code;
+  await renderMindmap(code);
 }
 
 function showLoading() {
@@ -340,189 +243,60 @@ function toggleCode() {
   chev.className = block.classList.contains('hidden') ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
 }
 
-async function copyMarkdown() {
-  try {
-    await navigator.clipboard.writeText(document.getElementById('markdownSource').value || currentMarkdown || '');
-    alert('Markdown forrás másolva.');
-  } catch (_) {
-    alert('Nem sikerült másolni.');
-  }
-}
-
-function safeFilename(name) {
-  return String(name || 'gondolatterkep')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 70) || 'gondolatterkep';
-}
-
 function downloadSVG() {
-  const svg = document.querySelector('#mindmapSvg');
-  if (!svg || !svg.innerHTML.trim()) {
+  const svg = document.querySelector('#mindmapContainer svg');
+  if (!svg) {
     alert('Először generáld le a gondolattérképet!');
     return;
   }
-  const clone = svg.cloneNode(true);
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  clone.setAttribute('width', svg.clientWidth || 1400);
-  clone.setAttribute('height', svg.clientHeight || 900);
-  const svgData = new XMLSerializer().serializeToString(clone);
+  
+  const svgData = new XMLSerializer().serializeToString(svg);
   const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
+  
   const a = document.createElement('a');
   a.href = url;
-  a.download = safeFilename('gondolatterkep_' + currentTopic) + '.svg';
+  a.download = 'gondolatterkep_' + currentTopic.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '') + '.svg';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-function getInitialMindmapPayload() {
-  const params = new URLSearchParams(window.location.search);
-  const topic = params.get('topic') || params.get('q') || params.get('title') || '';
-  const source = params.get('content') || params.get('markdown') || params.get('code') || params.get('mindmap') || '';
-  return { topic: topic.trim(), source };
-}
-
-async function loadInitialMindmapIfProvided() {
-  const payload = getInitialMindmapPayload();
-  if (!payload.topic && !payload.source) return;
-  const topic = payload.topic || 'Gondolattérkép';
-  document.getElementById('topicInput').value = topic;
-  currentTopic = topic;
-
-  if (payload.source) {
-    try {
-      showLoading();
-      currentMarkdown = mermaidMindmapToMarkdown(payload.source, topic);
-      await renderMarkmap(currentMarkdown);
-      showResult(topic);
-      return;
-    } catch (e) {
-      console.error('Közvetlen Markmap renderelési hiba:', e);
-      showError(e.message || String(e));
-      return;
-    }
-  }
-
-  await generateMindmap();
-}
-
-function makeSvgExportClone(svg, width, height) {
-  const clone = svg.cloneNode(true);
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-  clone.setAttribute('width', width);
-  clone.setAttribute('height', height);
-  clone.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
-  clone.setAttribute('style', 'background:#ffffff; font-family: Segoe UI, Arial, sans-serif;');
-
-  // A Markmap a feliratokat foreignObject HTML-elemekkel rajzolja.
-  // Ezek Chrome-ban a canvas.toDataURL/toBlob hívásnál tainted canvas hibát okozhatnak,
-  // ezért PNG export előtt egyszerű, natív SVG <text> elemekre cseréljük őket.
-  clone.querySelectorAll('foreignObject').forEach((fo) => {
-    const textValue = (fo.textContent || '').replace(/\s+/g, ' ').trim();
-    const x = Number.parseFloat(fo.getAttribute('x') || '0') || 0;
-    const y = Number.parseFloat(fo.getAttribute('y') || '0') || 0;
-    const h = Number.parseFloat(fo.getAttribute('height') || '20') || 20;
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', String(x));
-    text.setAttribute('y', String(y + Math.max(14, h * 0.75)));
-    text.setAttribute('fill', '#111827');
-    text.setAttribute('font-family', 'Segoe UI, Arial, sans-serif');
-    text.setAttribute('font-size', '16');
-    text.setAttribute('font-weight', '600');
-    text.setAttribute('dominant-baseline', 'alphabetic');
-    text.textContent = textValue || ' ';
-    fo.replaceWith(text);
-  });
-
-  clone.querySelectorAll('[data-manus_clickable], [data-manus_click_id]').forEach((el) => {
-    el.removeAttribute('data-manus_clickable');
-    el.removeAttribute('data-manus_click_id');
-  });
-
-  return clone;
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1200);
-}
-
 function downloadPNG() {
-  const svg = document.querySelector('#mindmapSvg');
-  if (!svg || !svg.innerHTML.trim()) {
+  const svg = document.querySelector('#mindmapContainer svg');
+  if (!svg) {
     alert('Először generáld le a gondolattérképet!');
     return;
   }
 
-  const width = Math.max(Math.ceil(svg.clientWidth || 1400), 1200);
-  const height = Math.max(Math.ceil(svg.clientHeight || 900), 800);
-  const clone = makeSvgExportClone(svg, width, height);
-  const svgData = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-  const objectUrl = URL.createObjectURL(svgBlob);
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
   const img = new Image();
-
-  img.onload = function () {
-    try {
-      const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(width * scale);
-      canvas.height = Math.round(height * scale);
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const filename = safeFilename('gondolatterkep_' + currentTopic) + '.png';
-      if (canvas.toBlob) {
-        canvas.toBlob((blob) => {
-          URL.revokeObjectURL(objectUrl);
-          if (!blob) {
-            alert('PNG export hiba: a böngésző nem tudott képfájlt készíteni. Próbáld az SVG letöltést.');
-            return;
-          }
-          downloadBlob(blob, filename);
-        }, 'image/png', 1);
-      } else {
-        const pngUrl = canvas.toDataURL('image/png');
-        URL.revokeObjectURL(objectUrl);
-        const a = document.createElement('a');
-        a.href = pngUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-    } catch (e) {
-      URL.revokeObjectURL(objectUrl);
-      console.error('PNG export hiba:', e);
-      alert('PNG export hiba: ' + (e.message || e) + '. Próbáld az SVG letöltést.');
-    }
+  
+  const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  
+  img.onload = function() {
+    canvas.width = img.width * 2;
+    canvas.height = img.height * 2;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    
+    const pngUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = pngUrl;
+    a.download = 'gondolatterkep_' + currentTopic.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '') + '.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
-
-  img.onerror = function () {
-    URL.revokeObjectURL(objectUrl);
-    alert('PNG export hiba: az SVG képet nem sikerült betölteni. Próbáld az SVG letöltést.');
-  };
-
-  img.src = objectUrl;
+  
+  img.src = url;
 }
-
-document.addEventListener('DOMContentLoaded', loadInitialMindmapIfProvided, { once: true });
 </script>
 
 </body>
