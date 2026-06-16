@@ -9,10 +9,7 @@ function getEnv(key) {
 }
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: JSON_HEADERS,
-  });
+  return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 }
 
 function getSupabaseAdmin() {
@@ -24,10 +21,7 @@ function getSupabaseAdmin() {
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
@@ -39,7 +33,6 @@ function isActivePro(profile) {
   if (!profile) return false;
   if (String(profile.plan || "").toLowerCase() !== "pro") return false;
   if (!profile.plan_expires_at) return true;
-
   const expiresAt = new Date(profile.plan_expires_at);
   return Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() > Date.now();
 }
@@ -49,27 +42,31 @@ function normalizeMonthlyCounter(profile) {
   if (!profile || profile.uploads_today_date !== monthPeriod) {
     return { monthPeriod, uploadsThisMonthCount: 0 };
   }
-
   return { monthPeriod, uploadsThisMonthCount: Number(profile.uploads_today_count || 0) };
 }
 
 function toCamelNote(row) {
+  const title = row.cim || row.title || row.original_name || row.file_path || "Névtelen jegyzet";
+  const fileName = row.file_path || row.file_name || row.original_name || title;
   return {
     id: row.id,
-    fileName: row.file_name,
-    originalName: row.original_name,
-    publicUrl: row.public_url,
-    fileSize: row.file_size,
-    uploaderIdentityId: row.uploader_identity_id,
-    textContent: row.text_content,
-    title: row.title,
-    subject: row.subject,
-    language: row.language,
-    fileHash: row.file_hash,
-    textHash: row.text_hash,
-    plagiarismScore: row.plagiarism_score,
-    similarNoteIds: row.similar_note_ids,
-    createdAt: row.created_at,
+    fileName,
+    filePath: row.file_path || fileName,
+    originalName: row.original_name || title,
+    publicUrl: row.public_url || "",
+    fileSize: row.file_size || 0,
+    uploaderIdentityId: row.user_id || row.uploader_identity_id || null,
+    userId: row.user_id || null,
+    textContent: row.text_content || "",
+    title,
+    cim: row.cim || title,
+    subject: row.tantargy || row.subject || "",
+    tantargy: row.tantargy || row.subject || "",
+    language: row.nyelv || row.language || "hu",
+    nyelv: row.nyelv || row.language || "hu",
+    processed: !!row.processed,
+    createdAt: row.created_at || null,
+    created_at: row.created_at || null,
   };
 }
 
@@ -108,7 +105,6 @@ async function getOrCreateProfile(supabase, user) {
 
 async function ensureMonthlyCounterState(supabase, profile) {
   const { monthPeriod, uploadsThisMonthCount } = normalizeMonthlyCounter(profile);
-
   if (profile.uploads_today_date !== monthPeriod) {
     const { data, error } = await supabase
       .from("user_profiles")
@@ -116,17 +112,14 @@ async function ensureMonthlyCounterState(supabase, profile) {
       .eq("identity_id", profile.identity_id)
       .select("*")
       .maybeSingle();
-
     if (error) throw error;
     return data || { ...profile, uploads_today_count: 0, uploads_today_date: monthPeriod };
   }
-
   return { ...profile, uploads_today_count: uploadsThisMonthCount, uploads_today_date: monthPeriod };
 }
 
 async function incrementUploadCounter(supabase, profile) {
   if (isActivePro(profile)) return profile;
-
   const monthPeriod = currentMonthPeriod();
   const nextCount = Number(profile.uploads_today_count || 0) + 1;
   const { data, error } = await supabase
@@ -135,15 +128,15 @@ async function incrementUploadCounter(supabase, profile) {
     .eq("identity_id", profile.identity_id)
     .select("*")
     .maybeSingle();
-
   if (error) throw error;
   return data || { ...profile, uploads_today_count: nextCount, uploads_today_date: monthPeriod };
 }
 
-async function handleGet(supabase) {
+async function handleGet(supabase, user) {
   const { data, error } = await supabase
-    .from("uploaded_notes")
-    .select("*")
+    .from("jegyzetek")
+    .select("id, cim, original_name, file_path, public_url, user_id, tantargy, nyelv, text_content, processed, created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(300);
 
@@ -155,16 +148,14 @@ async function handlePost(req, supabase, user) {
   const body = await req.json().catch(() => null);
   if (!body) return json({ error: "Invalid JSON" }, 400);
 
-  const fileName = String(body.fileName || body.file_name || "").trim();
+  const fileName = String(body.fileName || body.filePath || body.file_name || body.file_path || "").trim();
   const originalName = String(body.originalName || body.original_name || fileName || "").trim();
   const publicUrl = String(body.publicUrl || body.public_url || "").trim();
-  const title = String(body.title || originalName || "").trim();
-  const subject = String(body.subject || "").trim();
-  const language = String(body.language || "hu").slice(0, 12);
-  const fileHash = String(body.fileHash || body.file_hash || "").trim();
-  const fileSize = Number(body.fileSize || body.file_size || 0) || 0;
+  const title = String(body.title || body.cim || originalName || "").trim();
+  const subject = String(body.subject || body.tantargy || "").trim();
+  const language = String(body.language || body.nyelv || "hu").slice(0, 12);
 
-  if (!fileName || !publicUrl || !title) {
+  if (!fileName || !title) {
     return json({ error: "Missing required note fields" }, 400);
   }
 
@@ -179,48 +170,46 @@ async function handlePost(req, supabase, user) {
     }, 402);
   }
 
-  if (fileHash) {
-    const { data: duplicate, error: duplicateError } = await supabase
-      .from("uploaded_notes")
-      .select("id, title, original_name")
-      .eq("uploader_identity_id", user.id)
-      .eq("file_hash", fileHash)
-      .maybeSingle();
-
-    if (duplicateError) throw duplicateError;
-    if (duplicate) {
-      return json({
-        error: "Duplicate file",
-        message: "Ezt a fájlt már feltöltötted egyszer.",
-        note: duplicate,
-      }, 409);
-    }
+  const duplicateQuery = supabase
+    .from("jegyzetek")
+    .select("id, cim, original_name")
+    .eq("user_id", user.id)
+    .eq("file_path", fileName)
+    .maybeSingle();
+  const { data: duplicate, error: duplicateError } = await duplicateQuery;
+  if (duplicateError) throw duplicateError;
+  if (duplicate) {
+    return json({
+      error: "Duplicate file",
+      message: "Ezt a fájlt már feltöltötted egyszer.",
+      note: toCamelNote(duplicate),
+    }, 409);
   }
 
   const payload = {
-    file_name: fileName,
+    user_id: user.id,
+    cim: title,
+    tantargy: subject,
+    nyelv: language,
     original_name: originalName,
-    public_url: publicUrl,
-    file_size: fileSize,
-    uploader_identity_id: user.id,
-    title,
-    subject,
-    language,
-    file_hash: fileHash || null,
+    file_path: fileName,
+    public_url: publicUrl || null,
+    processed: false,
   };
 
   const { data: inserted, error: insertError } = await supabase
-    .from("uploaded_notes")
+    .from("jegyzetek")
     .insert(payload)
-    .select("*")
+    .select("id, cim, original_name, file_path, public_url, user_id, tantargy, nyelv, text_content, processed, created_at")
     .maybeSingle();
 
   if (insertError) throw insertError;
 
   const updatedProfile = await incrementUploadCounter(supabase, profile);
+  const note = toCamelNote(inserted);
 
   return json({
-    ...toCamelNote(inserted),
+    ...note,
     profile: {
       plan: updatedProfile.plan || "free",
       planExpiresAt: updatedProfile.plan_expires_at || null,
@@ -245,12 +234,12 @@ export default async function handler(req) {
   }
 
   try {
-    if (req.method === "GET") return await handleGet(supabase);
+    if (req.method === "GET") return await handleGet(supabase, user);
     if (req.method === "POST") return await handlePost(req, supabase, user);
     return json({ error: "Method not allowed" }, 405);
   } catch (error) {
-    console.error("[notes] request failed:", error?.message || error);
-    return json({ error: "Notes request failed" }, 500);
+    console.error("[notes] request failed:", error?.message || error, error);
+    return json({ error: "Notes request failed", details: error?.message || String(error) }, 500);
   }
 }
 
