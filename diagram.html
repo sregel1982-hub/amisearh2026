@@ -1,50 +1,246 @@
-<div class="max-w-4xl mx-auto p-6 bg-white shadow-xl rounded-2xl">
-  <h2 class="text-2xl font-bold mb-6 text-gray-800">Függvény Beállítások</h2>
-  
-  <div class="grid md:grid-cols-2 gap-8">
-    <div class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Matematikai Formula (f(x) = ...)</label>
-        <input type="text" id="funcInput" value="Math.sin(x) * Math.cos(x/2)" 
-               class="w-full mt-1 p-2 border border-gray-300 rounded-lg font-mono">
-      </div>
-      <div class="flex gap-4">
-        <input type="number" id="xMin" value="-10" class="w-full p-2 border rounded-lg" placeholder="X Min">
-        <input type="number" id="xMax" value="10" class="w-full p-2 border rounded-lg" placeholder="X Max">
-      </div>
-      <button onclick="updateChart()" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
-        Ábrázolás frissítése
-      </button>
-    </div>
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <title>AMISEARCH – Diagram & Gondolattérkép</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Markmap (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.15.3"></script>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      background: #0b1020;
+      color: #f5f5f5;
+    }
+    header {
+      padding: 1rem 2rem;
+      background: #151a30;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2b3050;
+    }
+    .brand {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #c792ea;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    .lang-switch {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .lang-btn {
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid #3f3f7a;
+      background: #1b2140;
+      color: #f5f5f5;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .lang-btn.active {
+      background: #c792ea;
+      color: #0b1020;
+      border-color: #c792ea;
+      font-weight: 600;
+    }
+    main {
+      padding: 1.5rem 2rem 2rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .card {
+      background: #151a30;
+      border-radius: 1rem;
+      border: 1px solid #2b3050;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+      color: #e0e0ff;
+    }
+    .card p {
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      opacity: 0.85;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+    .tag {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid #3f3f7a;
+      background: #1b2140;
+      opacity: 0.9;
+    }
+    .markmap-container {
+      height: 480px;
+      border-radius: 0.9rem;
+      overflow: hidden;
+      background: #0b1020;
+    }
+    .note {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.75rem;
+    }
+    /* Nyelvfüggő elemek */
+    [data-lang] {
+      display: none;
+    }
+    [data-lang="hu"].show,
+    [data-lang="en"].show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
     <div>
-      <canvas id="funcCanvas"></canvas>
+      <div class="brand">AMISEARCH MULTITOOL</div>
+      <div class="subtitle" data-lang="hu" class="show">
+        Vizualizációs &amp; Tesztközpont – függvények, struktúrák, folyamatok, statisztika, AI kvíz.
+      </div>
+      <div class="subtitle" data-lang="en">
+        Visualization &amp; Test Center – functions, structures, processes, statistics, AI quiz.
+      </div>
     </div>
-  </div>
-</div>
+    <div class="lang-switch">
+      <button class="lang-btn active" data-set-lang="hu">HU</button>
+      <button class="lang-btn" data-set-lang="en">EN</button>
+    </div>
+  </header>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  let chart;
-  function updateChart() {
-    const ctx = document.getElementById('funcCanvas').getContext('2d');
-    const formula = document.getElementById('funcInput').value;
-    const min = parseInt(document.getElementById('xMin').value);
-    const max = parseInt(document.getElementById('xMax').value);
+  <main>
+    <!-- Bal oldali kártya: leírás, funkciók -->
+    <section class="card">
+      <h2 data-lang="hu" class="show">Központi modulok</h2>
+      <h2 data-lang="en">Core modules</h2>
 
-    const labels = [];
-    const data = [];
-    for (let x = min; x <= max; x += 0.1) {
-      labels.push(x.toFixed(1));
-      data.push(eval(formula.replace(/x/g, x)));
+      <p data-lang="hu" class="show">
+        Itt tudod a vizualizációs és tesztelési eszközeidet rendszerezni: függvényábrázolás, struktúrák,
+        folyamatábrák, statisztika és AI-alapú kvízgenerálás. A jobb oldali gondolattérkép Markmap-alapú.
+      </p>
+      <p data-lang="en">
+        Here you can organize your visualization and testing tools: function plotting, structures,
+        process diagrams, statistics, and AI-based quiz generation. The mind map on the right is Markmap-based.
+      </p>
+
+      <div class="tag-row">
+        <span class="tag">Függvényábrázoló / Function Plotter</span>
+        <span class="tag">Struktúrák &amp; Geometria</span>
+        <span class="tag">Folyamat / Process</span>
+        <span class="tag">Statisztika &amp; Charts</span>
+        <span class="tag">AI Kvízgenerátor</span>
+      </div>
+
+      <p class="note" data-lang="hu" class="show">
+        Tipp: a Markmap tartalmat Markdown-ból generáljuk, így könnyen szerkeszthető.
+      </p>
+      <p class="note" data-lang="en">
+        Tip: the Markmap content is generated from Markdown, so it is easy to edit.
+      </p>
+    </section>
+
+    <!-- Jobb oldali kártya: Markmap gondolattérkép -->
+    <section class="card">
+      <h2 data-lang="hu" class="show">AMISEARCH – Vizualizációs &amp; Tesztközpont (Gondolattérkép)</h2>
+      <h2 data-lang="en">AMISEARCH – Visualization &amp; Test Center (Mind Map)</h2>
+
+      <div class="markmap-container">
+        <!-- Markmap forrás: HU/EN vegyes, de érthető mindkét nyelven -->
+        <svg id="mindmap"></svg>
+        <script type="text/markdown" id="mindmap-source">
+# AMISEARCH Multitool
+
+## Vizualizációs & Tesztközpont / Visualization & Test Center
+
+### Függvényábrázoló / Function Plotter
+- 2D és 3D görbék
+- Paraméterezhető tartomány (x-min, x-max)
+- Szín- és stílusbeállítások
+
+### Struktúrák, Molekulák & Geometria
+- Kémiai rácsok, molekulamodellek
+- Geometriai alakzatok
+- Interaktív forgatás és nagyítás
+
+### Folyamat / Architektúra
+- Folyamatábrák (flowcharts)
+- Rendszer-architektúra vázlatok
+- Oktatási sablonok
+
+### Statisztika & Chartok
+- Oszlop-, vonal- és kördiagramok
+- Idősoros elemzés
+- Exportálás prezentációhoz
+
+### AI Kvízgenerátor
+- Kérdésbank generálása tananyagból
+- Nehézségi szint beállítása
+- Gyors teszt a vizsga előtt
+        </script>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Nyelvváltó logika
+    const langButtons = document.querySelectorAll(".lang-btn");
+    const langElems = document.querySelectorAll("[data-lang]");
+
+    function setLanguage(lang) {
+      langButtons.forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.setLang === lang);
+      });
+      langElems.forEach(el => {
+        el.classList.toggle("show", el.dataset.lang === lang);
+      });
+      document.documentElement.lang = lang;
     }
 
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: labels, datasets: [{ label: 'f(x)', data: data, borderColor: '#6366f1', fill: false }] },
-      options: { responsive: true, elements: { point: { radius: 0 } } }
+    langButtons.forEach(btn => {
+      btn.addEventListener("click", () => setLanguage(btn.dataset.setLang));
     });
-  }
-  updateChart(); // Első betöltés
-</script>
+
+    // Alapértelmezett: magyar
+    setLanguage("hu");
+
+    // Markmap inicializálás
+    document.addEventListener("DOMContentLoaded", () => {
+      const source = document.getElementById("mindmap-source");
+      if (!source) return;
+      const { markmap } = window;
+      if (!markmap) return;
+
+      const svg = document.getElementById("mindmap");
+      const text = source.textContent || source.innerText || "";
+      const transformer = new markmap.Transformer();
+      const { root } = transformer.transform(text);
+      markmap.Markmap.create(svg, null, root);
+    });
+  </script>
+</body>
+</html>
