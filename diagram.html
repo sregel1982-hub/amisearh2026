@@ -4,33 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AMISEARCH Multitool</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-  <script src="https://unpkg.com/markmap-lib@0.18/dist/browser/index.min.js"></script>
-  <script src="https://unpkg.com/markmap-view@0.18/dist/index.min.js"></script>
-  <script src="https://unpkg.com/d3@6.7.0/dist/d3.min.js"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  
+  <!-- Markmap (javított sorrend és verziók) -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18/dist/browser/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18/dist/index.min.js"></script>
   
   <style>
-    body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8f9fa; color: #333; }
-    header { background: #4a6bff; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-size: 1.5rem; font-weight: bold; }
-    .tabs { display: flex; gap: 10px; padding: 1rem; background: white; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
-    .tab { padding: 10px 20px; cursor: pointer; border-radius: 8px; background: #eee; }
-    .tab.active { background: #4a6bff; color: white; }
-    .content { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-    .hidden { display: none; }
-    .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
-    button { background: #4a6bff; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 1rem; }
-    button:hover { background: #3b5be0; }
-    input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; }
-    #mindmap { width: 100%; height: 70vh; border: 1px solid #ddd; border-radius: 8px; background: white; }
-    .quiz-question { margin: 15px 0; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    body { font-family: system-ui, sans-serif; margin:0; background:#f8f9fa; color:#333; }
+    header { background: linear-gradient(135deg, #4a6bff, #6b7eff); color:white; padding:1rem; display:flex; justify-content:space-between; align-items:center; }
+    .logo { font-size:1.6rem; font-weight:bold; }
+    .tabs { display:flex; gap:8px; padding:1rem; background:white; border-bottom:1px solid #ddd; flex-wrap:wrap; }
+    .tab { padding:12px 20px; cursor:pointer; border-radius:8px; background:#f0f0f0; }
+    .tab.active { background:#4a6bff; color:white; }
+    .content { padding:2rem; max-width:1200px; margin:0 auto; display:none; }
+    .content.active { display:block; }
+    .card { background:white; padding:2rem; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); margin-bottom:2rem; }
+    button { background:#4a6bff; color:white; border:none; padding:12px 24px; border-radius:8px; cursor:pointer; font-size:1.05rem; }
+    button:hover { background:#3b5be0; }
+    input, select, textarea { width:100%; padding:12px; margin:8px 0; border:1px solid #ccc; border-radius:8px; box-sizing:border-box; }
+    #mindmap svg { width:100%; height:70vh; background:#fff; border:1px solid #eee; border-radius:8px; }
+    .quiz-question { margin:20px 0; padding:20px; background:#f9f9f9; border-radius:10px; }
   </style>
 </head>
 <body>
   <header>
     <div class="logo">🎓 AMISEARCH Multitool</div>
-    <div>Netlify Single File Version</div>
+    <div>Netlify Single File • Fixed</div>
   </header>
 
   <div class="tabs">
@@ -41,56 +44,60 @@
   </div>
 
   <!-- Főoldal -->
-  <div id="tab0" class="content">
-    <h1>Üdvözlünk az AMISEARCH Multitoolban!</h1>
-    <p>Válassz eszközt a fenti fülek közül.</p>
-  </div>
-
-  <!-- Függvényábrázoló -->
-  <div id="tab1" class="content hidden">
+  <div id="tab0" class="content active">
     <div class="card">
-      <h2>Matematikai Függvényábrázoló (2D)</h2>
-      <input type="text" id="formula" value="Math.sin(x) * Math.cos(x/2)" placeholder="Math.sin(x) ...">
-      <button onclick="plotFunction()">Ábrázolás</button>
-      <canvas id="plotCanvas" width="800" height="400"></canvas>
+      <h1>Üdvözlünk az AMISEARCH Multitoolban!</h1>
+      <p>Minden funkció egy fájlban. Próbáld ki a füleket!</p>
     </div>
   </div>
 
-  <!-- Gondolattérkép (Markmap) -->
-  <div id="tab2" class="content hidden">
+  <!-- Függvényábrázoló -->
+  <div id="tab1" class="content">
+    <div class="card">
+      <h2>Matematikai Függvényábrázoló</h2>
+      <input type="text" id="formula" value="Math.sin(x) * Math.cos(x/2)" placeholder="pl. Math.sin(x)">
+      <button onclick="plotFunction()">Ábrázolás</button>
+      <div style="height:450px; margin-top:15px;">
+        <canvas id="plotCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gondolattérkép -->
+  <div id="tab2" class="content">
     <div class="card">
       <h2>Gondolattérkép (Markmap)</h2>
-      <textarea id="markdown" rows="8" style="width:100%; font-family:monospace;"># AMISEARCH Multitool
-## Fő funkciók
+      <textarea id="markdown" rows="12" style="font-family:monospace; font-size:14px;"># AMISEARCH Multitool
+## Fő Funkciók
 ### Függvényábrázoló
-- Interaktív grafikonok
-### AI Kvíz
-- Téma alapú generálás
+- Interaktív 2D grafikon
+### AI Kvízgenerátor
+- Téma alapú
+- Szint: Könnyű / Közepes / Nehéz
+- Középiskola / Egyetem
 ### Gondolattérkép
-- Markdown → interaktív fa
-## Példa
+- Markdown → Mindmap
+## Példa Témák
 - Deltioid
-- Beton anyagai</textarea>
+- Beton anyagai
+- Kémia</textarea>
       <button onclick="renderMindmap()">🧠 Renderelés</button>
-      <div id="mindmap"></div>
+      <div id="mindmap" style="margin-top:15px;"></div>
     </div>
   </div>
 
   <!-- AI Kvíz -->
-  <div id="tab3" class="content hidden">
+  <div id="tab3" class="content">
     <div class="card">
       <h2>AI Kvízgenerátor</h2>
-      <input type="text" id="quizTopic" value="Beton anyagai" placeholder="Téma pl. Deltioid, Kémia...">
-      
+      <input type="text" id="quizTopic" value="Beton anyagai" placeholder="Téma...">
       <select id="quizLevel">
         <option value="könnyű">Könnyű (Középiskola)</option>
         <option value="közepes" selected>Közepes</option>
         <option value="nehéz">Nehéz (Egyetem)</option>
       </select>
-      
       <button onclick="generateQuiz()">📝 Kvíz Generálása</button>
-      
-      <div id="quizResult" style="margin-top:20px;"></div>
+      <div id="quizResult" style="margin-top:25px;"></div>
     </div>
   </div>
 
@@ -98,87 +105,96 @@
     let currentChart = null;
 
     function switchTab(n) {
-      document.querySelectorAll('.content').forEach(el => el.classList.add('hidden'));
-      document.getElementById('tab' + n).classList.remove('hidden');
-      document.querySelectorAll('.tab').forEach((el, i) => {
-        el.classList.toggle('active', i === n);
-      });
+      document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+      document.getElementById('tab' + n).classList.add('active');
+      document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === n));
     }
 
-    // Függvényábrázoló
     function plotFunction() {
-      const formula = document.getElementById('formula').value;
+      const formulaStr = document.getElementById('formula').value;
       const canvas = document.getElementById('plotCanvas');
-      const ctx = canvas.getContext('2d');
-      
       if (currentChart) currentChart.destroy();
-      
-      const xValues = [];
-      const yValues = [];
+
+      const xValues = [], yValues = [];
       for (let x = -10; x <= 10; x += 0.1) {
-        xValues.push(x);
+        xValues.push(x.toFixed(1));
         try {
-          yValues.push(eval(formula.replace(/x/g, x)));
-        } catch(e) { yValues.push(0); }
+          yValues.push(new Function('x', 'return ' + formulaStr)(x));
+        } catch(e) { yValues.push(NaN); }
       }
-      
-      currentChart = new Chart(ctx, {
+
+      currentChart = new Chart(canvas, {
         type: 'line',
-        data: { labels: xValues, datasets: [{ label: formula, data: yValues, borderColor: '#4a6bff', tension: 0.4 }] },
-        options: { responsive: true, scales: { y: { beginAtZero: false } } }
+        data: {
+          labels: xValues,
+          datasets: [{ label: formulaStr, data: yValues, borderColor: '#4a6bff', tension: 0.4, borderWidth: 3 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
       });
     }
 
     // Markmap
-    let markmapInstance = null;
-    async function renderMindmap() {
-      const markdown = document.getElementById('markdown').value;
+    let mmInstance = null;
+    function renderMindmap() {
+      const md = document.getElementById('markdown').value;
       const container = document.getElementById('mindmap');
       container.innerHTML = '<svg id="mm-svg" style="width:100%; height:70vh;"></svg>';
-      
-      const { Transformer, Markmap } = window.markmap;
-      const transformer = new Transformer();
-      const { root } = transformer.transform(markdown);
-      
-      markmapInstance = Markmap.create('#mm-svg', null, root);
+
+      try {
+        const { Transformer } = window.markmap;
+        const transformer = new Transformer();
+        const { root } = transformer.transform(md);
+
+        const { Markmap } = window.markmap;
+        mmInstance = Markmap.create('#mm-svg', { 
+          initialExpandLevel: 2,
+          color: ['#4a6bff']
+        }, root);
+      } catch (e) {
+        container.innerHTML = `<p style="color:red; padding:20px;">Markmap hiba: ${e.message}<br><small>Próbáld újra a Renderelés gombot.</small></p>`;
+        console.error(e);
+      }
     }
 
-    // Kvíz generátor (client-side mock + egyszerű logika)
-    async function generateQuiz() {
+    // Kvíz
+    function generateQuiz() {
       const topic = document.getElementById('quizTopic').value || "Általános";
       const level = document.getElementById('quizLevel').value;
+      const resultDiv = document.getElementById('quizResult');
       
-      const result = document.getElementById('quizResult');
-      result.innerHTML = `<p><strong>${topic} — ${level.toUpperCase()} kvíz generálása...</strong></p>`;
-      
-      // Egyszerű mock kvíz (valódi AI-hoz később API-t köthetsz)
+      resultDiv.innerHTML = `<p>Generálás... (${topic} - ${level})</p>`;
+
       const questions = [
-        { q: `Mi a legfontosabb jellemzője a ${topic}-nak?`, a: ["Opció 1", "Opció 2", "Opció 3", "Opció 4"], correct: 0 },
-        { q: `Hogyan osztályozzuk a ${topic} szintjén?`, a: ["Alacsony", "Közepes", "Magas"], correct: 1 },
+        { q: `Mi a legfontosabb tulajdonsága a ${topic}-nak?`, opts: ["A", "B", "C", "D"], correct: 0 },
+        { q: `${topic} alkalmazása a gyakorlatban?`, opts: ["1", "2", "3", "4"], correct: 1 },
+        { q: `Hogyan osztályozzuk ${level} szinten?`, opts: ["Alap", "Közepes", "Haladó"], correct: 2 }
       ];
-      
-      let html = `<h3>${topic} Kvíz (${level})</h3>`;
-      questions.forEach((item, i) => {
-        html += `<div class="quiz-question"><p><strong>${i+1}. ${item.q}</strong></p>`;
-        item.a.forEach((opt, j) => {
-          html += `<label><input type="radio" name="q${i}" value="${j}"> ${opt}</label><br>`;
+
+      let html = `<h3>${topic} — ${level.toUpperCase()} kvíz</h3>`;
+      questions.forEach((q, i) => {
+        html += `<div class="quiz-question"><strong>${i+1}. ${q.q}</strong><br>`;
+        q.opts.forEach((opt, j) => {
+          html += `<label style="display:block; margin:8px 0;"><input type="radio" name="q${i}" value="${j}"> ${opt}</label>`;
         });
         html += `</div>`;
       });
       html += `<button onclick="showAnswers()">✅ Megoldások mutatása</button>`;
-      result.innerHTML = html;
-      
-      window.quizAnswers = questions.map(q => q.correct);
+      resultDiv.innerHTML = html;
+
+      window.currentAnswers = questions.map(q => q.correct);
     }
 
     function showAnswers() {
-      alert("Helyes válaszok: " + window.quizAnswers.map((a,i) => `${i+1}. opció ${a+1}`).join("\n"));
+      if (!window.currentAnswers) return alert("Nincs kvíz!");
+      alert("Helyes válaszok:\n" + window.currentAnswers.map((a,i) => `${i+1}. ${a+1}. opció`).join("\n"));
     }
 
     // Indítás
     window.onload = () => {
-      switchTab(0);
-      setTimeout(() => renderMindmap(), 800); // alapértelmezett mindmap
+      plotFunction();
+      setTimeout(() => {
+        renderMindmap();
+      }, 800);
     };
   </script>
 </body>
