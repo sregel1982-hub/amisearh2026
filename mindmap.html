@@ -4,26 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AMISEARCH - Multitool</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <!-- KaTeX -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Mermaid.js -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <!-- Markmap -->
   <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.17.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.17.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17.0"></script>
 
   <style>
     :root {
@@ -35,488 +26,1361 @@
     }
     * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
     body { background-color: #F9FAFB; }
-   .glass-card {
-      background: rgba(255, 255, 255, 0.9);
+    .glass-card {
+      background: rgba(255,255,255,0.9);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(108, 92, 231, 0.1);
+      border: 1px solid rgba(108,92,231,0.1);
     }
-   .gradient-text {
+    .gradient-text {
       background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-   .btn-primary {
+    .btn-primary {
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
       transition: all 0.3s ease;
     }
-   .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px -5px rgba(108, 92, 231, 0.4);
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(108,92,231,0.4); }
+    .tab-active { border-color: var(--primary) !important; color: var(--primary) !important; background-color: var(--primary-soft) !important; }
+    .tab-active i { color: var(--primary) !important; }
+    @keyframes pulse-slow { 0%,100%{opacity:0.2;} 50%{opacity:0.6;} }
+    .loading-pulse { animation: pulse-slow 2s infinite ease-in-out; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 1s linear infinite; }
+    .answer-btn {
+      width: 100%; text-align: left; padding: 12px 16px;
+      border: 1.5px solid #e5e7eb; border-radius: 12px;
+      background: white; cursor: pointer; font-size: 14px;
+      transition: all 0.2s; font-family: 'Poppins', sans-serif;
     }
-   .tab-active {
-      border-color: var(--primary);
-      color: var(--primary);
-      background-color: var(--primary-soft);
-    }
-    @keyframes pulse-slow {
-      0%, 100% { opacity: 0.2; }
-      50% { opacity: 0.6; }
-    }
-   .loading-pulse { animation: pulse-slow 2s infinite ease-in-out; }
-   .timer-warning { color: #EF4444; animation: pulse-slow 1s infinite; }
+    .answer-btn:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-soft); }
+    .answer-btn.correct { border-color: #10b981 !important; background: #ecfdf5 !important; color: #065f46; }
+    .answer-btn.wrong { border-color: #ef4444 !important; background: #fef2f2 !important; color: #991b1b; }
+    .answer-btn:disabled { cursor: not-allowed; opacity: 0.8; }
+    #mindmapDisplay svg { min-height: 400px; }
+    .lang-btn { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1.5px solid #e5e7eb; background: white; cursor: pointer; transition: all 0.2s; }
+    .lang-btn.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+    #quizMainCard { display: none; }
+    #quizMainCard.visible { display: block; }
+    .progress-bar { height: 6px; background: #e5e7eb; border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 99px; transition: width 0.4s ease; }
+    .timer-ring { position: relative; width: 48px; height: 48px; }
+    .timer-ring svg { transform: rotate(-90deg); }
+    .timer-ring circle { fill: none; stroke-width: 4; }
+    .timer-bg { stroke: #e5e7eb; }
+    .timer-fill { stroke: var(--primary); stroke-dasharray: 126; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+    .timer-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; font-weight: 700; color: var(--primary); }
+    .timer-warning .timer-fill { stroke: #ef4444; }
+    .timer-warning .timer-text { color: #ef4444; }
   </style>
 </head>
 <body class="text-gray-900 min-h-screen flex flex-col">
 
-  <!-- Header -->
-  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16 md:h-20">
-        <div class="flex items-center space-x-2">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] flex items-center justify-center">
-            <i class="fa-solid fa-graduation-cap text-white text-xl"></i>
-          </div>
-          <span class="text-2xl font-extrabold gradient-text">AMISEARCH</span>
-          <span class="text-xs bg-purple-100 text-[#6C5CE7] px-2 py-1 rounded-full font-bold" data-i18n="multitool">Multitool</span>
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16 md:h-20">
+      <div class="flex items-center space-x-2">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] flex items-center justify-center">
+          <i class="fa-solid fa-graduation-cap text-white text-xl"></i>
         </div>
-
-        <div class="flex items-center gap-4">
-          <select id="lang-selector" onchange="changeLanguage()" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5 outline-none">
-            <option value="hu">🇭🇺 Magyar</option>
-            <option value="en">🇬🇧 English</option>
-          </select>
-          <a href="javascript:history.back()" class="text-gray-600 hover:text-[#6C5CE7] transition flex items-center gap-2 font-medium">
-            <i class="fa-solid fa-arrow-left"></i> <span data-i18n="back">Vissza</span>
-          </a>
-        </div>
+        <span class="text-2xl font-extrabold gradient-text">AMISEARCH</span>
+        <span class="text-xs bg-purple-100 text-[#6C5CE7] px-2 py-1 rounded-full font-bold">Multitool</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="setLang('hu')" id="btn-lang-hu" class="lang-btn active">🇭🇺 Magyar</button>
+        <button onclick="setLang('en')" id="btn-lang-en" class="lang-btn">🇬🇧 English</button>
+        <a href="javascript:history.back()" class="text-gray-600 hover:text-[#6C5CE7] transition flex items-center gap-2 font-medium text-sm">
+          <i class="fa-solid fa-arrow-left"></i> <span data-i18n="back">Vissza</span>
+        </a>
       </div>
     </div>
-  </header>
+  </div>
+</header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="mb-8 text-center md:text-left">
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-2" data-i18n="title">Vizualizációs & Tesztközpont</h1>
+    <p class="text-gray-600" data-i18n="subtitle">Ábrázolj képleteket, folyamatokat, gondolattérképeket, vagy teszteld a tudásod a kvízgenerátorral.</p>
+  </div>
 
-    <div class="mb-8 text-center md:text-left">
-      <h1 class="text-3xl font-extrabold text-gray-900 mb-2" data-i18n="title">Vizualizációs & Tesztközpont</h1>
-      <p class="text-gray-600" data-i18n="subtitle">Ábrázolj képleteket, folyamatokat, gondolattérképeket, vagy teszteld a tudásod a kvízgenerátorral.</p>
-    </div>
+  <!-- Tabs -->
+  <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-8">
+    <button onclick="switchTab('math')" id="tab-math" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2 tab-active">
+      <i class="fa-solid fa-chart-line text-2xl"></i>
+      <span class="font-bold text-xs" data-i18n="tab_math">Függvény</span>
+    </button>
+    <button onclick="switchTab('graph')" id="tab-graph" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
+      <i class="fa-solid fa-circle-nodes text-2xl text-gray-500"></i>
+      <span class="font-bold text-xs" data-i18n="tab_graph">Struktúrák</span>
+    </button>
+    <button onclick="switchTab('mermaid')" id="tab-mermaid" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
+      <i class="fa-solid fa-diagram-project text-2xl text-gray-500"></i>
+      <span class="font-bold text-xs" data-i18n="tab_mermaid">Folyamat</span>
+    </button>
+    <button onclick="switchTab('mindmap')" id="tab-mindmap" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
+      <i class="fa-solid fa-sitemap text-2xl text-gray-500"></i>
+      <span class="font-bold text-xs" data-i18n="tab_mindmap">Gondolattérkép</span>
+    </button>
+    <button onclick="switchTab('stats')" id="tab-stats" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
+      <i class="fa-solid fa-chart-pie text-2xl text-gray-500"></i>
+      <span class="font-bold text-xs" data-i18n="tab_stats">Statisztika</span>
+    </button>
+    <button onclick="switchTab('quiz')" id="tab-quiz" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
+      <i class="fa-solid fa-lightbulb text-2xl text-gray-500"></i>
+      <span class="font-bold text-xs" data-i18n="tab_quiz">AI Kvíz</span>
+    </button>
+  </div>
 
-    <!-- Tabs -->
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-8">
-      <button onclick="switchTab('math')" id="tab-math" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2 tab-active">
-        <i class="fa-solid fa-chart-line text-2xl text-[#6C5CE7]"></i>
-        <span class="font-bold text-sm" data-i18n="tab_math">Függvény</span>
-      </button>
-      <button onclick="switchTab('graph')" id="tab-graph" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
-        <i class="fa-solid fa-circle-nodes text-2xl text-gray-500" id="icon-graph"></i>
-        <span class="font-bold text-sm" data-i18n="tab_graph">Struktúrák</span>
-      </button>
-      <button onclick="switchTab('mermaid')" id="tab-mermaid" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
-        <i class="fa-solid fa-diagram-project text-2xl text-gray-500" id="icon-mermaid"></i>
-        <span class="font-bold text-sm" data-i18n="tab_mermaid">Folyamat</span>
-      </button>
-      <button onclick="switchTab('mindmap')" id="tab-mindmap" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
-        <i class="fa-solid fa-sitemap text-2xl text-gray-500" id="icon-mindmap"></i>
-        <span class="font-bold text-sm" data-i18n="tab_mindmap">Gondolattérkép</span>
-      </button>
-      <button onclick="switchTab('stats')" id="tab-stats" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
-        <i class="fa-solid fa-chart-pie text-2xl text-gray-500" id="icon-stats"></i>
-        <span class="font-bold text-sm" data-i18n="tab_stats">Statisztika</span>
-      </button>
-      <button onclick="switchTab('quiz')" id="tab-quiz" class="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center justify-center gap-2">
-        <i class="fa-solid fa-lightbulb text-2xl text-gray-500" id="icon-quiz"></i>
-        <span class="font-bold text-sm" data-i18n="tab_quiz">AI Kvíz</span>
-      </button>
-    </div>
+  <div class="grid lg:grid-cols-12 gap-8 items-start">
 
-    <div class="grid lg:grid-cols-12 gap-8 items-start">
+    <!-- Controls -->
+    <div class="lg:col-span-4 space-y-6">
 
-      <!-- Vezérlő pult -->
-      <div class="lg:col-span-4 space-y-6">
+      <!-- Math -->
+      <div id="controls-math" class="glass-card rounded-2xl p-6 shadow-md space-y-4">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-square-root-variable text-[#6C5CE7] mr-2"></i><span data-i18n="math_settings">Függvény Beállítások</span></h3>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="formula">Matematikai Formula (f(x) =...)</label>
+          <input type="text" id="mathFormula" class="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#6C5CE7]/30 text-sm" value="Math.sin(x) * Math.cos(x/2)">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-semibold text-gray-500 mb-1">X Min</label><input type="number" id="xMin" class="w-full px-3 py-2 border rounded-xl outline-none text-sm" value="-10"></div>
+          <div><label class="block text-xs font-semibold text-gray-500 mb-1">X Max</label><input type="number" id="xMax" class="w-full px-3 py-2 border rounded-xl outline-none text-sm" value="10"></div>
+        </div>
+        <div class="space-y-1">
+          <p class="text-xs font-semibold text-gray-500" data-i18n="examples">Példák:</p>
+          <div class="flex flex-wrap gap-1">
+            <button onclick="setFormula('Math.sin(x)')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">sin(x)</button>
+            <button onclick="setFormula('Math.pow(x,2)')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">x²</button>
+            <button onclick="setFormula('Math.pow(x,3)-3*x')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">x³-3x</button>
+            <button onclick="setFormula('1/x')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">1/x</button>
+            <button onclick="setFormula('Math.exp(x)')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">eˣ</button>
+            <button onclick="setFormula('Math.log(Math.abs(x))')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">ln|x|</button>
+          </div>
+        </div>
+        <button onclick="drawMathFunction()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm" data-i18n="update_plot">Ábrázolás frissítése</button>
+      </div>
 
-        <!-- Math -->
-        <div id="controls-math" class="glass-card rounded-2xl p-6 shadow-md space-y-4">
-          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-square-root-variable text-[#6C5CE7] mr-2"></i><span data-i18n="math_settings">Függvény Beállítások</span></h3>
+      <!-- Graph -->
+      <div id="controls-graph" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-circle-nodes text-[#6C5CE7] mr-2"></i><span data-i18n="graph_settings">Struktúra / Molekula</span></h3>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="describe_structure">Írd le amit szeretnél látni:</label>
+          <textarea id="graphFreeText" rows="3" class="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#6C5CE7]/30 text-sm" placeholder="pl. vízmolekula, bináris keresőfa: 50,30,70, benzol, A-B-C-D gráf..."></textarea>
+        </div>
+        <div class="space-y-1">
+          <p class="text-xs font-semibold text-gray-500" data-i18n="quick_examples">Gyors példák:</p>
+          <div class="flex flex-wrap gap-1">
+            <button onclick="setGraphText('vízmolekula')" class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-200 hover:bg-blue-100">H₂O</button>
+            <button onclick="setGraphText('CO2 szén-dioxid')" class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-200 hover:bg-blue-100">CO₂</button>
+            <button onclick="setGraphText('metán CH4')" class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-200 hover:bg-blue-100">CH₄</button>
+            <button onclick="setGraphText('bináris keresőfa: 50,30,70,20,40,60,80')" class="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-lg border border-green-200 hover:bg-green-100">BST</button>
+            <button onclick="setGraphText('gráf: A-B, B-C, C-D, D-A, B-D')" class="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-lg border border-green-200 hover:bg-green-100">Gráf</button>
+            <button onclick="setGraphText('benzol molekula')" class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-200 hover:bg-blue-100">Benzol</button>
+            <button onclick="setGraphText('NaCl só ionkötés')" class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-200 hover:bg-blue-100">NaCl</button>
+            <button onclick="setGraphText('szabályos hatszög geometria')" class="px-2 py-1 bg-orange-50 text-orange-700 text-xs rounded-lg border border-orange-200 hover:bg-orange-100">Hatszög</button>
+          </div>
+        </div>
+        <button onclick="handleGraphRequest()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm" data-i18n="draw">Kirajzolás / AI-val</button>
+      </div>
+
+      <!-- Mermaid -->
+      <div id="controls-mermaid" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-diagram-project text-[#6C5CE7] mr-2"></i>Folyamatábra</h3>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="mermaid_topic">Téma vagy Mermaid kód:</label>
+          <textarea id="mermaidCode" rows="8" class="w-full p-3 border rounded-xl font-mono text-xs bg-gray-50 outline-none focus:ring-2 focus:ring-[#6C5CE7]/30" placeholder="Írj egy témát (pl. 'fotoszintézis folyamata') vagy Mermaid kódot..."></textarea>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="generateMermaidFromTopic()" class="flex-1 py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i><span data-i18n="ai_generate">AI Generálás</span>
+          </button>
+          <button onclick="renderMermaidDirect()" class="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm" data-i18n="render">Renderel</button>
+        </div>
+      </div>
+
+      <!-- Mindmap -->
+      <div id="controls-mindmap" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-sitemap text-[#6C5CE7] mr-2"></i><span data-i18n="mindmap_settings">Gondolattérkép</span></h3>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="mindmap_topic">Téma (AI generálja) vagy Markdown:</label>
+          <textarea id="mindmapInput" rows="7" class="w-full p-3 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#6C5CE7]/30" placeholder="# Téma&#10;## Alpont 1&#10;- részlet&#10;## Alpont 2"></textarea>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="generateMindmapAI()" class="flex-1 py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm flex items-center justify-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i><span data-i18n="ai_generate">AI Generálás</span>
+          </button>
+          <button onclick="renderMarkmap()" class="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm" data-i18n="render">Renderel</button>
+        </div>
+        <p class="text-xs text-gray-400" data-i18n="mindmap_hint">Írj egy témát és az AI elkészíti, vagy szerkeszd kézzel a Markdown-t.</p>
+      </div>
+
+      <!-- Stats -->
+      <div id="controls-stats" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-chart-pie text-[#6C5CE7] mr-2"></i><span data-i18n="chart_data">Diagram Adatok</span></h3>
+        <select id="chartType" class="w-full px-3 py-2 border rounded-xl outline-none text-sm" onchange="drawStatsChart()">
+          <option value="bar" data-i18n="bar_chart">Oszlop</option>
+          <option value="line" data-i18n="line_chart">Vonal</option>
+          <option value="pie" data-i18n="pie_chart">Kör</option>
+          <option value="doughnut" data-i18n="donut_chart">Fánk</option>
+        </select>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="labels">Kategóriák (vesszővel):</label>
+          <input type="text" id="chartLabels" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" value="Hétfő, Kedd, Szerda, Csütörtök, Péntek">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="values">Értékek (vesszővel):</label>
+          <input type="text" id="chartValues" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" value="12, 19, 3, 17, 8">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="chart_title">Diagram neve:</label>
+          <input type="text" id="chartTitle" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" data-i18n-placeholder="chart_title_placeholder" placeholder="pl. Heti látogatók">
+        </div>
+        <button onclick="drawStatsChart()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm" data-i18n="update_chart">Frissítés</button>
+      </div>
+
+      <!-- Quiz -->
+      <div id="controls-quiz" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-lightbulb text-[#6C5CE7] mr-2"></i><span data-i18n="quiz_settings">AI Kvíz Beállítások</span></h3>
+
+        <div class="bg-purple-50 p-3 rounded-xl border border-[#6C5CE7]/20 space-y-2">
+          <label class="block text-xs font-bold text-[#6C5CE7]">Gemini API Kulcs</label>
+          <div class="relative">
+            <input type="password" id="userGeminiKey" class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-xs outline-none bg-white" placeholder="AIza...">
+            <button onclick="toggleKeyVisibility()" class="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600"><i class="fa-solid fa-eye" id="keyEyeIcon"></i></button>
+          </div>
+          <p class="text-xs text-gray-400" data-i18n="key_hint">Mentve marad a böngészőben.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="formula">Matematikai Formula (f(x) =...)</label>
-            <input type="text" id="mathFormula" class="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#6C5CE7]/30" value="Math.sin(x) * Math.cos(x/2)">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 mb-1">X Min</label>
-              <input type="number" id="xMin" class="w-full px-3 py-2 border rounded-xl outline-none" value="-10">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 mb-1">X Max</label>
-              <input type="number" id="xMax" class="w-full px-3 py-2 border rounded-xl outline-none" value="10">
-            </div>
-          </div>
-          <button onclick="drawMathFunction()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg" data-i18n="update_plot">Ábrázolás frissítése</button>
-        </div>
-
-        <!-- Graph -->
-        <div id="controls-graph" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
-          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-circle-nodes text-[#6C5CE7] mr-2"></i><span data-i18n="graph_settings">Struktúra Kiválasztása</span></h3>
-          <select id="graphCategory" class="w-full px-3 py-2 border rounded-xl outline-none" onchange="onGraphCategoryChange()">
-            <option value="bst">Bináris Keresőfa (BST)</option>
-            <option value="custom">Tetszőleges Gráf</option>
-            <option value="molecule">Molekulák</option>
-            <option value="geometry">Geometria</option>
-          </select>
-          <div id="group-bst">
-            <input type="text" id="bstData" class="w-full px-3 py-2 border rounded-xl outline-none" value="50, 30, 70, 20, 40, 60, 80">
-          </div>
-          <div id="group-custom" class="hidden">
-            <textarea id="customGraphData" rows="3" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" placeholder="A-B, B-C, C-D"></textarea>
-          </div>
-          <div id="group-molecule" class="hidden">
-            <select id="selectedMolecule" class="w-full px-3 py-2 border rounded-xl outline-none">
-              <option value="nacl">NaCl</option><option value="h2o">H₂O</option><option value="co2">CO₂</option><option value="ch4">CH₄</option>
-            </select>
-          </div>
-          <div id="group-geometry" class="hidden">
-            <select id="selectedGeometry" class="w-full px-3 py-2 border rounded-xl outline-none">
-              <option value="deltoid">Deltoid</option><option value="triangle">Háromszög</option><option value="hexagon">Hatszög</option>
-            </select>
-          </div>
-          <button onclick="drawInformaticsGraph()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg" data-i18n="draw">Kirajzolás</button>
-        </div>
-
-        <!-- Mermaid -->
-        <div id="controls-mermaid" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
-          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-code text-[#6C5CE7] mr-2"></i>Mermaid</h3>
-          <textarea id="mermaidCode" rows="8" class="w-full p-3 border rounded-xl font-mono text-xs bg-gray-50 outline-none focus:ring-2 focus:ring-[#6C5CE7]/30"></textarea>
-          <button onclick="renderMermaidDiagram()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg" data-i18n="regenerate">Újragenerálás</button>
-        </div>
-
-        <!-- Mindmap -->
-        <div id="controls-mindmap" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
-          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-sitemap text-[#6C5CE7] mr-2"></i><span data-i18n="mindmap">Gondolattérkép</span></h3>
-          <textarea id="mindmapInput" rows="6" class="w-full p-3 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#6C5CE7]/30" placeholder="# Téma&#10;- Alpont 1&#10;- Alpont 2"></textarea>
-          <button onclick="renderMarkmap()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg" data-i18n="generate">Generálás</button>
-        </div>
-
-        <!-- Stats -->
-        <div id="controls-stats" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
-          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-database text-[#6C5CE7] mr-2"></i><span data-i18n="chart_data">Diagram Adatok</span></h3>
-          <select id="chartType" class="w-full px-3 py-2 border rounded-xl outline-none" onchange="drawStatsChart()">
-            <option value="bar">Oszlop</option><option value="line">Vonal</option><option value="pie">Kör</option>
-          </select>
-          <input type="text" id="chartLabels" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" value="Hétfő, Kedd, Szerda">
-          <input type="text" id="chartValues" class="w-full px-3 py-2 border rounded-xl outline-none text-xs" value="12, 19, 3">
-          <button onclick="drawStatsChart()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg" data-i18n="update_chart">Frissítés</button>
-        </div>
-
-        <!-- Quiz -->
-        <div id="controls-quiz" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
-          <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-circle-question text-[#6C5CE7] mr-2"></i><span data-i18n="quiz_settings">Kvíz Beállítások</span></h3>
-
-          <div class="bg-purple-50/50 p-3 rounded-xl border border-[#6C5CE7]/20 space-y-2">
-            <label class="block text-xs font-bold text-[#6C5CE7]">Gemini API Kulcs</label>
-            <div class="relative">
-              <input type="password" id="userGeminiKey" class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-xl text-xs outline-none" placeholder="Beillesztés...">
-              <button onclick="toggleKeyVisibility()" class="absolute right-2.5 top-2 text-gray-400 hover:text-gray-600">
-                <i class="fa-solid fa-eye" id="keyEyeIcon"></i>
-              </button>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <select id="quizLevel" class="px-3 py-2 border rounded-xl outline-none text-xs">
+            <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="level">Szint</label>
+            <select id="quizLevel" class="w-full px-3 py-2 border rounded-xl outline-none text-xs">
               <option value="highschool" data-i18n="highschool">Középiskola</option>
               <option value="university" data-i18n="university">Egyetem</option>
             </select>
-            <select id="quizDifficulty" class="px-3 py-2 border rounded-xl outline-none text-xs">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="difficulty">Nehézség</label>
+            <select id="quizDifficulty" class="w-full px-3 py-2 border rounded-xl outline-none text-xs">
               <option value="easy" data-i18n="easy">Könnyű</option>
               <option value="medium" data-i18n="medium">Közepes</option>
               <option value="hard" data-i18n="hard">Nehéz</option>
             </select>
           </div>
+        </div>
 
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="subject">Tantárgy</label>
           <select id="quizSubject" class="w-full px-3 py-2 border rounded-xl outline-none text-xs">
-            <option value="math">Matematika</option>
-            <option value="cs">Informatika</option>
-            <option value="chemistry">Kémia</option>
-            <option value="physics">Fizika</option>
+            <option value="math" data-i18n="math">Matematika</option>
+            <option value="cs" data-i18n="cs">Informatika</option>
+            <option value="chemistry" data-i18n="chemistry">Kémia</option>
+            <option value="physics" data-i18n="physics">Fizika</option>
+            <option value="biology" data-i18n="biology">Biológia</option>
+            <option value="history" data-i18n="history">Történelem</option>
+            <option value="literature" data-i18n="literature">Irodalom</option>
+            <option value="geography" data-i18n="geography">Földrajz</option>
           </select>
+        </div>
 
-          <input type="text" id="quizCustomTopic" class="w-full px-3 py-2 border rounded-xl text-xs outline-none" data-i18n-placeholder="custom_topic" placeholder="Egyedi téma...">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="custom_topic_label">Egyedi téma (opcionális):</label>
+          <input type="text" id="quizCustomTopic" class="w-full px-3 py-2 border rounded-xl text-xs outline-none" data-i18n-placeholder="custom_topic" placeholder="pl. deriválás, fotoszintézis...">
+        </div>
 
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="quizTimerEnabled" checked class="rounded">
-            <label for="quizTimerEnabled" class="text-xs text-gray-600" data-i18n="timer">Időzítő</label>
-            <input type="number" id="quizTimeLimit" value="30" class="w-16 px-2 py-1 border rounded-lg text-xs">
-            <span class="text-xs text-gray-500" data-i18n="seconds">mp/kérdés</span>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="num_questions">Kérdések száma</label>
+            <select id="quizCount" class="w-full px-3 py-2 border rounded-xl outline-none text-xs">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+            </select>
           </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="time_per_q">Idő / kérdés (mp)</label>
+            <select id="quizTimeLimit" class="w-full px-3 py-2 border rounded-xl outline-none text-xs">
+              <option value="15">15</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+              <option value="0" data-i18n="no_limit">Nincs limit</option>
+            </select>
+          </div>
+        </div>
 
-          <button onclick="startQuiz(true)" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
-            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i> <span data-i18n="generate_ai">Generálás AI-val</span>
+        <button onclick="startQuiz()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="generate_ai">Generálás AI-val</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Display -->
+    <div class="lg:col-span-8 flex flex-col gap-6">
+      <div class="glass-card rounded-2xl p-6 shadow-md flex-1 flex flex-col">
+
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="font-bold text-gray-800" data-i18n="display">Kijelző</span>
+          </div>
+          <button id="downloadBtn" onclick="downloadAsPNG()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition flex items-center gap-1">
+            <i class="fa-solid fa-download"></i> <span data-i18n="download">Letöltés PNG</span>
           </button>
         </div>
 
-      </div>
+        <!-- Loading overlay -->
+        <div id="loadingOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-xl z-10" style="position:relative; min-height:400px;">
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 spinner"></div>
+            <p class="text-sm font-semibold text-purple-600 loading-pulse" id="loadingText">Generálás...</p>
+          </div>
+        </div>
 
-      <!-- Megjelenítő -->
-      <div class="lg:col-span-8 flex flex-col gap-6">
-        <div class="glass-card rounded-2xl p-6 shadow-md flex-1 flex flex-col min-h-">
+        <div class="flex-1 flex items-start justify-center relative bg-white rounded-xl border border-gray-100 p-4 overflow-auto" style="min-height:420px;">
 
-          <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
-            <div class="flex items-center space-x-2">
-              <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span class="font-bold text-gray-800" id="output-title" data-i18n="display">Kijelző</span>
-            </div>
-            <button id="downloadBtn" onclick="downloadAsPNG()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition flex items-center gap-1">
-              <i class="fa-solid fa-download"></i> <span data-i18n="download">Letöltés PNG</span>
-            </button>
+          <canvas id="mathCanvas" class="w-full" style="display:block;"></canvas>
+
+          <div id="graphContainer" class="hidden w-full h-full flex items-center justify-center" style="min-height:400px;">
+            <svg id="graphSvg" class="w-full h-full" style="min-height:400px;"></svg>
           </div>
 
-          <div class="flex-1 flex items-center justify-center relative bg-white rounded-xl border border-gray-100 p-4 overflow-hidden min-h-">
+          <div id="mermaidDisplay" class="hidden w-full overflow-auto flex items-center justify-center p-4" style="min-height:400px;"></div>
 
-            <canvas id="mathCanvas" class="w-full h-full max-h- block"></canvas>
-            <div id="graphContainer" class="hidden w-full h-full min-h- flex items-center justify-center">
-              <svg id="graphSvg" class="w-full h-full min-h-"></svg>
-            </div>
-            <div id="mermaidDisplay" class="hidden w-full h-full overflow-auto flex items-center justify-center p-4"></div>
-            <div id="mindmapDisplay" class="hidden w-full h-full">
-              <svg id="markmapSvg" class="w-full h-full"></svg>
-            </div>
-            <div id="statsChartWrapper" class="hidden w-full h-full max-h- p-2">
-              <canvas id="statsCanvas"></canvas>
-            </div>
+          <div id="mindmapDisplay" class="hidden w-full" style="min-height:420px;">
+            <svg id="markmapSvg" class="w-full" style="min-height:420px;"></svg>
+          </div>
 
-            <!-- Quiz -->
-            <div id="quizContainer" class="hidden w-full max-w-xl flex flex-col gap-4 py-4 px-2">
-              <div id="quizLoadingScreen" class="hidden flex flex-col items-center justify-center py-12 space-y-4">
-                <div class="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"></div>
-                <p class="text-sm font-semibold text-purple-600 loading-pulse" data-i18n="ai_generating">AI generálja a kvízt...</p>
-              </div>
+          <div id="statsChartWrapper" class="hidden w-full p-2" style="min-height:400px;">
+            <canvas id="statsCanvas"></canvas>
+          </div>
 
-              <div id="quizMainCard" class="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-4">
-                <div class="flex justify-between items-center text-xs text-gray-500 font-semibold uppercase">
-                  <span id="quizProgressLabel">1/5</span>
-                  <div class="flex items-center gap-3">
-                    <span id="quizTimer" class="font-mono text-base text-[#6C5CE7]"></span>
-                    <span id="quizScoreLabel">0</span>
+          <!-- Quiz -->
+          <div id="quizContainer" class="hidden w-full flex flex-col gap-4 py-2" style="min-height:400px;">
+            <div id="quizStartScreen" class="flex flex-col items-center justify-center gap-4 py-16">
+              <i class="fa-solid fa-lightbulb text-5xl text-[#6C5CE7]"></i>
+              <p class="text-lg font-bold text-gray-700" data-i18n="quiz_start_hint">Adj meg beállításokat és kattints a generálásra!</p>
+            </div>
+            <div id="quizLoadingScreen" class="hidden flex flex-col items-center justify-center py-16 gap-4">
+              <div class="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-600 spinner"></div>
+              <p class="text-sm font-semibold text-purple-600 loading-pulse" data-i18n="ai_generating">AI generálja a kvízt...</p>
+            </div>
+            <div id="quizMainCard" class="space-y-4">
+              <div class="progress-bar"><div class="progress-fill" id="quizProgressFill" style="width:0%"></div></div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-semibold text-gray-500" id="quizProgressLabel">1/10</span>
+                <div class="flex items-center gap-3">
+                  <div class="timer-ring" id="timerRing">
+                    <svg viewBox="0 0 44 44" width="44" height="44">
+                      <circle class="timer-bg" cx="22" cy="22" r="20"/>
+                      <circle class="timer-fill" id="timerCircle" cx="22" cy="22" r="20"/>
+                    </svg>
+                    <div class="timer-text" id="timerText">30</div>
                   </div>
-                <div id="quizQuestionText" class="font-bold text-lg text-gray-900 leading-snug"></div>
-                <div id="quizAnswersGrid" class="grid gap-3 pt-2"></div>
+                  <div class="text-right">
+                    <div class="text-xs text-gray-500" data-i18n="score">Pontszám</div>
+                    <div class="text-lg font-bold text-[#6C5CE7]" id="quizScoreLabel">0</div>
+                  </div>
+                </div>
               </div>
-              <div id="quizExplanationBox" class="hidden p-4 rounded-xl text-sm leading-relaxed border transition"></div>
+              <div class="bg-gray-50 border border-gray-200 rounded-2xl p-5">
+                <div id="quizQuestionText" class="font-bold text-base text-gray-900 leading-snug mb-4"></div>
+                <div id="quizAnswersGrid" class="space-y-2"></div>
+              </div>
+              <div id="quizExplanationBox" class="hidden p-4 rounded-xl text-sm leading-relaxed border"></div>
+              <button id="quizNextBtn" onclick="nextQuestion()" class="hidden w-full py-3 btn-primary text-white font-bold rounded-xl text-sm" data-i18n="next">Következő</button>
             </div>
-
-          </div>
-
-          <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wider mb-2" data-i18n="info">Információ</h4>
-            <div id="interactive-info" class="text-xs text-gray-600"></div>
+            <div id="quizResultScreen" class="hidden flex flex-col items-center gap-4 py-8">
+              <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
+                <i class="fa-solid fa-trophy text-white text-3xl"></i>
+              </div>
+              <h2 class="text-2xl font-extrabold text-gray-900" data-i18n="quiz_done">Gratulálunk!</h2>
+              <div id="quizFinalScore" class="text-4xl font-extrabold gradient-text"></div>
+              <p class="text-gray-500 text-sm" id="quizFinalMsg"></p>
+              <button onclick="startQuiz()" class="py-3 px-8 btn-primary text-white font-bold rounded-xl text-sm" data-i18n="play_again">Újra játszani</button>
+            </div>
           </div>
 
         </div>
+
+        <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wider mb-1" data-i18n="info">Információ</h4>
+          <div id="interactive-info" class="text-xs text-gray-600" data-i18n="info_default">Az aktív megjelenítő eredménye itt látható.</div>
+        </div>
+
       </div>
     </div>
-  </main>
+  </div>
+</main>
 
-  <footer class="bg-gray-900 text-white py-8 mt-16 border-t border-gray-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
-      <p>© 2026 AMISEARCH. Multitool v3.0</p>
-    </div>
-  </footer>
+<footer class="bg-gray-900 text-white py-6 mt-12 border-t border-gray-800">
+  <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-400">
+    <p>© 2026 AMISEARCH · Multitool v3.1 · <span data-i18n="powered">Powered by Gemini 2.5 Flash</span></p>
+  </div>
+</footer>
 
 <script>
-const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
-let activeTab = 'math';
-let myChartInstance = null;
-let currentQuizQuestions = [];
-let currentQuestionIndex = 0;
-let currentScore = 0;
-let quizAnswered = false;
-let quizTimer = null;
-let timeLeft = 0;
-let currentLang = 'hu';
-
-// I18N
+// ===================== I18N =====================
 const translations = {
   hu: {
-    multitool: "Multitool", back: "Vissza", title: "Vizualizációs & Tesztközpont",
-    subtitle: "Ábrázolj képleteket, folyamatokat, gondolattérképeket, vagy teszteld a tudásod a kvízgenerátorral.",
-    tab_math: "Függvény", tab_graph: "Struktúrák", tab_mermaid: "Folyamat", tab_mindmap: "Gondolattérkép",
-    tab_stats: "Statisztika", tab_quiz: "AI Kvíz", display: "Kijelző", download: "Letöltés PNG",
-    math_settings: "Függvény Beállítások", formula: "Matematikai Formula (f(x) =...)", update_plot: "Ábrázolás frissítése",
-    graph_settings: "Struktúra Kiválasztása", draw: "Kirajzolás", generate: "Generálás", chart_data: "Diagram Adatok",
-    update_chart: "Frissítés", quiz_settings: "Kvíz Beállítások", highschool: "Középiskola", university: "Egyetem",
-    easy: "Könnyű", medium: "Közepes", hard: "Nehéz", custom_topic: "Egyedi téma...", timer: "Időzítő",
-    seconds: "mp/kérdés", generate_ai: "Generálás AI-val", info: "Információ", mindmap: "Gondolattérkép",
-    regenerate: "Újragenerálás", ai_generating: "AI generálja a kvízt...", correct: "Helyes!", incorrect: "Helytelen!",
-    next: "Következő", finish: "Befejezés", quiz_done: "Gratulálunk! Befejezted a kvízt.", final_score: "Végső pontszám:"
+    back:"Vissza", title:"Vizualizációs & Tesztközpont",
+    subtitle:"Ábrázolj képleteket, folyamatokat, gondolattérképeket, vagy teszteld a tudásod a kvízgenerátorral.",
+    tab_math:"Függvény", tab_graph:"Struktúrák", tab_mermaid:"Folyamat", tab_mindmap:"Gondolattérkép",
+    tab_stats:"Statisztika", tab_quiz:"AI Kvíz", display:"Kijelző", download:"Letöltés PNG",
+    math_settings:"Függvény Beállítások", formula:"Matematikai Formula (f(x) =...)", update_plot:"Ábrázolás frissítése",
+    examples:"Példák:", graph_settings:"Struktúra / Molekula", describe_structure:"Írd le amit szeretnél látni:",
+    quick_examples:"Gyors példák:", draw:"Kirajzolás / AI-val",
+    mermaid_topic:"Téma vagy Mermaid kód:", ai_generate:"AI Generálás", render:"Renderel",
+    mindmap_settings:"Gondolattérkép", mindmap_topic:"Téma (AI generálja) vagy Markdown:",
+    mindmap_hint:"Írj egy témát és az AI elkészíti, vagy szerkeszd kézzel.", chart_data:"Diagram Adatok",
+    bar_chart:"Oszlop", line_chart:"Vonal", pie_chart:"Kör", donut_chart:"Fánk",
+    labels:"Kategóriák (vesszővel):", values:"Értékek (vesszővel):", chart_title:"Diagram neve:",
+    chart_title_placeholder:"pl. Heti látogatók", update_chart:"Frissítés",
+    quiz_settings:"AI Kvíz Beállítások", key_hint:"Mentve marad a böngészőben.",
+    level:"Szint", difficulty:"Nehézség", highschool:"Középiskola", university:"Egyetem",
+    easy:"Könnyű", medium:"Közepes", hard:"Nehéz", subject:"Tantárgy",
+    math:"Matematika", cs:"Informatika", chemistry:"Kémia", physics:"Fizika",
+    biology:"Biológia", history:"Történelem", literature:"Irodalom", geography:"Földrajz",
+    custom_topic_label:"Egyedi téma (opcionális):", custom_topic:"pl. deriválás, fotoszintézis...",
+    num_questions:"Kérdések száma", time_per_q:"Idő / kérdés (mp)", no_limit:"Nincs limit",
+    generate_ai:"Generálás AI-val", score:"Pontszám", quiz_start_hint:"Adj meg beállításokat és kattints a generálásra!",
+    ai_generating:"AI generálja a kvízt...", next:"Következő", finish:"Befejezés",
+    quiz_done:"Gratulálunk!", play_again:"Újra játszani", info:"Információ",
+    info_default:"Az aktív megjelenítő eredménye itt látható.", powered:"Powered by Gemini 2.5 Flash",
+    correct:"Helyes! ✓", incorrect:"Helytelen ✗", explanation:"Magyarázat:",
+    generating:"Generálás folyamatban...", error:"Hiba történt!", key_missing:"Kérlek add meg a Gemini API kulcsodat!",
+    final_score:"Végső pontszámod:", out_of:"/ "
   },
   en: {
-    multitool: "Multitool", back: "Back", title: "Visualization & Test Center",
-    subtitle: "Plot formulas, processes, mindmaps, or test your knowledge with the quiz generator.",
-    tab_math: "Function", tab_graph: "Structures", tab_mermaid: "Process", tab_mindmap: "Mindmap",
-    tab_stats: "Statistics", tab_quiz: "AI Quiz", display: "Display", download: "Download PNG",
-    math_settings: "Function Settings", formula: "Mathematical Formula (f(x) =...)", update_plot: "Update Plot",
-    graph_settings: "Select Structure", draw: "Draw", generate: "Generate", chart_data: "Chart Data",
-    update_chart: "Update", quiz_settings: "Quiz Settings", highschool: "High School", university: "University",
-    easy: "Easy", medium: "Medium", hard: "Hard", custom_topic: "Custom topic...", timer: "Timer",
-    seconds: "s/question", generate_ai: "Generate with AI", info: "Information", mindmap: "Mindmap",
-    regenerate: "Regenerate", ai_generating: "AI is generating quiz...", correct: "Correct!", incorrect: "Incorrect!",
-    next: "Next", finish: "Finish", quiz_done: "Congratulations! You finished the quiz.", final_score: "Final score:"
+    back:"Back", title:"Visualization & Test Center",
+    subtitle:"Plot formulas, processes, mindmaps, or test your knowledge with the quiz generator.",
+    tab_math:"Function", tab_graph:"Structures", tab_mermaid:"Process", tab_mindmap:"Mindmap",
+    tab_stats:"Statistics", tab_quiz:"AI Quiz", display:"Display", download:"Download PNG",
+    math_settings:"Function Settings", formula:"Mathematical Formula (f(x) =...)", update_plot:"Update Plot",
+    examples:"Examples:", graph_settings:"Structure / Molecule", describe_structure:"Describe what you want to see:",
+    quick_examples:"Quick examples:", draw:"Draw / with AI",
+    mermaid_topic:"Topic or Mermaid code:", ai_generate:"AI Generate", render:"Render",
+    mindmap_settings:"Mindmap", mindmap_topic:"Topic (AI generates) or Markdown:",
+    mindmap_hint:"Type a topic and AI will create it, or edit Markdown manually.", chart_data:"Chart Data",
+    bar_chart:"Bar", line_chart:"Line", pie_chart:"Pie", donut_chart:"Doughnut",
+    labels:"Categories (comma-separated):", values:"Values (comma-separated):", chart_title:"Chart title:",
+    chart_title_placeholder:"e.g. Weekly visitors", update_chart:"Update",
+    quiz_settings:"AI Quiz Settings", key_hint:"Saved in your browser.",
+    level:"Level", difficulty:"Difficulty", highschool:"High School", university:"University",
+    easy:"Easy", medium:"Medium", hard:"Hard", subject:"Subject",
+    math:"Mathematics", cs:"Computer Science", chemistry:"Chemistry", physics:"Physics",
+    biology:"Biology", history:"History", literature:"Literature", geography:"Geography",
+    custom_topic_label:"Custom topic (optional):", custom_topic:"e.g. derivatives, photosynthesis...",
+    num_questions:"Number of questions", time_per_q:"Time / question (s)", no_limit:"No limit",
+    generate_ai:"Generate with AI", score:"Score", quiz_start_hint:"Configure settings and click generate!",
+    ai_generating:"AI is generating quiz...", next:"Next", finish:"Finish",
+    quiz_done:"Congratulations!", play_again:"Play again", info:"Information",
+    info_default:"The result of the active display is shown here.", powered:"Powered by Gemini 2.5 Flash",
+    correct:"Correct! ✓", incorrect:"Incorrect ✗", explanation:"Explanation:",
+    generating:"Generating...", error:"An error occurred!", key_missing:"Please enter your Gemini API key!",
+    final_score:"Your final score:", out_of:"/ "
   }
 };
 
+let currentLang = 'hu';
 function t(key) { return translations[currentLang][key] || key; }
 
-function changeLanguage() {
-  currentLang = document.getElementById('lang-selector').value;
+function setLang(lang) {
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  document.getElementById('btn-lang-hu').classList.toggle('active', lang === 'hu');
+  document.getElementById('btn-lang-en').classList.toggle('active', lang === 'en');
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    el.textContent = t(key);
+    if (el.tagName === 'OPTION') el.text = t(key);
+    else el.textContent = t(key);
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    const key = el.getAttribute('data-i18n-placeholder');
-    el.placeholder = t(key);
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
   });
-  document.documentElement.lang = currentLang;
+  document.querySelectorAll('option[data-i18n]').forEach(el => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
 }
 
-// INIT
+// ===================== TABS =====================
+let activeTab = 'math';
+const ALL_TABS = ['math','graph','mermaid','mindmap','stats','quiz'];
+
+function switchTab(tabId) {
+  activeTab = tabId;
+  ALL_TABS.forEach(id => {
+    document.getElementById(`tab-${id}`).classList.toggle('tab-active', id === tabId);
+    document.getElementById(`controls-${id}`).classList.toggle('hidden', id !== tabId);
+  });
+  const displays = ['mathCanvas','graphContainer','mermaidDisplay','mindmapDisplay','statsChartWrapper','quizContainer'];
+  displays.forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('downloadBtn').classList.toggle('hidden', tabId === 'quiz');
+
+  if (tabId === 'math') { document.getElementById('mathCanvas').classList.remove('hidden'); drawMathFunction(); }
+  else if (tabId === 'graph') { document.getElementById('graphContainer').classList.remove('hidden'); }
+  else if (tabId === 'mermaid') { document.getElementById('mermaidDisplay').classList.remove('hidden'); }
+  else if (tabId === 'mindmap') { document.getElementById('mindmapDisplay').classList.remove('hidden'); }
+  else if (tabId === 'stats') { document.getElementById('statsChartWrapper').classList.remove('hidden'); drawStatsChart(); }
+  else if (tabId === 'quiz') { document.getElementById('quizContainer').classList.remove('hidden'); }
+}
+
+// ===================== MATH =====================
+function setFormula(f) { document.getElementById('mathFormula').value = f; drawMathFunction(); }
+
+function drawMathFunction() {
+  const canvas = document.getElementById('mathCanvas');
+  const parent = canvas.parentElement;
+  canvas.width = parent.clientWidth - 32;
+  canvas.height = Math.max(400, parent.clientHeight - 32);
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const xMin = parseFloat(document.getElementById('xMin').value) || -10;
+  const xMax = parseFloat(document.getElementById('xMax').value) || 10;
+  const formulaStr = document.getElementById('mathFormula').value;
+  const steps = 500;
+  const pts = [];
+
+  const evalF = (x) => {
+    try {
+      // eslint-disable-next-line no-unused-vars
+      const sin=Math.sin,cos=Math.cos,tan=Math.tan,pow=Math.pow,sqrt=Math.sqrt,abs=Math.abs,
+            pi=Math.PI,e=Math.E,log=Math.log,exp=Math.exp,ceil=Math.ceil,floor=Math.floor;
+      return eval(formulaStr);
+    } catch { return NaN; }
+  };
+
+  for (let i = 0; i <= steps; i++) {
+    const x = xMin + (i/steps)*(xMax-xMin);
+    const y = evalF(x);
+    if (isFinite(y)) pts.push({x,y});
+  }
+
+  let yMin = -5, yMax = 5;
+  if (pts.length > 0) {
+    const ys = pts.map(p=>p.y);
+    yMax = Math.max(...ys)*1.1; yMin = Math.min(...ys)*1.1;
+    if (yMax === yMin) { yMax += 1; yMin -= 1; }
+  }
+
+  const toX = x => ((x-xMin)/(xMax-xMin))*w;
+  const toY = y => h - ((y-yMin)/(yMax-yMin))*h;
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#fafafa'; ctx.fillRect(0,0,w,h);
+
+  // grid
+  ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+  for (let x=Math.ceil(xMin); x<=xMax; x++) { ctx.beginPath(); ctx.moveTo(toX(x),0); ctx.lineTo(toX(x),h); ctx.stroke(); }
+  const yStep = Math.ceil((yMax-yMin)/8);
+  for (let y=Math.ceil(yMin); y<=yMax; y+=yStep) { ctx.beginPath(); ctx.moveTo(0,toY(y)); ctx.lineTo(w,toY(y)); ctx.stroke(); }
+
+  // axes
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0,toY(0)); ctx.lineTo(w,toY(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(toX(0),0); ctx.lineTo(toX(0),h); ctx.stroke();
+
+  // labels
+  ctx.fillStyle='#6b7280'; ctx.font='11px Poppins,sans-serif'; ctx.textAlign='center';
+  for (let x=Math.ceil(xMin); x<=xMax; x+=Math.ceil((xMax-xMin)/10)) {
+    if(x!==0) ctx.fillText(x, toX(x), toY(0)+14);
+  }
+  ctx.textAlign='right';
+  for (let y=Math.ceil(yMin); y<=yMax; y+=yStep) {
+    if(y!==0) ctx.fillText(y.toFixed(1), toX(0)-4, toY(y)+4);
+  }
+
+  // curve
+  ctx.strokeStyle = '#6C5CE7'; ctx.lineWidth = 2.5; ctx.beginPath();
+  let started = false, prevPt = null;
+  for (let i=0; i<=steps; i++) {
+    const x = xMin+(i/steps)*(xMax-xMin);
+    const y = evalF(x);
+    if (!isFinite(y)) { started=false; prevPt=null; continue; }
+    const sx=toX(x), sy=toY(y);
+    if (prevPt && Math.abs(sy-prevPt.sy)>h*2) { started=false; }
+    if (!started) { ctx.moveTo(sx,sy); started=true; }
+    else ctx.lineTo(sx,sy);
+    prevPt={sx,sy};
+  }
+  ctx.stroke();
+
+  // label
+  ctx.fillStyle='#6C5CE7'; ctx.font='bold 12px Poppins,sans-serif'; ctx.textAlign='left';
+  ctx.fillText('f(x) = '+formulaStr, 10, 20);
+  setInfo(`f(x) = ${formulaStr}  |  x ∈ [${xMin}, ${xMax}]  |  y ∈ [${yMin.toFixed(2)}, ${yMax.toFixed(2)}]`);
+}
+
+// ===================== GRAPH =====================
+function setGraphText(txt) { document.getElementById('graphFreeText').value = txt; }
+
+function handleGraphRequest() {
+  const txt = document.getElementById('graphFreeText').value.trim().toLowerCase();
+  if (!txt) return;
+
+  // molecule detection
+  if (/víz|h2o|water/i.test(txt)) { drawH2O(); return; }
+  if (/co2|szén-dioxid|carbon dioxide/i.test(txt)) { drawCO2(); return; }
+  if (/ch4|metán|methane/i.test(txt)) { drawCH4(); return; }
+  if (/benzol|benzene/i.test(txt)) { drawBenzol(); return; }
+  if (/nacl|só|sózoldat|salt/i.test(txt)) { drawNaCl(); return; }
+  if (/nh3|ammónia|ammonia/i.test(txt)) { drawNH3(); return; }
+  if (/o2|oxigén|oxygen/i.test(txt)) { drawO2(); return; }
+  if (/etanol|ethanol|c2h5oh/i.test(txt)) { drawEthanol(); return; }
+
+  // BST
+  if (/bináris|bst|keresőfa|binary.*tree/i.test(txt)) {
+    const nums = txt.match(/\d+/g);
+    if (nums) { drawBST(nums.map(Number)); return; }
+  }
+
+  // custom graph
+  if (/gráf|graph|él:|edge/i.test(txt) || txt.includes('-')) {
+    const edges = txt.match(/([A-Za-z0-9]+)\s*[-–]\s*([A-Za-z0-9]+)/g);
+    if (edges && edges.length > 0) { drawCustomGraph(edges); return; }
+  }
+
+  // geometry
+  if (/hatszög|hexagon/i.test(txt)) { drawPolygon(6, 'Hatszög'); return; }
+  if (/ötszög|pentagon/i.test(txt)) { drawPolygon(5, 'Ötszög'); return; }
+  if (/háromszög|triangle/i.test(txt)) { drawPolygon(3, 'Háromszög'); return; }
+  if (/négyzet|square/i.test(txt)) { drawPolygon(4, 'Négyzet'); return; }
+  if (/nyolcszög|octagon/i.test(txt)) { drawPolygon(8, 'Nyolcszög'); return; }
+
+  // fallback: try AI with Gemini for SVG description
+  drawGraphWithAI(txt);
+}
+
+function getSvg() {
+  const svg = document.getElementById('graphSvg');
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox','0 0 500 400');
+  svg.setAttribute('width','100%');
+  svg.setAttribute('height','400');
+  return svg;
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+  return el;
+}
+
+function svgText(svg, txt, x, y, opts={}) {
+  const el = svgEl('text', {x,y,'text-anchor':opts.anchor||'middle','dominant-baseline':'central',
+    fill:opts.fill||'#1f2937','font-size':opts.size||'13','font-family':'Poppins,sans-serif',
+    'font-weight':opts.weight||'600'});
+  el.textContent = txt; svg.appendChild(el); return el;
+}
+
+function svgCircle(svg,cx,cy,r,fill,stroke='white',sw=2) {
+  svg.appendChild(svgEl('circle',{cx,cy,r,fill,stroke,'stroke-width':sw}));
+}
+
+function svgLine(svg,x1,y1,x2,y2,stroke='#6b7280',sw=2) {
+  svg.appendChild(svgEl('line',{x1,y1,x2,y2,stroke,'stroke-width':sw}));
+}
+
+// --- Molecules ---
+function drawH2O() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 350');
+  // background
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:350,fill:'#f0f9ff',rx:12}));
+  // bonds
+  svgLine(svg,250,140,150,240,'#60a5fa',4);
+  svgLine(svg,250,140,350,240,'#60a5fa',4);
+  // O
+  svgCircle(svg,250,140,40,'#ef4444','white',3);
+  svgText(svg,'O',250,140,{fill:'white',size:'22',weight:'800'});
+  // H atoms
+  svgCircle(svg,150,240,28,'#94a3b8','white',3);
+  svgText(svg,'H',150,240,{fill:'white',size:'18',weight:'800'});
+  svgCircle(svg,350,240,28,'#94a3b8','white',3);
+  svgText(svg,'H',350,240,{fill:'white',size:'18',weight:'800'});
+  // angle label
+  svgText(svg,'104.5°',250,190,{fill:'#374151',size:'13',weight:'500'});
+  // bond labels
+  svgText(svg,'O–H',190,195,{fill:'#1d4ed8',size:'11'});
+  svgText(svg,'O–H',310,195,{fill:'#1d4ed8',size:'11'});
+  // title
+  svgText(svg,'Vízmolekula (H₂O)',250,40,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Kovalens kötés · Hajlított szerkezet',250,68,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('H₂O – Vízmolekula | Hajlított forma | Kötésszög: 104.5°');
+}
+
+function drawCO2() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 280');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:280,fill:'#fef9f0',rx:12}));
+  svgLine(svg,120,140,230,140,'#f59e0b',5);
+  svgLine(svg,120,130,230,130,'#f59e0b',5);
+  svgLine(svg,270,140,380,140,'#f59e0b',5);
+  svgLine(svg,270,130,380,130,'#f59e0b',5);
+  svgCircle(svg,100,135,32,'#ef4444','white',3);
+  svgText(svg,'O',100,135,{fill:'white',size:'18',weight:'800'});
+  svgCircle(svg,250,135,35,'#374151','white',3);
+  svgText(svg,'C',250,135,{fill:'white',size:'18',weight:'800'});
+  svgCircle(svg,400,135,32,'#ef4444','white',3);
+  svgText(svg,'O',400,135,{fill:'white',size:'18',weight:'800'});
+  svgText(svg,'Szén-dioxid (CO₂)',250,50,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Kettős kovalens kötés · Lineáris szerkezet · 180°',250,78,{fill:'#64748b',size:'12',weight:'400'});
+  svgText(svg,'O=C=O',250,200,{fill:'#6C5CE7',size:'16',weight:'700'});
+  setInfo('CO₂ – Szén-dioxid | Lineáris szerkezet | Kettős kötések | 180°');
+}
+
+function drawCH4() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 400');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:400,fill:'#f0fdf4',rx:12}));
+  const cx=250, cy=190;
+  const hPos = [{x:250,y:80},{x:360,y:250},{x:140,y:250},{x:250,y:320}];
+  hPos.forEach(h => svgLine(svg,cx,cy,h.x,h.y,'#6b7280',3));
+  svgCircle(svg,cx,cy,38,'#6C5CE7','white',3);
+  svgText(svg,'C',cx,cy,{fill:'white',size:'20',weight:'800'});
+  hPos.forEach(h => {
+    svgCircle(svg,h.x,h.y,25,'#94a3b8','white',3);
+    svgText(svg,'H',h.x,h.y,{fill:'white',size:'16',weight:'800'});
+  });
+  svgText(svg,'Metán (CH₄)',250,345,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Tetraéderes · Kötésszög: 109.5°',250,368,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('CH₄ – Metán | Tetraéderes szerkezet | Kötésszög: 109.5°');
+}
+
+function drawBenzol() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 380');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:380,fill:'#fdf4ff',rx:12}));
+  const cx=250, cy=190, r=100, ri=65;
+  const n=6;
+  const cAtoms=[], hAtoms=[];
+  for(let i=0;i<n;i++){
+    const a=(i*Math.PI*2/n)-Math.PI/2;
+    cAtoms.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)});
+    hAtoms.push({x:cx+(r+40)*Math.cos(a),y:cy+(r+40)*Math.sin(a)});
+  }
+  // bonds
+  for(let i=0;i<n;i++){ const j=(i+1)%n; svgLine(svg,cAtoms[i].x,cAtoms[i].y,cAtoms[j].x,cAtoms[j].y,'#8b5cf6',3); }
+  // inner ring (delocalized)
+  const ringEl = svgEl('circle',{cx,cy,r:ri,fill:'none',stroke:'#8b5cf6','stroke-width':'2','stroke-dasharray':'8,4'});
+  svg.appendChild(ringEl);
+  // H bonds
+  for(let i=0;i<n;i++) svgLine(svg,cAtoms[i].x,cAtoms[i].y,hAtoms[i].x,hAtoms[i].y,'#9ca3af',2);
+  // atoms
+  cAtoms.forEach(p=>{ svgCircle(svg,p.x,p.y,18,'#7c3aed','white',2); svgText(svg,'C',p.x,p.y,{fill:'white',size:'12',weight:'700'}); });
+  hAtoms.forEach(p=>{ svgCircle(svg,p.x,p.y,14,'#94a3b8','white',2); svgText(svg,'H',p.x,p.y,{fill:'white',size:'10',weight:'700'}); });
+  svgText(svg,'Benzol (C₆H₆)',250,330,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Aromás · Delokalizált π-elektronok',250,352,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('C₆H₆ – Benzol | Aromás szerkezet | Delokalizált π-rendszer');
+}
+
+function drawNaCl() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 320');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:320,fill:'#fff7ed',rx:12}));
+  const lineEl = svgEl('line',{x1:'145',y1:'160',x2:'345',y2:'160',stroke:'#f97316','stroke-width':'4','stroke-dasharray':'8,4'});
+  svg.appendChild(lineEl);
+  svgCircle(svg,130,160,55,'#3b82f6','white',3);
+  svgText(svg,'Na⁺',130,155,{fill:'white',size:'16',weight:'800'});
+  svgText(svg,'Nátrium',130,215,{fill:'#1e40af',size:'11',weight:'500'});
+  svgCircle(svg,360,160,45,'#10b981','white',3);
+  svgText(svg,'Cl⁻',360,155,{fill:'white',size:'16',weight:'800'});
+  svgText(svg,'Klorid',360,215,{fill:'#065f46',size:'11',weight:'500'});
+  svgText(svg,'Ionkötés',250,155,{fill:'#f97316',size:'12',weight:'600'});
+  svgText(svg,'Nátrium-klorid (NaCl)',250,50,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Ionvegyület · Elektrosztatikus vonzás',250,75,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('NaCl – Nátrium-klorid | Ionkötés | Na⁺ és Cl⁻ ionok');
+}
+
+function drawNH3() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 350');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:350,fill:'#f0fdf4',rx:12}));
+  const cx=250,cy=170;
+  const hPos=[{x:150,y:260},{x:350,y:260},{x:250,y:270}];
+  hPos.forEach(h=>svgLine(svg,cx,cy,h.x,h.y,'#6b7280',3));
+  svgCircle(svg,cx,cy,38,'#3b82f6','white',3);
+  svgText(svg,'N',cx,cy,{fill:'white',size:'20',weight:'800'});
+  // lone pair
+  svgText(svg,'••',cx,cy-28,{fill:'#1d4ed8',size:'14',weight:'700'});
+  hPos.forEach(h=>{svgCircle(svg,h.x,h.y,26,'#94a3b8','white',3); svgText(svg,'H',h.x,h.y,{fill:'white',size:'16',weight:'800'});});
+  svgText(svg,'Ammónia (NH₃)',250,50,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Trigonális piramis · Kötésszög: 107° · Magános elektron-pár',250,78,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('NH₃ – Ammónia | Trigonális piramisos | 107° | Nemkötő pár');
+}
+
+function drawO2() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 250');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:250,fill:'#eff6ff',rx:12}));
+  svgLine(svg,160,125,340,125,'#ef4444',5);
+  svgLine(svg,160,113,340,113,'#ef4444',5);
+  svgCircle(svg,140,119,38,'#ef4444','white',3);
+  svgText(svg,'O',140,119,{fill:'white',size:'20',weight:'800'});
+  svgCircle(svg,360,119,38,'#ef4444','white',3);
+  svgText(svg,'O',360,119,{fill:'white',size:'20',weight:'800'});
+  svgText(svg,'Oxigénmolekula (O₂)',250,50,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'Kettős kovalens kötés · O=O',250,78,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('O₂ – Oxigénmolekula | Kettős kötés');
+}
+
+function drawEthanol() {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 600 320');
+  svg.setAttribute('viewBox','0 0 600 320');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:600,height:320,fill:'#fefce8',rx:12}));
+  // C-C-O backbone
+  svgLine(svg,130,160,250,160,'#6b7280',3);
+  svgLine(svg,250,160,370,160,'#6b7280',3);
+  svgLine(svg,370,160,460,220,'#6b7280',3);
+  // H on C1
+  svgLine(svg,130,160,80,110,'#9ca3af',2);
+  svgLine(svg,130,160,80,210,'#9ca3af',2);
+  svgLine(svg,130,160,130,230,'#9ca3af',2);
+  // H on C2
+  svgLine(svg,250,160,250,90,'#9ca3af',2);
+  svgLine(svg,250,160,250,230,'#9ca3af',2);
+  // OH
+  svgLine(svg,460,220,510,260,'#9ca3af',2);
+  // atoms
+  svgCircle(svg,130,160,28,'#6C5CE7','white',2); svgText(svg,'C',130,160,{fill:'white',size:'14',weight:'800'});
+  svgCircle(svg,250,160,28,'#6C5CE7','white',2); svgText(svg,'C',250,160,{fill:'white',size:'14',weight:'800'});
+  svgCircle(svg,370,160,28,'#ef4444','white',2); svgText(svg,'O',370,160,{fill:'white',size:'14',weight:'800'});
+  [[80,110],[80,210],[130,230],[250,90],[250,230],[510,260]].forEach(([x,y])=>{
+    svgCircle(svg,x,y,18,'#94a3b8','white',2); svgText(svg,'H',x,y,{fill:'white',size:'11',weight:'800'});
+  });
+  svgText(svg,'Etanol (C₂H₅OH)',300,45,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,'CH₃–CH₂–OH · Hidroxilcsoport',300,70,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo('C₂H₅OH – Etanol | Hidroxilcsoport (-OH) | Kovalens kötések');
+}
+
+function drawPolygon(n, name) {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 400');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:400,fill:'#f8fafc',rx:12}));
+  const cx=250,cy=190,r=130;
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const a=(i*Math.PI*2/n)-Math.PI/2;
+    pts.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)});
+  }
+  const polyPts = pts.map(p=>`${p.x},${p.y}`).join(' ');
+  const poly = svgEl('polygon',{points:polyPts,fill:'#ddd6fe',stroke:'#6C5CE7','stroke-width':'3'});
+  svg.appendChild(poly);
+  pts.forEach((p,i)=>{
+    svgCircle(svg,p.x,p.y,16,'#6C5CE7','white',2);
+    svgText(svg,(i+1).toString(),p.x,p.y,{fill:'white',size:'11',weight:'700'});
+  });
+  // diagonals
+  const innerA = Math.PI*(n-2)/n;
+  svgText(svg,`${name} (${n} oldal)`,250,350,{fill:'#1e3a5f',size:'18',weight:'700'});
+  svgText(svg,`Belső szög: ${(180*(n-2)/n).toFixed(1)}°`,250,372,{fill:'#64748b',size:'12',weight:'400'});
+  setInfo(`${name} | ${n} oldal | Belső szög: ${(180*(n-2)/n).toFixed(1)}°`);
+}
+
+function drawBST(nums) {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 380');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:380,fill:'#f8fafc',rx:12}));
+
+  // build BST
+  let root = null;
+  function insert(node, val) {
+    if (!node) return {val, left:null, right:null};
+    if (val < node.val) node.left = insert(node.left, val);
+    else node.right = insert(node.right, val);
+    return node;
+  }
+  nums.forEach(n => root = insert(root, n));
+
+  // layout
+  function layout(node, x, y, dx) {
+    if (!node) return;
+    node.x = x; node.y = y;
+    if (node.left) layout(node.left, x-dx, y+60, dx/1.8);
+    if (node.right) layout(node.right, x+dx, y+60, dx/1.8);
+  }
+  layout(root, 250, 60, 110);
+
+  // draw
+  function draw(node) {
+    if (!node) return;
+    if (node.left) { svgLine(svg,node.x,node.y,node.left.x,node.left.y,'#a5b4fc',2); draw(node.left); }
+    if (node.right) { svgLine(svg,node.x,node.y,node.right.x,node.right.y,'#a5b4fc',2); draw(node.right); }
+    svgCircle(svg,node.x,node.y,22,'#6C5CE7','white',2);
+    svgText(svg,node.val.toString(),node.x,node.y,{fill:'white',size:'13',weight:'700'});
+  }
+  draw(root);
+  svgText(svg,'Bináris Keresőfa (BST)',250,340,{fill:'#1e3a5f',size:'16',weight:'700'});
+  setInfo('BST | ' + nums.join(', '));
+}
+
+function drawCustomGraph(edges) {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = getSvg();
+  svg.setAttribute('viewBox','0 0 500 380');
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:500,height:380,fill:'#f8fafc',rx:12}));
+
+  const nodes = {};
+  edges.forEach(e => {
+    const parts = e.match(/([A-Za-z0-9]+)\s*[-–]\s*([A-Za-z0-9]+)/);
+    if (parts) { nodes[parts[1]] = true; nodes[parts[2]] = true; }
+  });
+  const nodeList = Object.keys(nodes);
+  const n = nodeList.length;
+  const cx=250, cy=180, r=130;
+  const pos = {};
+  nodeList.forEach((nd,i) => {
+    const a=(i*Math.PI*2/n)-Math.PI/2;
+    pos[nd] = {x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};
+  });
+  edges.forEach(e => {
+    const parts = e.match(/([A-Za-z0-9]+)\s*[-–]\s*([A-Za-z0-9]+)/);
+    if (parts && pos[parts[1]] && pos[parts[2]]) {
+      svgLine(svg,pos[parts[1]].x,pos[parts[1]].y,pos[parts[2]].x,pos[parts[2]].y,'#a5b4fc',2);
+    }
+  });
+  nodeList.forEach(nd => {
+    svgCircle(svg,pos[nd].x,pos[nd].y,22,'#6C5CE7','white',2);
+    svgText(svg,nd,pos[nd].x,pos[nd].y,{fill:'white',size:'13',weight:'700'});
+  });
+  svgText(svg,'Gráf · ' + n + ' csúcs',250,348,{fill:'#1e3a5f',size:'15',weight:'600'});
+  setInfo('Gráf | Csúcsok: ' + nodeList.join(', '));
+}
+
+async function drawGraphWithAI(txt) {
+  const key = getGeminiKey();
+  if (!key) { setInfo('Nem ismertem fel a struktúrát. Kérlek adj meg Gemini API kulcsot az AI-os feldolgozáshoz.'); return; }
+  showLoading(t('generating'));
+  const prompt = `Rajzolj SVG-t (500x400px) a következőről: "${txt}". 
+Csak egy tiszta SVG kódot adj vissza, DOCTYPE és html nélkül, viewBox="0 0 500 400", 
+egyszerű fehér háttérrel. Legyen szép, oktatási célú, Poppins betűtípussal, magyar feliratokkal.`;
+  try {
+    const res = await callGemini(prompt, key);
+    const svgMatch = res.match(/<svg[\s\S]*<\/svg>/i);
+    if (svgMatch) {
+      document.getElementById('graphContainer').classList.remove('hidden');
+      document.getElementById('graphSvg').outerHTML = svgMatch[0];
+    } else {
+      setInfo('Az AI nem tudott SVG-t generálni ehhez: ' + txt);
+    }
+  } catch(e) {
+    setInfo('Hiba: ' + e.message);
+  } finally { hideLoading(); }
+}
+
+// ===================== MERMAID =====================
+mermaid.initialize({startOnLoad:false, theme:'default', securityLevel:'loose'});
+
+const defaultMermaid = `graph TD
+    A[Kezdet] --> B{Feltétel}
+    B -->|Igen| C[Ág 1]
+    B -->|Nem| D[Ág 2]
+    C --> E[Vége]
+    D --> E`;
+
+async function generateMermaidFromTopic() {
+  const topic = document.getElementById('mermaidCode').value.trim();
+  if (!topic) return;
+  if (topic.startsWith('graph') || topic.startsWith('flowchart') || topic.startsWith('sequenceDiagram') || topic.startsWith('classDiagram')) {
+    renderMermaidDirect(); return;
+  }
+  const key = getGeminiKey();
+  if (!key) { alert(t('key_missing')); return; }
+  showLoading(t('generating'));
+  const lang = currentLang === 'hu' ? 'magyar' : 'English';
+  const prompt = `Készíts Mermaid.js folyamatábrát (flowchart) a következő témáról ${lang} nyelven: "${topic}".
+Fontos: CSAK a Mermaid kódot add vissza, semmi mást, se magyarázat, se backtick!
+Használj érvényes Mermaid szintaxist. Kezdd így: flowchart TD
+Legfeljebb 12-15 node legyen.`;
+  try {
+    const code = await callGemini(prompt, key);
+    const clean = code.replace(/```mermaid\n?/g,'').replace(/```\n?/g,'').trim();
+    document.getElementById('mermaidCode').value = clean;
+    await renderMermaidDirect();
+  } catch(e) {
+    setInfo('Hiba: ' + e.message);
+  } finally { hideLoading(); }
+}
+
+async function renderMermaidDirect() {
+  const code = document.getElementById('mermaidCode').value.trim() || defaultMermaid;
+  const display = document.getElementById('mermaidDisplay');
+  display.innerHTML = '';
+  try {
+    const id = 'mermaid-' + Date.now();
+    const { svg } = await mermaid.render(id, code);
+    display.innerHTML = svg;
+    setInfo('Mermaid diagram renderelve.');
+  } catch(e) {
+    display.innerHTML = `<div class="text-red-500 text-sm p-4">Mermaid hiba: ${e.message}</div>`;
+  }
+}
+
+// ===================== MINDMAP =====================
+async function generateMindmapAI() {
+  const topic = document.getElementById('mindmapInput').value.trim();
+  if (!topic) return;
+  if (topic.startsWith('#')) { renderMarkmap(); return; }
+  const key = getGeminiKey();
+  if (!key) { alert(t('key_missing')); return; }
+  showLoading(t('generating'));
+  const lang = currentLang === 'hu' ? 'magyar' : 'English';
+  const prompt = `Készíts részletes Markdown gondolattérképet ${lang} nyelven a következő témáról: "${topic}".
+Formátum:
+# Főtéma
+## Főág 1
+- Részlet
+- Részlet
+## Főág 2
+- Részlet
+### Alág
+- Részlet
+Legalább 4-5 főág legyen, mindegyikhez 3-5 részlettel. Csak a Markdownt add vissza, semmi mást!`;
+  try {
+    const md = await callGemini(prompt, key);
+    const clean = md.replace(/```markdown\n?/g,'').replace(/```\n?/g,'').trim();
+    document.getElementById('mindmapInput').value = clean;
+    renderMarkmap();
+  } catch(e) {
+    setInfo('Hiba: ' + e.message);
+  } finally { hideLoading(); }
+}
+
+async function renderMarkmap() {
+  const input = document.getElementById('mindmapInput').value.trim();
+  if (!input) return;
+  const display = document.getElementById('mindmapDisplay');
+  try {
+    const { Transformer } = markmap;
+    const { markmapSvg } = window;
+    const svgEl2 = document.getElementById('markmapSvg');
+    svgEl2.innerHTML = '';
+    const { root } = new Transformer().transform(input);
+    const { Markmap, deriveOptions } = markmap;
+    const mm = Markmap.create(svgEl2, deriveOptions({}), root);
+    setTimeout(() => mm.fit(), 300);
+    setInfo('Gondolattérkép megjelenítve.');
+  } catch(e) {
+    display.innerHTML = `<div class="text-red-500 p-4 text-sm">Hiba: ${e.message}</div>`;
+  }
+}
+
+// ===================== STATS =====================
+let statsChart = null;
+const COLORS = ['#6C5CE7','#A29BFE','#00b894','#fd79a8','#fdcb6e','#e17055','#74b9ff','#55efc4','#fab1a0','#81ecec'];
+
+function drawStatsChart() {
+  const type = document.getElementById('chartType').value;
+  const labels = document.getElementById('chartLabels').value.split(',').map(s=>s.trim());
+  const values = document.getElementById('chartValues').value.split(',').map(s=>parseFloat(s.trim())||0);
+  const title = document.getElementById('chartTitle')?.value || '';
+  const canvas = document.getElementById('statsCanvas');
+  const wrapper = document.getElementById('statsChartWrapper');
+  wrapper.style.height = '420px';
+  if (statsChart) { statsChart.destroy(); statsChart = null; }
+  const ctx = canvas.getContext('2d');
+  const isPie = type === 'pie' || type === 'doughnut';
+  statsChart = new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label: title || 'Adatok',
+        data: values,
+        backgroundColor: isPie ? COLORS.slice(0,labels.length) : COLORS[0]+'99',
+        borderColor: isPie ? COLORS.slice(0,labels.length) : COLORS[0],
+        borderWidth: 2,
+        borderRadius: type==='bar' ? 6 : 0,
+        tension: 0.4,
+        fill: type==='line'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: isPie, position:'bottom' },
+        title: { display: !!title, text: title, font:{size:14,weight:'bold'}, color:'#1f2937' }
+      },
+      scales: isPie ? {} : {
+        x: { ticks:{font:{family:'Poppins',size:11}}, grid:{color:'#f3f4f6'} },
+        y: { ticks:{font:{family:'Poppins',size:11}}, grid:{color:'#f3f4f6'}, beginAtZero:true }
+      }
+    }
+  });
+  setInfo(`Diagram: ${type} | ${labels.length} kategória | Összeg: ${values.reduce((a,b)=>a+b,0)}`);
+}
+
+// ===================== QUIZ =====================
+let questions=[], qIdx=0, score=0, timerInterval=null, totalTime=0;
+
+function getGeminiKey() {
+  const k = document.getElementById('userGeminiKey').value.trim();
+  if (k) localStorage.setItem('amisearch_gemini_key', k);
+  return k || localStorage.getItem('amisearch_gemini_key') || '';
+}
+function toggleKeyVisibility() {
+  const inp = document.getElementById('userGeminiKey');
+  const icon = document.getElementById('keyEyeIcon');
+  if (inp.type === 'password') { inp.type='text'; icon.className='fa-solid fa-eye-slash'; }
+  else { inp.type='password'; icon.className='fa-solid fa-eye'; }
+}
+
+async function callGemini(prompt, key) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${key}`;
+  const body = {contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.7,maxOutputTokens:4096}};
+  const res = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if (!res.ok) { const err=await res.json(); throw new Error(err.error?.message||'API hiba'); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+async function startQuiz() {
+  const key = getGeminiKey();
+  if (!key) { alert(t('key_missing')); return; }
+
+  const level = document.getElementById('quizLevel').value;
+  const difficulty = document.getElementById('quizDifficulty').value;
+  const subject = document.getElementById('quizSubject').value;
+  const customTopic = document.getElementById('quizCustomTopic').value.trim();
+  const count = parseInt(document.getElementById('quizCount').value);
+  totalTime = parseInt(document.getElementById('quizTimeLimit').value);
+
+  const levelMap = {highschool: currentLang==='hu'?'középiskolai':'high school', university: currentLang==='hu'?'egyetemi':'university'};
+  const diffMap = {easy:currentLang==='hu'?'könnyű':'easy', medium:currentLang==='hu'?'közepes':'medium', hard:currentLang==='hu'?'nehéz':'hard'};
+  const subjMap = {math:currentLang==='hu'?'matematika':'mathematics', cs:currentLang==='hu'?'informatika':'computer science',
+    chemistry:currentLang==='hu'?'kémia':'chemistry', physics:currentLang==='hu'?'fizika':'physics',
+    biology:currentLang==='hu'?'biológia':'biology', history:currentLang==='hu'?'történelem':'history',
+    literature:currentLang==='hu'?'irodalom':'literature', geography:currentLang==='hu'?'földrajz':'geography'};
+
+  const topic = customTopic || subjMap[subject];
+  const lang = currentLang === 'hu' ? 'magyar' : 'English';
+
+  ['quizStartScreen','quizResultScreen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('quizMainCard').classList.remove('visible');
+  document.getElementById('quizLoadingScreen').classList.remove('hidden');
+
+  const prompt = `Generálj ${count} darab feleltválasztós ${lang} nyelvű kvízkérdést.
+Szint: ${levelMap[level]}. Nehézség: ${diffMap[difficulty]}. Téma: ${topic}.
+Minden kérdéshez pontosan 4 válaszlehetőség legyen, és pontosan 1 helyes.
+Adj rövid magyarázatot is minden kérdéshez.
+
+Válaszolj KIZÁRÓLAG az alábbi JSON formátumban, semmi más szöveg, semmi backtick, semmi markdown:
+[
+  {
+    "question": "Kérdés szövege?",
+    "options": ["A válasz", "B válasz", "C válasz", "D válasz"],
+    "correct": 0,
+    "explanation": "Rövid magyarázat miért ez a helyes válasz."
+  }
+]
+A "correct" mező az options tömb 0-alapú indexe.`;
+
+  try {
+    const raw = await callGemini(prompt, key);
+    const clean = raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const jsonMatch = clean.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('Érvénytelen JSON válasz');
+    questions = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(questions) || questions.length === 0) throw new Error('Üres kérdéslista');
+    qIdx = 0; score = 0;
+    document.getElementById('quizLoadingScreen').classList.add('hidden');
+    document.getElementById('quizMainCard').classList.add('visible');
+    document.getElementById('quizResultScreen').classList.add('hidden');
+    showQuestion();
+  } catch(e) {
+    document.getElementById('quizLoadingScreen').classList.add('hidden');
+    document.getElementById('quizStartScreen').classList.remove('hidden');
+    setInfo('Hiba: ' + e.message + ' | Ellenőrizd az API kulcsodat!');
+  }
+}
+
+function showQuestion() {
+  if (qIdx >= questions.length) { showResult(); return; }
+  const q = questions[qIdx];
+  document.getElementById('quizProgressLabel').textContent = `${qIdx+1}/${questions.length}`;
+  document.getElementById('quizProgressFill').style.width = `${((qIdx)/questions.length)*100}%`;
+  document.getElementById('quizScoreLabel').textContent = score;
+  document.getElementById('quizQuestionText').textContent = q.question;
+  document.getElementById('quizExplanationBox').classList.add('hidden');
+  document.getElementById('quizNextBtn').classList.add('hidden');
+
+  const grid = document.getElementById('quizAnswersGrid');
+  grid.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = `${['A','B','C','D'][i]}. ${opt}`;
+    btn.onclick = () => answerQuestion(i);
+    grid.appendChild(btn);
+  });
+
+  if (totalTime > 0) startTimer();
+  else { document.getElementById('timerRing').style.display='none'; }
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  let left = totalTime;
+  const circ = document.getElementById('timerCircle');
+  const txt = document.getElementById('timerText');
+  const ring = document.getElementById('timerRing');
+  ring.style.display = '';
+  ring.classList.remove('timer-warning');
+  const circumference = 2*Math.PI*20;
+  circ.style.strokeDasharray = circumference;
+
+  const tick = () => {
+    txt.textContent = left;
+    const offset = circumference * (1 - left/totalTime);
+    circ.style.strokeDashoffset = offset;
+    if (left <= 5) ring.classList.add('timer-warning');
+    if (left <= 0) { clearInterval(timerInterval); answerQuestion(-1); }
+    left--;
+  };
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+function answerQuestion(chosen) {
+  clearInterval(timerInterval);
+  const q = questions[qIdx];
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach(b => b.disabled = true);
+  const correct = q.correct;
+  if (chosen === correct) {
+    btns[chosen].classList.add('correct');
+    score++;
+    document.getElementById('quizScoreLabel').textContent = score;
+  } else {
+    if (chosen >= 0) btns[chosen].classList.add('wrong');
+    btns[correct].classList.add('correct');
+  }
+  const expBox = document.getElementById('quizExplanationBox');
+  expBox.classList.remove('hidden');
+  const isCorrect = chosen === correct;
+  expBox.className = `p-4 rounded-xl text-sm leading-relaxed border ${isCorrect?'bg-green-50 border-green-200 text-green-800':'bg-red-50 border-red-200 text-red-800'}`;
+  expBox.innerHTML = `<strong>${isCorrect ? t('correct') : t('incorrect')}</strong> ${t('explanation')} ${q.explanation}`;
+  document.getElementById('quizNextBtn').classList.remove('hidden');
+  document.getElementById('quizNextBtn').textContent = qIdx+1 < questions.length ? t('next') : t('finish');
+}
+
+function nextQuestion() {
+  qIdx++;
+  if (qIdx >= questions.length) showResult();
+  else showQuestion();
+}
+
+function showResult() {
+  clearInterval(timerInterval);
+  document.getElementById('quizMainCard').classList.remove('visible');
+  const rs = document.getElementById('quizResultScreen');
+  rs.classList.remove('hidden');
+  const pct = Math.round((score/questions.length)*100);
+  document.getElementById('quizFinalScore').textContent = `${score} ${t('out_of')} ${questions.length} (${pct}%)`;
+  let msg = '';
+  if (pct >= 90) msg = currentLang==='hu' ? '🏆 Kiváló teljesítmény!' : '🏆 Excellent performance!';
+  else if (pct >= 70) msg = currentLang==='hu' ? '👍 Jó munka!' : '👍 Good job!';
+  else if (pct >= 50) msg = currentLang==='hu' ? '📚 Még van mit tanulni!' : '📚 Keep studying!';
+  else msg = currentLang==='hu' ? '💪 Ne add fel, próbáld újra!' : '💪 Don\'t give up, try again!';
+  document.getElementById('quizFinalMsg').textContent = msg;
+}
+
+// ===================== UTILS =====================
+function setInfo(txt) { document.getElementById('interactive-info').textContent = txt; }
+function showLoading(txt='...') {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+  document.getElementById('loadingText').textContent = txt;
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+
+function downloadAsPNG() {
+  if (activeTab === 'math') { downloadCanvas('mathCanvas'); return; }
+  if (activeTab === 'stats') { downloadCanvas('statsCanvas'); return; }
+  if (activeTab === 'graph') { downloadSVG('graphSvg'); return; }
+  if (activeTab === 'mermaid') {
+    const svg = document.querySelector('#mermaidDisplay svg');
+    if (svg) downloadSVGEl(svg); return;
+  }
+  if (activeTab === 'mindmap') { downloadSVG('markmapSvg'); return; }
+}
+function downloadCanvas(id) {
+  const a = document.createElement('a');
+  a.download = 'amisearch.png';
+  a.href = document.getElementById(id).toDataURL();
+  a.click();
+}
+function downloadSVG(id) { downloadSVGEl(document.getElementById(id)); }
+function downloadSVGEl(svg) {
+  const data = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([data], {type:'image/svg+xml'});
+  const a = document.createElement('a');
+  a.download = 'amisearch.svg';
+  a.href = URL.createObjectURL(blob);
+  a.click();
+}
+
+// ===================== INIT =====================
 window.onload = function() {
-  const savedKey = localStorage.getItem('amisearch_gemini_key');
-  if (savedKey) document.getElementById('userGeminiKey').value = savedKey;
+  const saved = localStorage.getItem('amisearch_gemini_key');
+  if (saved) document.getElementById('userGeminiKey').value = saved;
 
   const urlParams = new URLSearchParams(window.location.search);
   const topic = urlParams.get('topic');
   const tab = urlParams.get('tab');
+  const lang = urlParams.get('lang') || localStorage.getItem('amisearch_lang') || 'hu';
 
-  if (topic) {
-    const decodedTopic = decodeURIComponent(topic);
-    if (tab === 'mindmap') {
-      switchTab('mindmap');
-      document.getElementById('mindmapInput').value = `# ${decodedTopic}\n- `;
-      renderMarkmap();
-    } else {
-      switchTab('mermaid');
-      generateMermaidFromTopic(decodedTopic);
-    }
-    document.getElementById('interactive-info').innerHTML = `${t('info')}: <strong>${decodedTopic}</strong>`;
-    return;
-  }
-  if (tab) switchTab(tab);
-  else switchTab('math');
+  setLang(lang);
 
-  changeLanguage();
-}
-
-// TABS
-function switchTab(tabId) {
-  activeTab = tabId;
-  const tabs = ['math', 'graph', 'mermaid', 'mindmap', 'stats', 'quiz'];
-  tabs.forEach(t => {
-    const btn = document.getElementById(`tab-${t}`);
-    const controls = document.getElementById(`controls-${t}`);
-    const icon = document.getElementById(`icon-${t}`);
-    if (t === tabId) {
-      btn.classList.add('tab-active');
-      controls.classList.remove('hidden');
-      if (icon) { icon.classList.remove('text-gray-500'); icon.classList.add('text-[#6C5CE7]'); }
-    } else {
-      btn.classList.remove('tab-active');
-      controls.classList.add('hidden');
-      if (icon) { icon.classList.remove('text-[#6C5CE7]'); icon.classList.add('text-gray-500'); }
-    }
-  });
-
-  ['mathCanvas', 'graphContainer', 'mermaidDisplay', 'mindmapDisplay', 'statsChartWrapper', 'quizContainer'].forEach(id => {
-    document.getElementById(id).classList.add('hidden');
-  });
-  document.getElementById('downloadBtn').classList.remove('hidden');
-
-  if (tabId === 'math') { document.getElementById('mathCanvas').classList.remove('hidden'); drawMathFunction(); }
-  else if (tabId === 'graph') { document.getElementById('graphContainer').classList.remove('hidden'); drawInformaticsGraph(); }
-  else if (tabId === 'mermaid') { document.getElementById('mermaidDisplay').classList.remove('hidden'); renderMermaidDiagram(); }
-  else if (tabId === 'mindmap') { document.getElementById('mindmapDisplay').classList.remove('hidden'); }
-  else if (tabId === 'stats') { document.getElementById('statsChartWrapper').classList.remove('hidden'); drawStatsChart(); }
-  else if (tabId === 'quiz') {
-    document.getElementById('quizContainer').classList.remove('hidden');
-    document.getElementById('downloadBtn').classList.add('hidden');
-    document.getElementById('quizMainCard').classList.add('hidden');
-  }
-}
-
-// MATH
-function drawMathFunction() {
-  const canvas = document.getElementById('mathCanvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = Math.max(350, canvas.parentElement.clientHeight);
-  const width = canvas.width, height = canvas.height;
-  const xMin = parseFloat(document.getElementById('xMin').value) || -10;
-  const xMax = parseFloat(document.getElementById('xMax').value) || 10;
-  const formula = document.getElementById('mathFormula').value;
-  const points = [], steps = 300;
-  let yMin = -5, yMax = 5;
-
-  const evalFormula = (x) => {
-    try {
-      const sin = Math.sin, cos = Math.cos, tan = Math.tan, pow = Math.pow, sqrt = Math.sqrt, pi = Math.PI;
-      return eval(formula);
-    } catch(e) { return 0; }
-  };
-
-  for (let i = 0; i <= steps; i++) {
-    const x = xMin + (i / steps) * (xMax - xMin);
-    const y = evalFormula(x);
-    if (!isNaN(y) && isFinite(y)) points.push({ x, y });
-  }
-  if (points.length > 0) {
-    const yValues = points.map(p => p.y);
-    yMax = Math.max(...yValues) * 1.2 || 5;
-    yMin = Math.min(...yValues) * 1.2 || -5;
+  if (topic && tab === 'mindmap') {
+    switchTab('mindmap');
+    document.getElementById('mindmapInput').value = topic;
+    generateMindmapAI();
+  } else if (topic) {
+    switchTab('mermaid');
+    document.getElementById('mermaidCode').value = topic;
+    generateMermaidFromTopic();
+  } else if (tab) {
+    switchTab(tab);
+  } else {
+    switchTab('math');
+    drawMathFunction();
   }
 
-  ctx.clearRect(0, 0, width, height);
-  const toScreenX = (x) => ((x - xMin) / (xMax - xMin)) * width;
-  const toScreenY = (y) => height - ((y - yMin) / (yMax - yMin)) * height;
-
-  ctx.strokeStyle = '#F1F2F6';
-  for (let x = Math.floor(xMin); x <= xMax; x++) {
-    ctx.beginPath(); ctx.moveTo(toScreenX(x), 0); ctx.lineTo(toScreenX(x), height); ctx.stroke();
+  // default mermaid
+  if (!document.getElementById('mermaidCode').value) {
+    document.getElementById('mermaidCode').value = defaultMermaid;
   }
-  ctx.strokeStyle = '#2D3436'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, toScreenY(0)); ctx.lineTo(width, toScreenY(0)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(toScreenX(0), 0); ctx.lineTo(toScreenX(0), height); ctx.stroke();
+  // default mindmap
+  if (!document.getElementById('mindmapInput').value) {
+    document.getElementById('mindmapInput').value = currentLang==='hu'
+      ? '# Matematika\n## Algebra\n- Egyenletek\n- Polinomok\n## Geometria\n- Síkgeometria\n- Térgeometria\n## Analízis\n- Határérték\n- Derivált\n- Integrál'
+      : '# Mathematics\n## Algebra\n- Equations\n- Polynomials\n## Geometry\n- Plane geometry\n- Solid geometry\n## Analysis\n- Limits\n- Derivatives\n- Integrals';
+  }
 
-  ctx.strokeStyle = '#6C5CE7'; ctx.lineWidth = 3; ctx.beginPath();
-  let started = false;
-  points.forEach(p => {
-    const sx = toScreenX(p.x), sy = toScreenY(p.y);
-    if (sy >= 0 && sy <= height) {
-      if (!started) { ctx.moveTo(sx, sy); started = true; }
-      else ctx.lineTo(sx, sy);
-    } else { started = false; }
-  });
-  ctx.stroke();
-}
+  localStorage.setItem('amisearch_lang', lang);
+};
 
-// GRAPH
-function onGraphCategoryChange() {
-  const cat = document.getElementById('graphCategory').value;
-  ['group-bst','group-custom','group-molecule','group-geometry'].forEach(id =>
-    document.getElementById(id).classList.add('hidden'));
-  document.getElementById('group-' + cat).classList.remove('hidden');
-}
-
-function drawInformaticsGraph() {
-  const svg = document.getElementById('graphSvg');
-  svg.innerHTML = '';
-  const category = document.getElementById('graphCategory').value;
-  if (category === 'bst') drawBinarySearchTree(svg);
-  else if (category === 'custom') drawCustomGraph(svg);
-  else if (category === 'molecule') drawMolecule(svg);
-  else if (category === 'geometry') drawGeometryShape(svg);
-}
-
-function drawSvgLine(svg, x1, y1, x2, y2, color='#A29BFE', width='2', dashed=false) {
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-  line.setAttribute('x2', x2); line.setAttribute('y
+// Save lang on change
+const origSetLang = setLang;
+window.setLang = function(lang) {
+  origSetLang(lang);
+  localStorage.setItem('amisearch_lang', lang);
+};
+</script>
+</body>
+</html>
