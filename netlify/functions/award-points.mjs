@@ -9,13 +9,13 @@ import { eq, sql } from "drizzle-orm";
  *
  *  Reason → pontok hozzárendelése + dedup szabály
  *  - five_star_rating: 50 pont, csak egyszer / user (rated_bonus_claimed)
- *  - document_upload: 20 pont, MINDEN upload-ra (limit: napi max 10 = 200 pont/nap)
+ *  - document_upload: 20 pont, MINDEN sikeres feltöltésre; a feltöltési kvótát külön a notes.mjs kezeli havi alapon
  *  - profile_complete: 30 pont, csak egyszer / user
  *
  *  Response: { points: új total, awarded: most adott, plan }
  *
  *  Idempotens DB schema migráció: rated_bonus_claimed, profile_bonus_claimed,
- *  uploads_today_count, uploads_today_date oszlopok auto-add.
+ *  uploads_today_count, uploads_today_date oszlopok auto-add, kompatibilitás miatt.
  */
 
 let _schemaEnsured = false;
@@ -37,7 +37,7 @@ async function ensureSchema() {
 
 const REWARDS = {
   five_star_rating: { amount: 50, oneTime: true, flagCol: "ratedBonusClaimed" },
-  document_upload: { amount: 20, oneTime: false, dailyLimit: 10 },
+  document_upload: { amount: 20, oneTime: false },
   profile_complete: { amount: 30, oneTime: true, flagCol: "profileBonusClaimed" }
 };
 
@@ -95,20 +95,7 @@ export default async function handler(req) {
     }
     updates[rule.flagCol] = true;
     awarded = rule.amount;
-  } else if (rule.dailyLimit) {
-    const today = new Date().toISOString().slice(0, 10);
-    const isNewDay = !profile.uploadsTodayDate || profile.uploadsTodayDate.toISOString?.().slice(0, 10) !== today;
-    const usedToday = isNewDay ? 0 : (profile.uploadsTodayCount || 0);
-    if (usedToday >= rule.dailyLimit) {
-      return jok({
-        points: profile.points || 0,
-        awarded: 0,
-        plan: profile.plan,
-        message: "Daily limit reached"
-      });
-    }
-    updates.uploadsTodayCount = usedToday + 1;
-    updates.uploadsTodayDate = new Date(today);
+  } else {
     awarded = rule.amount;
   }
 
