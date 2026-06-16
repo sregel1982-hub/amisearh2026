@@ -1,233 +1,257 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
 
-const getEnv = (key) =>
-  (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
+const JSON_HEADERS = { "Content-Type": "application/json" };
+const FREE_MONTHLY_UPLOAD_LIMIT = 5;
+
+function getEnv(key) {
+  return (typeof Netlify !== "undefined" && Netlify.env?.get?.(key)) || process.env[key];
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8"
-    }
+    headers: JSON_HEADERS,
   });
 }
 
 function getSupabaseAdmin() {
-  const url = getEnv("SUPABASE_URL");
-  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+  const supabaseUrl = getEnv("SUPABASE_URL");
+  const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
 
-  if (!url || !key) {
-    throw new Error("Supabase környezeti változó hiányzik.");
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase admin env vars missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY/SERVICE_ROLE_KEY are required.");
   }
 
-  return createClient(url, key, {
+  return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
-      autoRefreshToken: false
-    }
+      autoRefreshToken: false,
+    },
   });
 }
 
-function firstNonEmpty(...values) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-  }
-  return "";
+function currentMonthPeriod() {
+  return new Date().toISOString().slice(0, 7) + "-01";
 }
 
-function normalizeFileSize(value) {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : null;
+function isActivePro(profile) {
+  if (!profile) return false;
+  if (String(profile.plan || "").toLowerCase() !== "pro") return false;
+  if (!profile.plan_expires_at) return true;
+
+  const expiresAt = new Date(profile.plan_expires_at);
+  return Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() > Date.now();
 }
 
-function extractMissingColumn(message = "") {
-  const text = String(message || "");
-
-  // Példák:
-  // column jegyzetek.tantargy does not exist
-  // Could not find the 'nyelv' column of 'jegyzetek' in the schema cache
-  const patterns = [
-    /column\s+(?:[\w]+\.)?([\w]+)\s+does\s+not\s+exist/i,
-    /Could\s+not\s+find\s+the\s+'([^']+)'\s+column/i,
-    /Could\s+not\s+find\s+the\s+"([^"]+)"\s+column/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match && match[1]) return match[1];
+function normalizeMonthlyCounter(profile) {
+  const monthPeriod = currentMonthPeriod();
+  if (!profile || profile.uploads_today_date !== monthPeriod) {
+    return { monthPeriod, uploadsThisMonthCount: 0 };
   }
 
-  return "";
+  return { monthPeriod, uploadsThisMonthCount: Number(profile.uploads_today_count || 0) };
 }
 
-function mapNote(row = {}) {
-  const originalName = firstNonEmpty(row.original_name, row.originalName, row.file_path, row.fileName, "jegyzet");
-  const title = firstNonEmpty(row.cim, row.title, originalName, "Névtelen jegyzet");
-  const filePath = firstNonEmpty(row.file_path, row.filePath, row.fileName, row.file_name);
-  const subject = firstNonEmpty(row.subject, row.tantargy, row.targy, "");
-  const language = firstNonEmpty(row.nyelv, row.language, "hu");
-  const fileSize = normalizeFileSize(row.file_size ?? row.fileSize) || 0;
-  const textContent = firstNonEmpty(row.text_content, row.textContent);
-  const publicUrl = firstNonEmpty(row.public_url, row.publicUrl);
-  const userId = firstNonEmpty(row.user_id, row.uploaderIdentityId);
-
-  // Fontos: ezek csak a frontendnek visszaadott mezők.
-  // Nem jelenti azt, hogy ezek mind adatbázis-oszlopok is.
+function toCamelNote(row) {
   return {
     id: row.id,
-    title,
-    cim: title,
-    subject,
-    tantargy: subject,
-    language,
-    nyelv: language,
-    originalName,
-    original_name: originalName,
-    fileName: filePath,
-    filePath,
-    file_path: filePath,
-    publicUrl,
-    public_url: publicUrl,
-    fileSize,
-    file_size: fileSize,
-    textContent,
-    text_content: textContent,
-    uploaderIdentityId: userId,
-    user_id: userId,
-    createdAt: row.created_at || row.createdAt || null,
-    created_at: row.created_at || row.createdAt || null,
-    processed: row.processed === true
+    fileName: row.file_name,
+    originalName: row.original_name,
+    publicUrl: row.public_url,
+    fileSize: row.file_size,
+    uploaderIdentityId: row.uploader_identity_id,
+    textContent: row.text_content,
+    title: row.title,
+    subject: row.subject,
+    language: row.language,
+    fileHash: row.file_hash,
+    textHash: row.text_hash,
+    plagiarismScore: row.plagiarism_score,
+    similarNoteIds: row.similar_note_ids,
+    createdAt: row.created_at,
   };
 }
 
-async function insertWithSchemaFallback(supabase, row) {
-  const safeRow = { ...row };
+async function getOrCreateProfile(supabase, user) {
+  const { data: existing, error: selectError } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("identity_id", user.id)
+    .maybeSingle();
 
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  if (selectError) throw selectError;
+  if (existing) return existing;
+
+  const email = user.email || "";
+  const username = email ? email.split("@")[0] : `user_${Date.now()}`;
+
+  const { data: created, error: insertError } = await supabase
+    .from("user_profiles")
+    .insert({
+      identity_id: user.id,
+      full_name: user.user_metadata?.full_name || email || "User",
+      username,
+      email,
+      status: "student",
+      points: 0,
+      plan: "free",
+      uploads_today_count: 0,
+      uploads_today_date: currentMonthPeriod(),
+    })
+    .select("*")
+    .maybeSingle();
+
+  if (insertError) throw insertError;
+  return created;
+}
+
+async function ensureMonthlyCounterState(supabase, profile) {
+  const { monthPeriod, uploadsThisMonthCount } = normalizeMonthlyCounter(profile);
+
+  if (profile.uploads_today_date !== monthPeriod) {
     const { data, error } = await supabase
-      .from("jegyzetek")
-      .insert(safeRow)
+      .from("user_profiles")
+      .update({ uploads_today_count: 0, uploads_today_date: monthPeriod })
+      .eq("identity_id", profile.identity_id)
       .select("*")
-      .single();
+      .maybeSingle();
 
-    if (!error) return { data, error: null };
-
-    const missingColumn = extractMissingColumn(error.message);
-    if (!missingColumn || !(missingColumn in safeRow)) {
-      return { data: null, error };
-    }
-
-    console.warn("notes.mjs insert fallback: hiányzó oszlop kihagyva:", missingColumn);
-    delete safeRow[missingColumn];
+    if (error) throw error;
+    return data || { ...profile, uploads_today_count: 0, uploads_today_date: monthPeriod };
   }
 
-  return {
-    data: null,
-    error: new Error("A jegyzet mentése nem sikerült a táblaoszlopok eltérése miatt.")
+  return { ...profile, uploads_today_count: uploadsThisMonthCount, uploads_today_date: monthPeriod };
+}
+
+async function incrementUploadCounter(supabase, profile) {
+  if (isActivePro(profile)) return profile;
+
+  const monthPeriod = currentMonthPeriod();
+  const nextCount = Number(profile.uploads_today_count || 0) + 1;
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .update({ uploads_today_count: nextCount, uploads_today_date: monthPeriod })
+    .eq("identity_id", profile.identity_id)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || { ...profile, uploads_today_count: nextCount, uploads_today_date: monthPeriod };
+}
+
+async function handleGet(supabase) {
+  const { data, error } = await supabase
+    .from("uploaded_notes")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (error) throw error;
+  return json((data || []).map(toCamelNote));
+}
+
+async function handlePost(req, supabase, user) {
+  const body = await req.json().catch(() => null);
+  if (!body) return json({ error: "Invalid JSON" }, 400);
+
+  const fileName = String(body.fileName || body.file_name || "").trim();
+  const originalName = String(body.originalName || body.original_name || fileName || "").trim();
+  const publicUrl = String(body.publicUrl || body.public_url || "").trim();
+  const title = String(body.title || originalName || "").trim();
+  const subject = String(body.subject || "").trim();
+  const language = String(body.language || "hu").slice(0, 12);
+  const fileHash = String(body.fileHash || body.file_hash || "").trim();
+  const fileSize = Number(body.fileSize || body.file_size || 0) || 0;
+
+  if (!fileName || !publicUrl || !title) {
+    return json({ error: "Missing required note fields" }, 400);
+  }
+
+  let profile = await getOrCreateProfile(supabase, user);
+  profile = await ensureMonthlyCounterState(supabase, profile);
+
+  if (!isActivePro(profile) && Number(profile.uploads_today_count || 0) >= FREE_MONTHLY_UPLOAD_LIMIT) {
+    return json({
+      error: "Free monthly upload limit reached",
+      code: "free_monthly_upload_limit_reached",
+      limit: FREE_MONTHLY_UPLOAD_LIMIT,
+    }, 402);
+  }
+
+  if (fileHash) {
+    const { data: duplicate, error: duplicateError } = await supabase
+      .from("uploaded_notes")
+      .select("id, title, original_name")
+      .eq("uploader_identity_id", user.id)
+      .eq("file_hash", fileHash)
+      .maybeSingle();
+
+    if (duplicateError) throw duplicateError;
+    if (duplicate) {
+      return json({
+        error: "Duplicate file",
+        message: "Ezt a fájlt már feltöltötted egyszer.",
+        note: duplicate,
+      }, 409);
+    }
+  }
+
+  const payload = {
+    file_name: fileName,
+    original_name: originalName,
+    public_url: publicUrl,
+    file_size: fileSize,
+    uploader_identity_id: user.id,
+    title,
+    subject,
+    language,
+    file_hash: fileHash || null,
   };
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("uploaded_notes")
+    .insert(payload)
+    .select("*")
+    .maybeSingle();
+
+  if (insertError) throw insertError;
+
+  const updatedProfile = await incrementUploadCounter(supabase, profile);
+
+  return json({
+    ...toCamelNote(inserted),
+    profile: {
+      plan: updatedProfile.plan || "free",
+      planExpiresAt: updatedProfile.plan_expires_at || null,
+      uploadsThisMonthCount: updatedProfile.uploads_today_count || 0,
+      uploadsMonthPeriod: updatedProfile.uploads_today_date || null,
+      uploadsTodayCount: updatedProfile.uploads_today_count || 0,
+      uploadsTodayDate: updatedProfile.uploads_today_date || null,
+    },
+  }, 201);
 }
 
 export default async function handler(req) {
+  const user = await getSupabaseUser(req);
+  if (!user) return json({ error: "Unauthorized" }, 401);
+
+  let supabase;
   try {
-    const user = await getSupabaseUser(req);
-    if (!user) {
-      return json({ error: "Unauthorized", code: "unauthorized" }, 401);
-    }
+    supabase = getSupabaseAdmin();
+  } catch (error) {
+    console.error("[notes] Supabase admin init failed:", error?.message || error);
+    return json({ error: "Server misconfiguration" }, 500);
+  }
 
-    const supabase = getSupabaseAdmin();
-
-    if (req.method === "GET") {
-      const { data, error } = await supabase
-        .from("jegyzetek")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("notes.mjs GET error:", error);
-        return json({ error: error.message }, 500);
-      }
-
-      return json((data || []).map(mapNote));
-    }
-
-    if (req.method === "POST") {
-      const body = await req.json().catch(() => ({}));
-
-      const filePath = firstNonEmpty(
-        body.filePath,
-        body.file_path,
-        body.fileName,
-        body.file_name
-      );
-
-      const originalName = firstNonEmpty(
-        body.originalName,
-        body.original_name,
-        body.name,
-        filePath,
-        "jegyzet"
-      );
-
-      if (!filePath) {
-        return json({ error: "Hiányzik a filePath/fileName mező." }, 400);
-      }
-
-      const { data: duplicate, error: duplicateError } = await supabase
-        .from("jegyzetek")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("file_path", filePath)
-        .maybeSingle();
-
-      if (duplicateError) {
-        console.error("notes.mjs duplicate check error:", duplicateError);
-        return json({ error: duplicateError.message }, 500);
-      }
-
-      if (duplicate) {
-        return json(
-          {
-            message: "Ezt a fájlt már feltöltötted egyszer.",
-            note: mapNote(duplicate)
-          },
-          409
-        );
-      }
-
-      // Csak olyan mezőket küldünk az adatbázisnak, amelyek nagy valószínűséggel
-      // a production `jegyzetek` táblában is léteznek. A `tantargy` és `nyelv`
-      // szándékosan NINCS itt, mert nálad ezekre hibát adott a production séma.
-      const insertRow = {
-        user_id: user.id,
-        file_path: filePath,
-        original_name: originalName,
-        public_url: firstNonEmpty(body.publicUrl, body.public_url) || null,
-        file_size: normalizeFileSize(body.fileSize ?? body.file_size),
-        cim: firstNonEmpty(body.title, body.cim, originalName, "Névtelen jegyzet"),
-        processed: false
-      };
-
-      const textContent = firstNonEmpty(body.textContent, body.text_content);
-      if (textContent) {
-        insertRow.text_content = textContent;
-      }
-
-      const { data, error } = await insertWithSchemaFallback(supabase, insertRow);
-
-      if (error) {
-        console.error("notes.mjs POST insert error:", error);
-        return json({ error: error.message }, 500);
-      }
-
-      return json(mapNote(data), 201);
-    }
-
+  try {
+    if (req.method === "GET") return await handleGet(supabase);
+    if (req.method === "POST") return await handlePost(req, supabase, user);
     return json({ error: "Method not allowed" }, 405);
   } catch (error) {
-    console.error("notes.mjs error:", error);
-    return json({ error: error.message || "Internal server error" }, 500);
+    console.error("[notes] request failed:", error?.message || error);
+    return json({ error: "Notes request failed" }, 500);
   }
 }
+
+export const config = {};
