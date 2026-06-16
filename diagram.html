@@ -39,7 +39,6 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;}
 </head>
 <body class="min-h-screen">
 
-<!-- Header -->
 <header class="grad text-white shadow-lg">
 <div class="max-w-7xl mx-auto px-4 py-6">
 <div class="flex items-center justify-between">
@@ -62,33 +61,33 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;}
 
 <main class="max-w-7xl mx-auto px-4 py-8">
 
-<!-- Tool Selector -->
+<!-- HOME GRID -->
 <div id="home-grid" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-<div class="tool-card glass rounded-xl p-6 text-center" onclick="show('search')">
+<div class="tool-card glass rounded-xl p-6 text-center" onclick="showTool('search')">
 <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
 </div>
 <h3 class="font-semibold text-gray-800 text-sm" data-i18n="toolSearch">Szabadszavas Kereső</h3>
 </div>
-<div class="tool-card glass rounded-xl p-6 text-center" onclick="show('function')">
+<div class="tool-card glass rounded-xl p-6 text-center" onclick="showTool('function')">
 <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
 </div>
 <h3 class="font-semibold text-gray-800 text-sm" data-i18n="toolFunction">Függvényábrázoló</h3>
 </div>
-<div class="tool-card glass rounded-xl p-6 text-center" onclick="show('mindmap')">
+<div class="tool-card glass rounded-xl p-6 text-center" onclick="showTool('mindmap')">
 <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
 </div>
 <h3 class="font-semibold text-gray-800 text-sm" data-i18n="toolMindmap">Markmap Gondolattérkép</h3>
 </div>
-<div class="tool-card glass rounded-xl p-6 text-center" onclick="show('charts')">
+<div class="tool-card glass rounded-xl p-6 text-center" onclick="showTool('charts')">
 <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path></svg>
 </div>
 <h3 class="font-semibold text-gray-800 text-sm" data-i18n="toolCharts">Statisztika & Chartok</h3>
 </div>
-<div class="tool-card glass rounded-xl p-6 text-center" onclick="show('quiz')">
+<div class="tool-card glass rounded-xl p-6 text-center" onclick="showTool('quiz')">
 <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
 </div>
@@ -372,14 +371,14 @@ function t(key,...args){
 }
 
 // ===== NAVIGATION =====
-function show(id){
+function showTool(id){
   document.getElementById('home-grid').classList.add('hidden');
   document.querySelectorAll('.tool-section').forEach(el=>el.classList.add('hidden'));
   document.getElementById('tool-'+id).classList.remove('hidden');
-  if(id==='function')setTimeout(plotFunc,100);
-  if(id==='charts')setTimeout(renderChart,100);
-  if(id==='mindmap')setTimeout(()=>loadMindEx('bio'),100);
-  if(id==='quiz')setTimeout(genQuiz,100);
+  if(id==='function') setTimeout(plotFunc, 100);
+  if(id==='charts') setTimeout(renderChart, 100);
+  if(id==='mindmap') setTimeout(()=>loadMindEx('bio'), 100);
+  if(id==='quiz') setTimeout(genQuiz, 100);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -581,8 +580,8 @@ medium:[{q:'Mennyi 123 + 456?',o:['569','579','589','599'],a:1},{q:'Oldd meg: x 
 hard:[{q:'Mennyi 2⁵?',o:['16','25','32','64'],a:2},{q:'Oldd meg: 2x - 6 = 10',o:['6','7','8','9'],a:2},{q:'Mennyi az 1/3, 1/4 és 1/6 legkisebb közös többszöröse?',o:['1/12','12','1/2','3/4'],a:0},{q:'Egy háromszög szögei 40° és 70°. Mennyi a harmadik szög?',o:['50°','60°','70°','80°'],a:2},{q:'Mennyi 15% 200-ból?',o:['20','25','30','35'],a:2}]
 },
 highschool:{
-easy:[{q:'Oldd meg: x² = 16',o:['4','-4','±4','8'],a:2},{q:'Mennyi sin(30°)?',o:['1/2','√3/2','√2/2','1'],a:0},{q:'Mennyi log₁₀(100)?',o:['1','2','10','100'],a:1},{q:'Melyik egyenlet jelöl egy kört: x² + y² = 9?',o:['Kör','Parabola','Egyenes','Hiperbola'],a:0},{q:'Mennyi a másodfokú egyenlet megoldóképlete x-re?',o:['x = -b ± √(b²-4ac) / 2a','x = -b ± √(b²-4ac) / 2a','x = -b ± √(b²-4ac) / a','x = -b ± √(b²-4ac) / 2'],a:0}],
-medium:[{q:'Mennyi a sin²(x) + cos²(x) értéke?',o:['0','1','2','x'],a:1},{q:'Oldd meg: eˣ = 1',o:['x = 0','x = 1','x = e','Nincs megoldás'],a:0},{q:'Mennyi az (x² - 4) / (x - 2) határértéke x→2 esetén?',o:['0','2','4','Nem létezik'],a:2},{q:'Melyik a deriváltja az f(x) = x³ függvénynek?',o:['3x²','x²/3','3x','x³'],a:0},{q:'Mennyi a vektoriális szorzata az (1,0,0) és (0,1,0) vektoroknak?',o:['(0,0,1)','(1,1,0)','(0,0,0)','(1,0,1)'],a:0}],
+easy:[{q:'Oldd meg: x² = 16',o:['4','-4','±4','8'],a:2},{q:'Mennyi sin(30°)?',o:['1/2','√3/2','√2/2','1'],a:0},{q:'Mennyi log₁₀(100)?',o:['1','2','10','100'],a:1},{q:'Melyik egyenlet jelöl egy kört: x² + y² = 9?',o:['Kör','Parabola','Egyenes','Hiperbola'],a:0}],
+medium:[{q:'Mennyi a sin²(x) + cos²(x) értéke?',o:['0','1','2','x'],a:1},{q:'Oldd meg: eˣ = 1',o:['x = 0','x = 1','x = e','Nincs megoldás'],a:0},{q:'Mennyi az (x² - 4) / (x - 2) határértéke x→2 esetén?',o:['0','2','4','Nem létezik'],a:2},{q:'Melyik a deriváltja az f(x) = x³ függvénynek?',o:['3x²','x²/3','3x','x³'],a:0}],
 hard:[{q:'Oldd meg: ∫x² dx',o:['x³/3 + C','2x + C','x³ + C','x²/2 + C'],a:0},{q:'Mennyi az ∑(n=1→∞) 1/n² sor összege?',o:['π²/3','π²/6','π/2','1'],a:1},{q:'Melyik mátrix inverze létezik: [[1,2],[2,4]] vagy [[1,2],[3,4]]?',o:['Mindkettő','Egyik sem','Csak az első','Csak a második'],a:3},{q:'Mennyi az Euler-féle φ(7) értéke?',o:['6','7','5','1'],a:0},{q:'Melyik tétel mondja ki, hogy folytonos függvény zárt intervallumon felveszi szélsőértékeit?',o:['Bolzano-tétel','Weierstrass-tétel','Lagrange-tétel','Rolle-tétel'],a:1}]
 }
 },
@@ -661,9 +660,14 @@ function answerQuiz(qIdx,selIdx,correctIdx,el){
   }
 }
 
-// Init
-window.addEventListener('load',()=>{show('search');});
-window.addEventListener('resize',()=>{if(!document.getElementById('tool-function').classList.contains('hidden'))plotFunc();});
+// Init - start with home grid visible, no tools
+window.addEventListener('load',()=>{
+  // Home grid is visible by default, all tool sections are hidden
+  console.log('AMISEARCH Multitool loaded');
+});
+window.addEventListener('resize',()=>{
+  if(!document.getElementById('tool-function').classList.contains('hidden')) plotFunc();
+});
 </script>
 </body>
 </html>
