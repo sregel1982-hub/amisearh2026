@@ -18,12 +18,11 @@ function sanitizeMarkmapMarkdown(value, topic) {
   let text = stripCodeFence(value)
     .replace(/^---[\s\S]*?---\s*/m, "")
     .split("\n")
-    .map((line) => line.replace(/\t/g, "  ").replace(/\s+$/g, ""))
+    .map((line) => line.replace(/\t/g, " ").replace(/\s+$/g, ""))
     .filter((line) => !/^\s*```/.test(line))
     .join("\n")
     .trim();
 
-  // Ha a modell véletlenül Mermaid jellegű bevezetést adna, azt eltávolítjuk.
   text = text
     .replace(/^mindmap\b\s*/i, "")
     .replace(/^graph\b.*$/im, "")
@@ -39,7 +38,18 @@ function sanitizeMarkmapMarkdown(value, topic) {
 
 export default async function handler(req) {
   try {
-    console.log("✅ generate-mindmap.js fut Markmap módban.");
+    console.log("✅ generate-mindmap.js fut. Method:", req.method);
+
+    // GET kérés kezelése (diagnosztika)
+    if (req.method === "GET") {
+      return new Response(JSON.stringify({ 
+        status: "ok", 
+        message: "A function működik. Használj POST kérést a generáláshoz.",
+        aiConfigured: isAiConfigured()
+      }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     if (req.method !== "POST") return jsonError("Method not allowed", 405);
     if (!isAiConfigured()) return aiUnavailableResponse();
@@ -59,7 +69,7 @@ Kötelező formátum:
 - rövid alpont
 ## Fő ág 2
 - rövid alpont
-  - részlet
+ - részlet
 
 Szabályok:
 - Csak Markdown vázlatot adj vissza, sem Mermaid, sem flowchart, sem kódfence ne legyen.
@@ -85,6 +95,12 @@ Szabályok:
     });
   } catch (error) {
     console.error("Mindmap generation error:", error);
-    return aiUnavailableResponse();
+    return new Response(JSON.stringify({ 
+      error: "Mindmap generation failed", 
+      details: error?.message || String(error) 
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
