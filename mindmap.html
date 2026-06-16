@@ -1,391 +1,92 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="hu">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mindmap</title>
-  <style>
-    :root{
-      --bg:#f6f7fb;
-      --card:#fff;
-      --text:#1f2937;
-      --muted:#6b7280;
-      --primary:#6d5bd0;
-      --primary2:#8b7cf0;
-      --border:#e5e7eb;
-      --shadow:0 10px 30px rgba(15,23,42,.08)
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      background:var(--bg);
-      color:var(--text)
-    }
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      padding:18px 22px;
-      background:#fff;
-      border-bottom:1px solid var(--border);
-      position:sticky;
-      top:0;
-      z-index:10
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      font-weight:700
-    }
-    .logo{
-      width:38px;
-      height:38px;
-      border-radius:12px;
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-      color:#fff;
-      display:grid;
-      place-items:center
-    }
-    .wrap{
-      max-width:1180px;
-      margin:28px auto;
-      padding:0 16px 40px
-    }
-    .card{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:20px;
-      box-shadow:var(--shadow);
-      padding:18px
-    }
-    .row{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      align-items:end
-    }
-    .field{
-      flex:1;
-      min-width:260px
-    }
-    .label{
-      display:block;
-      font-size:14px;
-      font-weight:600;
-      margin:0 0 8px
-    }
-    .hint{
-      font-size:13px;
-      color:var(--muted);
-      margin-top:8px
-    }
-    input,textarea,button{font:inherit}
-    .input,textarea{
-      width:100%;
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:14px 16px;
-      background:#fff;
-      outline:none
-    }
-    .input:focus,textarea:focus{
-      border-color:#b7aef7;
-      box-shadow:0 0 0 4px rgba(109,91,208,.12)
-    }
-    textarea{
-      min-height:170px;
-      resize:vertical;
-      line-height:1.55
-    }
-    .btn{
-      border:0;
-      border-radius:14px;
-      padding:14px 18px;
-      font-weight:700;
-      cursor:pointer
-    }
-    .btn-primary{
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-      color:#fff
-    }
-    .btn-secondary{
-      background:#eef2ff;
-      color:#4338ca
-    }
-    .btn-ghost{
-      background:#f3f4f6;
-      color:#111827
-    }
-    .toolbar{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px
-    }
-    .split{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:18px;
-      margin-top:18px
-    }
-    .panel{
-      background:#fff;
-      border:1px solid var(--border);
-      border-radius:20px;
-      min-height:560px;
-      overflow:hidden
-    }
-    .panel-head{
-      padding:14px 16px;
-      border-bottom:1px solid var(--border);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      font-weight:700
-    }
-    #mindmap{
-      width:100%;
-      height:calc(100% - 54px);
-      min-height:510px;
-      overflow:auto
-    }
-    .empty{
-      padding:28px;
-      color:var(--muted)
-    }
-    .small{
-      font-size:13px;
-      color:var(--muted)
-    }
-    @media (max-width: 980px){
-      .split{grid-template-columns:1fr}
-      .panel{min-height:420px}
-      #mindmap{min-height:360px}
-    }
-    .lang-switch{
-      display:flex;
-      gap:8px;
-      align-items:center
-    }
-    .pill{
-      border:1px solid var(--border);
-      background:#fff;
-      border-radius:999px;
-      padding:8px 12px;
-      cursor:pointer
-    }
-    .pill.active{
-      background:#111827;
-      color:#fff;
-      border-color:#111827
-    }
-    .download-link{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      text-decoration:none
-    }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18.9/dist/browser/view.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18.9/dist/browser/index.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMISEARCH Multitool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/markmap-toolbar@0.17.0/dist/style.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.17.0"></script>
+    <style>
+        :root { --primary: #6366f1; }
+        body { background-color: #f9fafb; font-family: 'Segoe UI', sans-serif; }
+        .nav-card { transition: all 0.3s ease; border: 1px solid #e5e7eb; cursor: pointer; }
+        .nav-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    </style>
 </head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="logo">A</div>
-      <div>AMISEARCH <span class="small" data-i18n="title">Gondolattérkép</span></div>
-    </div>
-    <div class="lang-switch" aria-label="language switch">
-      <button class="pill" id="huBtn" type="button">HU</button>
-      <button class="pill" id="enBtn" type="button">EN</button>
-    </div>
-  </header>
+<body class="p-6">
 
-  <main class="wrap">
-    <section class="card">
-      <div class="row">
-        <div class="field">
-          <label class="label" for="topic" data-i18n="topicLabel">Miről készüljön gondolattérkép?</label>
-          <input id="topic" class="input" type="text" placeholder="Pl.: Reformáció, AI, Magyar történelem..." />
-          <div class="hint" data-i18n="topicHint">A chatből is átadható téma alapján készítünk szerkeszthető Markmap-vázlatot.</div>
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">AMISEARCH <span class="text-indigo-600 font-light">Multitool</span></h1>
+            <div class="flex gap-4">
+                <select id="lang-selector" onchange="changeLanguage()" class="p-2 border rounded-md">
+                    <option value="hu">Magyar</option>
+                    <option value="en">English</option>
+                </select>
+                <button onclick="history.back()" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300">Vissza</button>
+            </div>
         </div>
-        <button id="generateBtn" class="btn btn-primary" type="button" data-i18n="generate">Generálás</button>
-        <button id="downloadBtn" class="btn btn-secondary" type="button" data-i18n="download">Letöltés SVG</button>
-        <button id="copyBtn" class="btn btn-ghost" type="button" data-i18n="copy">Markdown másolása</button>
-      </div>
-      <div class="toolbar">
-        <a id="backLink" href="#" class="download-link small" data-i18n="back">← Vissza az oldalra</a>
-        <span class="small" data-i18n="help">A mindmap szerkeszthető Markdownból készül, ezért utólag is módosítható.</span>
-      </div>
-    </section>
 
-    <section class="split">
-      <div class="panel">
-        <div class="panel-head"><span data-i18n="editor">Szerkeszthető vázlat</span></div>
-        <textarea id="markdown" spellcheck="false"></textarea>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><span data-i18n="preview">Előnézet</span><span id="status" class="small"></span></div>
-        <div id="mindmap"><div class="empty" data-i18n="empty">Adj meg egy témát, majd kattints a Generálás gombra.</div></div>
-      </div>
-    </section>
-  </main>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <button onclick="switchTab('func')" class="nav-card p-4 rounded-xl bg-white text-center">Függvényábrázoló</button>
+            <button onclick="switchTab('mind')" class="nav-card p-4 rounded-xl bg-white text-center">Gondolattérkép</button>
+            <button onclick="switchTab('stat')" class="nav-card p-4 rounded-xl bg-white text-center">Statisztika</button>
+            <button onclick="switchTab('quiz')" class="nav-card p-4 rounded-xl bg-white text-center">AI Kvízgenerátor</button>
+        </div>
 
-<script>
-const i18n = {
-  hu: {
-    title:'Gondolattérkép',
-    topicLabel:'Miről készüljön gondolattérkép?',
-    topicHint:'A chatből is átadható téma alapján készítünk szerkeszthető Markmap-vázlatot.',
-    generate:'Generálás',
-    download:'Letöltés SVG',
-    copy:'Markdown másolása',
-    back:'← Vissza az oldalra',
-    help:'A mindmap szerkeszthető Markdownból készül, ezért utólag is módosítható.',
-    editor:'Szerkeszthető vázlat',
-    preview:'Előnézet',
-    empty:'Adj meg egy témát, majd kattints a Generálás gombra.',
-    copied:'Másolva',
-    loaded:'Betöltve'
-  },
-  en: {
-    title:'Mindmap',
-    topicLabel:'What should the mindmap be about?',
-    topicHint:'We generate an editable Markmap outline from a topic passed from the chat as well.',
-    generate:'Generate',
-    download:'Download SVG',
-    copy:'Copy Markdown',
-    back:'← Back to the main page',
-    help:'The mindmap is created from editable Markdown, so you can modify it later.',
-    editor:'Editable outline',
-    preview:'Preview',
-    empty:'Enter a topic, then click Generate.',
-    copied:'Copied',
-    loaded:'Loaded'
-  }
-};
+        <div id="content-area" class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div id="tab-func" class="tab-section">
+                <h2 class="text-xl font-bold mb-4">Függvény Beállítások</h2>
+                <input type="text" id="math-input" placeholder="Matematikai képlet (pl. Math.sin(x))" class="w-full p-3 border rounded-lg mb-4">
+                <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg">Ábrázolás frissítése</button>
+            </div>
 
-const el = s => document.querySelector(s);
-const params = new URLSearchParams(location.search);
-const topicParam = params.get('topic') || localStorage.getItem('topic') || '';
-const lang = (
-  localStorage.getItem('lang') ||
-  ((navigator.language || 'hu').toLowerCase().startsWith('hu') ? 'hu' : 'en')
-);
-localStorage.setItem('lang', lang);
+            <div id="tab-mind" class="tab-section hidden">
+                <h2 class="text-xl font-bold mb-4">Gondolattérkép Generálás</h2>
+                <textarea id="mind-input" class="w-full h-32 p-3 border rounded-lg mb-4" placeholder="Írd be a témát vagy vázlatot..."></textarea>
+                <button onclick="renderMindmap()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg">Generálás</button>
+                <div id="markmap-container" class="mt-6 h-64 border rounded">
+                    <svg id="markmap"></svg>
+                </div>
+            </div>
 
-function t(k){ return i18n[lang][k] || k; }
+            <div id="tab-stat" class="tab-section hidden">
+                <h2 class="text-xl font-bold mb-4">Statisztika</h2>
+                <p>Statisztikai adatok megjelenítése.</p>
+            </div>
 
-function applyI18n(){
-  document.documentElement.lang = lang;
-  document.title = t('title');
-  document.querySelectorAll('[data-i18n]').forEach(n => n.textContent = t(n.dataset.i18n));
-  el('#topic').placeholder = lang === 'hu'
-    ? 'Pl.: Reformáció, AI, Magyar történelem...'
-    : 'e.g. Reformation, AI, Hungarian history...';
-  el('#huBtn').classList.toggle('active', lang === 'hu');
-  el('#enBtn').classList.toggle('active', lang === 'en');
-}
+            <div id="tab-quiz" class="tab-section hidden">
+                <h2 class="text-xl font-bold mb-4">AI Kvízgenerátor</h2>
+                <p>Kvíz konfiguráció és kérdések.</p>
+            </div>
+        </div>
+    </div>
 
-function baseOutline(topic){
-  if(lang === 'hu'){
-    return `# ${topic}
-## Áttekintés
-- Fogalom
-- Fő cél
-- Miért fontos?
-## Kulcspontok
-- 1. ág
-- 2. ág
-- 3. ág
-## Példák
-- Alkalmazás
-- Esettanulmány
-## További kérdések
-- Mit érdemes még tudni?`;
-  }
-  return `# ${topic}
-## Overview
-- Definition
-- Main goal
-- Why it matters
-## Key points
-- Branch 1
-- Branch 2
-- Branch 3
-## Examples
-- Usage
-- Case study
-## Further questions
-- What else should be known?`;
-}
+    <script>
+        const apiKey = "TITKOS_KULCS_HELYE";
 
-let mm = null;
-let markdown = '';
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById('tab-' + tabId);
+            if (target) {
+                target.classList.remove('hidden');
+            }
+        }
 
-function render(md){
-  markdown = md;
-  el('#markdown').value = md;
-  el('#status').textContent = t('loaded');
-  const container = el('#mindmap');
-  container.innerHTML = '';
-  const { Markmap } = window.markmap;
-  mm = Markmap.create(container, null, Markmap.transform(md));
-}
+        function renderMindmap() {
+            const input = document.getElementById('mind-input').value;
+            const el = document.querySelector('#markmap');
+            if (window.markmap && el) {
+                el.innerHTML = '';
+                window.markmap.Markmap.create(el, null, input || "# Téma\n- Alpont 1\n- Alpont 2");
+            }
+        }
 
-function generate(){
-  const topic = el('#topic').value.trim() || (lang === 'hu' ? 'Új téma' : 'New topic');
-  localStorage.setItem('topic', topic);
-  render(baseOutline(topic));
-}
-
-function downloadSvg(){
-  if(!mm || !mm.svg) return;
-  const svg = mm.svg.node().cloneNode(true);
-  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  const xml = new XMLSerializer().serializeToString(svg);
-  const blob = new Blob([xml], { type:'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${(el('#topic').value.trim() || 'mindmap').replace(/[^\w\-]+/g, '_')}.svg`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function copyMd(){
-  navigator.clipboard.writeText(el('#markdown').value).then(() => {
-    el('#status').textContent = t('copied');
-  });
-}
-
-el('#generateBtn').addEventListener('click', generate);
-el('#downloadBtn').addEventListener('click', downloadSvg);
-el('#copyBtn').addEventListener('click', copyMd);
-el('#markdown').addEventListener('input', e => render(e.target.value));
-
-el('#huBtn').addEventListener('click', () => {
-  localStorage.setItem('lang', 'hu');
-  location.reload();
-});
-el('#enBtn').addEventListener('click', () => {
-  localStorage.setItem('lang', 'en');
-  location.reload();
-});
-
-el('#backLink').href = localStorage.getItem('homeUrl') || '/';
-
-applyI18n();
-el('#topic').value = topicParam;
-
-if(topicParam){
-  generate();
-} else {
-  render(baseOutline(lang === 'hu' ? 'Új téma' : 'New topic'));
-}
-</script>
+        function changeLanguage() {
+            const lang = document.getElementById('lang-selector').value;
+            alert("Nyelv váltva erre: " + lang);
+        }
+    </script>
 </body>
 </html>
