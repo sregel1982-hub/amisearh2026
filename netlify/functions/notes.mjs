@@ -15,11 +15,9 @@ function json(data, status = 200) {
 function getSupabaseAdmin() {
   const supabaseUrl = getEnv("SUPABASE_URL");
   const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
-
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("Supabase admin env vars missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY/SERVICE_ROLE_KEY are required.");
   }
-
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -45,29 +43,34 @@ function normalizeMonthlyCounter(profile) {
   return { monthPeriod, uploadsThisMonthCount: Number(profile.uploads_today_count || 0) };
 }
 
-function toCamelNote(row) {
-  const title = row.cim || row.title || row.original_name || row.file_path || "Névtelen jegyzet";
+function toCamelNote(row = {}) {
+  const title = row.cim || row.title || row.original_name || row.file_name || row.file_path || "Névtelen jegyzet";
   const fileName = row.file_path || row.file_name || row.original_name || title;
   return {
     id: row.id,
     fileName,
-    filePath: row.file_path || fileName,
+    filePath: row.file_path || row.file_name || fileName,
     originalName: row.original_name || title,
     publicUrl: row.public_url || "",
     fileSize: row.file_size || 0,
     uploaderIdentityId: row.user_id || row.uploader_identity_id || null,
-    userId: row.user_id || null,
+    userId: row.user_id || row.uploader_identity_id || null,
     textContent: row.text_content || "",
     title,
-    cim: row.cim || title,
+    cim: row.cim || row.title || title,
     subject: row.tantargy || row.subject || "",
     tantargy: row.tantargy || row.subject || "",
     language: row.nyelv || row.language || "hu",
     nyelv: row.nyelv || row.language || "hu",
-    processed: !!row.processed,
+    processed: Boolean(row.processed || row.text_content),
     createdAt: row.created_at || null,
     created_at: row.created_at || null,
   };
+}
+
+function isSchemaProblem(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return message.includes("relation") || message.includes("does not exist") || message.includes("column") || message.includes("schema cache");
 }
 
 async function getOrCreateProfile(supabase, user) {
@@ -82,7 +85,6 @@ async function getOrCreateProfile(supabase, user) {
 
   const email = user.email || "";
   const username = email ? email.split("@")[0] : `user_${Date.now()}`;
-
   const { data: created, error: insertError } = await supabase
     .from("user_profiles")
     .insert({
@@ -132,16 +134,113 @@ async function incrementUploadCounter(supabase, profile) {
   return data || { ...profile, uploads_today_count: nextCount, uploads_today_date: monthPeriod };
 }
 
+async function selectRowsIgnoringMissing(supabase, table, queryBuilder) {
+  const result = await queryBuilder(supabase.from(table));
+  if (result.error) {
+    if (isSchemaProblem(result.error)) return [];
+    throw result.error;
+  }
+  return result.data || [];
+}
+
 async function handleGet(supabase, user) {
-  const { data, error } = await supabase
-    .from("jegyzetek")
-    .select("id, cim, original_name, file_path, public_url, user_id, tantargy, nyelv, text_content, processed, created_at")
+  const jegyzetek = await selectRowsIgnoringMissing(supabase, "jegyzetek", (from) => from
+    .select("*")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(300);
+    .limit(300));
 
-  if (error) throw error;
-  return json((data || []).map(toCamelNote));
+  const uploadedNotes = await selectRowsIgnoringMissing(supabase, "uploaded_notes", (from) => from
+    .select("*")
+    .eq("uploader_identity_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(300));
+
+  return json([...jegyzetek, ...uploadedNotes].map(toCamelNote));
+}
+
+async function findDuplicate(supabase, user, fileName) {
+  const checks = [
+    supabase.from("jegyzetek").select("*").eq("user_id", user.id).eq("file_path", fileName).maybeSingle(),
+    supabase.from("uploaded_notes").select("*").eq("uploader_identity_id", user.id).eq("file_name", fileName).maybeSingle(),
+  ];
+
+  for (const check of checks) {
+    const { data, error } = await check;
+    if (error) {
+      if (isSchemaProblem(error)) continue;
+      throw error;
+    }
+    if (data) return data;
+  }
+  return null;
+}
+
+async function insertIntoJegyzetek(supabase, payload) {
+  const fullPayload = {
+    user_id: payload.userId,
+    cim: payload.title,
+    tantargy: payload.subject,
+    nyelv: payload.language,
+    original_name: payload.originalName,
+    file_path: payload.fileName,
+    public_url: payload.publicUrl || null,
+    text_content: payload.textContent || null,
+    processed: Boolean(payload.textContent),
+  };
+
+  let result = await supabase.from("jegyzetek").insert(fullPayload).select("*").maybeSingle();
+  if (!result.error) return result.data;
+  if (!isSchemaProblem(result.error)) throw result.error;
+
+  const minimalPayload = {
+    user_id: payload.userId,
+    cim: payload.title,
+    tantargy: payload.subject,
+    file_path: payload.fileName,
+  };
+  result = await supabase.from("jegyzetek").insert(minimalPayload).select("*").maybeSingle();
+  if (result.error) throw result.error;
+  return result.data;
+}
+
+async function insertIntoUploadedNotes(supabase, payload) {
+  const fullPayload = {
+    file_name: payload.fileName,
+    original_name: payload.originalName,
+    public_url: payload.publicUrl || null,
+    file_size: Number(payload.fileSize || 0),
+    uploader_identity_id: payload.userId,
+    text_content: payload.textContent || null,
+    title: payload.title,
+    subject: payload.subject,
+    language: payload.language,
+  };
+
+  let result = await supabase.from("uploaded_notes").insert(fullPayload).select("*").maybeSingle();
+  if (!result.error) return result.data;
+  if (!isSchemaProblem(result.error)) throw result.error;
+
+  const minimalPayload = {
+    file_name: payload.fileName,
+    original_name: payload.originalName,
+    uploader_identity_id: payload.userId,
+    title: payload.title,
+    subject: payload.subject,
+    language: payload.language,
+  };
+  result = await supabase.from("uploaded_notes").insert(minimalPayload).select("*").maybeSingle();
+  if (result.error) throw result.error;
+  return result.data;
+}
+
+async function insertNote(supabase, payload) {
+  try {
+    return await insertIntoJegyzetek(supabase, payload);
+  } catch (firstError) {
+    if (!isSchemaProblem(firstError)) throw firstError;
+    return await insertIntoUploadedNotes(supabase, payload);
+  }
 }
 
 async function handlePost(req, supabase, user) {
@@ -151,13 +250,13 @@ async function handlePost(req, supabase, user) {
   const fileName = String(body.fileName || body.filePath || body.file_name || body.file_path || "").trim();
   const originalName = String(body.originalName || body.original_name || fileName || "").trim();
   const publicUrl = String(body.publicUrl || body.public_url || "").trim();
-  const title = String(body.title || body.cim || originalName || "").trim();
+  const textContent = String(body.textContent || body.text_content || "").trim();
+  const title = String(body.title || body.cim || originalName || fileName || "").trim();
   const subject = String(body.subject || body.tantargy || "").trim();
   const language = String(body.language || body.nyelv || "hu").slice(0, 12);
+  const fileSize = Number(body.fileSize || body.file_size || 0);
 
-  if (!fileName || !title) {
-    return json({ error: "Missing required note fields" }, 400);
-  }
+  if (!fileName || !title) return json({ error: "Missing required note fields" }, 400);
 
   let profile = await getOrCreateProfile(supabase, user);
   profile = await ensureMonthlyCounterState(supabase, profile);
@@ -170,14 +269,7 @@ async function handlePost(req, supabase, user) {
     }, 402);
   }
 
-  const duplicateQuery = supabase
-    .from("jegyzetek")
-    .select("id, cim, original_name")
-    .eq("user_id", user.id)
-    .eq("file_path", fileName)
-    .maybeSingle();
-  const { data: duplicate, error: duplicateError } = await duplicateQuery;
-  if (duplicateError) throw duplicateError;
+  const duplicate = await findDuplicate(supabase, user, fileName);
   if (duplicate) {
     return json({
       error: "Duplicate file",
@@ -186,27 +278,20 @@ async function handlePost(req, supabase, user) {
     }, 409);
   }
 
-  const payload = {
-    user_id: user.id,
-    cim: title,
-    tantargy: subject,
-    nyelv: language,
-    original_name: originalName,
-    file_path: fileName,
-    public_url: publicUrl || null,
-    processed: false,
-  };
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("jegyzetek")
-    .insert(payload)
-    .select("id, cim, original_name, file_path, public_url, user_id, tantargy, nyelv, text_content, processed, created_at")
-    .maybeSingle();
-
-  if (insertError) throw insertError;
+  const inserted = await insertNote(supabase, {
+    userId: user.id,
+    fileName,
+    originalName,
+    publicUrl,
+    textContent,
+    title,
+    subject,
+    language,
+    fileSize,
+  });
 
   const updatedProfile = await incrementUploadCounter(supabase, profile);
-  const note = toCamelNote(inserted);
+  const note = toCamelNote(inserted || { file_name: fileName, original_name: originalName, title, subject, language, text_content: textContent });
 
   return json({
     ...note,
