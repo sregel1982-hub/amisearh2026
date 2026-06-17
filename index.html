@@ -2280,33 +2280,26 @@
   /* ──────────────────────────────────────────────────────────────
      LemonSqueezy checkout indítása
      ────────────────────────────────────────────────────────────── */
-  window.startCheckout = async function(variantKey) {
-    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
-    if (!window.currentUser) {
-      window.openModal('loginModal');
-      return;
-    }
+
+  // 1 hónap
+  const checkoutHU_1m = "https://amisearch.lemonsqueezy.com/checkout/buy/224a251a-47f7-4f78-93d0-2003eeccd998";
+  const checkoutEN_1m = "https://amisearch.lemonsqueezy.com/checkout/buy/77fe885d-b918-452b-94c1-18ad5d3683fb";
+
+  // 6 hónap
+  const checkoutHU_6m = "https://amisearch.lemonsqueezy.com/checkout/buy/69367681-dea8-4881-914e-e72219b35b91";
+  const checkoutEN_6m = "https://amisearch.lemonsqueezy.com/checkout/buy/5df5a828-b0ed-411d-9fef-db2fb4449edb";
+
+  window.startCheckout = function(variantKey) {
+    const lang = localStorage.getItem('lang') || window.currentLang || 'hu';
     const variant = variantKey || 'pro_1month';
-    try {
-      const resp = await fetch('/.netlify/functions/lemon-checkout?variant=' + encodeURIComponent(variant), {
-        method: 'GET',
-        headers: await window.getAuthHeaders({})
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        let msg = lang === 'hu' ? 'Nem sikerült a fizetési oldal megnyitása. ' : 'Could not open checkout. ';
-        try { const j = JSON.parse(t); msg += j.error || ''; } catch { msg += t.slice(0,200); }
-        alert(msg);
-        return;
-      }
-      const data = await resp.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(lang === 'hu' ? 'A fizetési URL hiányzik.' : 'Checkout URL missing.');
-      }
-    } catch (e) {
-      alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
+
+    if (variant === 'pro_1month') {
+      window.location.href = lang === 'hu' ? checkoutHU_1m : checkoutEN_1m;
+    } else if (variant === 'pro_6month') {
+      window.location.href = lang === 'hu' ? checkoutHU_6m : checkoutEN_6m;
+    } else {
+      // Ismeretlen variant: alapértelmezett 1 hónapos
+      window.location.href = lang === 'hu' ? checkoutHU_1m : checkoutEN_1m;
     }
   };
 
@@ -3791,4 +3784,3 @@
   
   </body>
 </html>
-
