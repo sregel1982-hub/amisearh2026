@@ -14,7 +14,7 @@
     const lang = localStorage.getItem('lang') || 'hu';
     if (lang === 'en') {
       document.documentElement.lang = "en";
-      document.title = "AMISEARCH - Terms & Conditions";
+      document.title = "AMISEARCH - Terms of Service";
       document.querySelectorAll('[data-hu]').forEach(el => {
         el.innerHTML = el.getAttribute('data-en');
       });
@@ -25,48 +25,86 @@
 <body class="bg-gray-50 text-gray-900">
   <div class="max-w-4xl mx-auto px-4 py-20">
     <a href="/" class="text-[#6C5CE7] hover:underline mb-8 inline-block" data-hu="&larr; Vissza a főoldalra" data-en="&larr; Back to Home">&larr; Vissza a főoldalra</a>
-    <h1 class="text-4xl font-extrabold mb-8" data-hu="Általános Szerződési Feltételek (ÁSZF)" data-en="General Terms and Conditions (T&C)">Általános Szerződési Feltételek (ÁSZF)</h1>
-    <div class="bg-white rounded-2xl p-8 shadow-sm space-y-6">
+    
+    <h1 class="text-4xl font-extrabold mb-8" data-hu="Általános Szerződési Feltételek (ÁSZF)" data-en="General Terms and Conditions (GTC)">Általános Szerződési Feltételek (ÁSZF)</h1>
+    
+    <div class="bg-white rounded-2xl p-8 shadow-sm space-y-8">
       <p class="text-gray-600 italic" data-hu="Hatályos: 2026. január 1." data-en="Effective from: January 1, 2026">Hatályos: 2026. január 1.</p>
-      
+
       <section>
-        <h2 class="text-xl font-bold mb-2" data-hu="A szolgáltatás leírása" data-en="Description of Service">A szolgáltatás leírása</h2>
-        <p data-hu="Az AMISEARCH egy online tanulási platform, amely lehetővé teszi jegyzetek feltöltését, keresését, AI‑alapú összefoglalását és oktatási tartalmak elérését." data-en="AMISEARCH is an online learning platform that allows uploading, searching, AI-based summarizing of notes and accessing educational content.">Az AMISEARCH egy online tanulási platform, amely lehetővé teszi jegyzetek feltöltését, keresését, AI‑alapú összefoglalását és oktatási tartalmak elérését.</p>
+        <h2 class="text-2xl font-bold mb-4" data-hu="1. A szolgáltatás leírása" data-en="1. Description of the Service">1. A szolgáltatás leírása</h2>
+        <p class="text-gray-700" data-hu="Az AMISEARCH egy online AI-alapú tanulási platform, amely lehetővé teszi jegyzetek, dokumentumok feltöltését, intelligens keresését, összefoglalását és oktatási tartalmak kezelését." 
+           data-en="AMISEARCH is an AI-powered online learning platform that allows users to upload notes and documents, perform intelligent search, generate summaries, and manage educational content.">
+           Az AMISEARCH egy online AI-alapú tanulási platform, amely lehetővé teszi jegyzetek, dokumentumok feltöltését, intelligens keresését, összefoglalását és oktatási tartalmak kezelését.
+        </p>
       </section>
-      
+
       <section>
-        <h2 class="text-xl font-bold mb-2" data-hu="Regisztráció és felhasználói fiók" data-en="Registration and User Account">Regisztráció és felhasználói fiók</h2>
-        <ul class="list-disc pl-5 space-y-1">
+        <h2 class="text-2xl font-bold mb-4" data-hu="2. Regisztráció és felhasználói fiók" data-en="2. Registration and User Account">2. Regisztráció és felhasználói fiók</h2>
+        <ul class="list-disc pl-5 space-y-2 text-gray-700">
           <li data-hu="A szolgáltatás használatához regisztráció szükséges." data-en="Registration is required to use the service.">A szolgáltatás használatához regisztráció szükséges.</li>
-          <li data-hu="A felhasználó köteles valós adatokat megadni." data-en="The user must provide real data.">A felhasználó köteles valós adatokat megadni.</li>
+          <li data-hu="A felhasználó köteles valós, teljes és aktuális adatokat megadni." data-en="Users must provide true, complete and up-to-date information.">A felhasználó köteles valós, teljes és aktuális adatokat megadni.</li>
+          <li data-hu="Egy személy csak egy fiókot hozhat létre, kivéve ha a szolgáltató engedélyezi." data-en="One person may only create one account unless otherwise permitted by the provider.">Egy személy csak egy fiókot hozhat létre, kivéve ha a szolgáltató engedélyezi.</li>
         </ul>
       </section>
 
       <section>
-        <h2 class="text-xl font-bold mb-2" data-hu="Feltöltött tartalom" data-en="Uploaded Content">Feltöltött tartalom</h2>
-        <ul class="list-disc pl-5 space-y-1">
-          <li data-hu="A felhasználó felelős minden általa feltöltött dokumentumért." data-en="The user is responsible for all documents uploaded.">A felhasználó felelős minden általa feltöltött dokumentumért.</li>
-          <li data-hu="Tilos jogsértő, szerzői jogot sértő vagy illegális tartalom feltöltése." data-en="Uploading infringing, copyrighted, or illegal content is prohibited.">Tilos jogsértő, szerzői jogot sértő vagy illegális tartalom feltöltése.</li>
+        <h2 class="text-2xl font-bold mb-4" data-hu="3. Felhasználói tartalom" data-en="3. User Content">3. Felhasználói tartalom</h2>
+        <ul class="list-disc pl-5 space-y-2 text-gray-700">
+          <li data-hu="A felhasználó teljes felelősséget vállal az általa feltöltött tartalomért." data-en="The user is fully responsible for all content they upload.">A felhasználó teljes felelősséget vállal az általa feltöltött tartalomért.</li>
+          <li data-hu="Tilos jogsértő, szerzői jogot sértő, obszcén, diszkriminatív vagy illegális tartalom feltöltése." data-en="It is prohibited to upload infringing, copyrighted, obscene, discriminatory or illegal content.">Tilos jogsértő, szerzői jogot sértő, obszcén, diszkriminatív vagy illegális tartalom feltöltése.</li>
+          <li data-hu="A felhasználó engedélyt ad az AMISEARCH számára, hogy a feltöltött tartalmat az AI-szolgáltatás működtetéséhez felhasználja." data-en="The user grants AMISEARCH a license to use the uploaded content for providing the AI service.">A felhasználó engedélyt ad az AMISEARCH számára, hogy a feltöltött tartalmat az AI-szolgáltatás működtetéséhez felhasználja.</li>
         </ul>
       </section>
 
       <section>
-        <h2 class="text-xl font-bold mb-2" data-hu="Előfizetés és fizetés" data-en="Subscription and Payment">Előfizetés és fizetés</h2>
-        <ul class="list-disc pl-5 space-y-1">
-          <li data-hu="A platform freemium modellben működik." data-en="The platform operates on a freemium model.">A platform freemium modellben működik.</li>
-          <li data-hu="A fizetős funkciók igénybevétele önkéntes." data-en="The use of paid features is voluntary.">A fizetős funkciók igénybevétele önkéntes.</li>
+        <h2 class="text-2xl font-bold mb-4" data-hu="4. Előfizetés, fizetés és díjak" data-en="4. Subscription, Payment and Fees">4. Előfizetés, fizetés és díjak</h2>
+        <ul class="list-disc pl-5 space-y-2 text-gray-700">
+          <li data-hu="A platform freemium modellben működik. Egyes funkciók előfizetéshez kötöttek." data-en="The platform operates on a freemium model. Some features require a subscription.">A platform freemium modellben működik. Egyes funkciók előfizetéshez kötöttek.</li>
+          <li data-hu="A fizetéseket a Lemon Squeezy / Stripe kezeli." data-en="Payments are processed by Lemon Squeezy / Stripe.">A fizetéseket a Lemon Squeezy / Stripe kezeli.</li>
+          <li data-hu="Az előfizetés automatikusan megújul, amíg a felhasználó le nem mondja." data-en="Subscriptions automatically renew until cancelled by the user.">Az előfizetés automatikusan megújul, amíg a felhasználó le nem mondja.</li>
+          <li data-hu="Lemondás esetén a következő számlázási periódusig használható a fizetős funkció." data-en="Upon cancellation, paid features remain available until the end of the current billing period.">Lemondás esetén a következő számlázási periódusig használható a fizetős funkció.</li>
         </ul>
       </section>
 
       <section>
-        <h2 class="text-xl font-bold mb-2" data-hu="Felelősségkorlátozás" data-en="Limitation of Liability">Felelősségkorlátozás</h2>
-        <p data-hu="A szolgáltató nem vállal felelősséget a felhasználók által feltöltött tartalomért vagy az abból eredő károkért." data-en="The provider assumes no liability for the content uploaded by users or the resulting damages.">A szolgáltató nem vállal felelősséget a felhasználók által feltöltött tartalomért vagy az abból eredő károkért.</p>
+        <h2 class="text-2xl font-bold mb-4" data-hu="5. Felelősségkorlátozás" data-en="5. Limitation of Liability">5. Felelősségkorlátozás</h2>
+        <p class="text-gray-700" data-hu="Az AMISEARCH nem vállal felelősséget a felhasználók által feltöltött tartalomért, az AI által generált összefoglalók pontosságáért, valamint az ebből eredő közvetett károkért." 
+           data-en="AMISEARCH is not liable for user-uploaded content, the accuracy of AI-generated summaries, or any indirect damages resulting therefrom.">
+           Az AMISEARCH nem vállal felelősséget a felhasználók által feltöltött tartalomért, az AI által generált összefoglalók pontosságáért, valamint az ebből eredő közvetett károkért.
+        </p>
+        <p class="text-gray-700 mt-3" data-hu="A szolgáltatás „ahogy van” alapon kerül nyújtásra. Nem garantáljuk a folyamatos, hibamentes működést." 
+           data-en="The service is provided 'as is'. We do not guarantee uninterrupted or error-free operation.">
+           A szolgáltatás „ahogy van” alapon kerül nyújtásra. Nem garantáljuk a folyamatos, hibamentes működést.
+        </p>
       </section>
 
       <section>
-        <h2 class="text-xl font-bold mb-2" data-hu="Kapcsolat" data-en="Contact">Kapcsolat</h2>
-        <p><a href="mailto:info@amisearch.org" class="text-[#6C5CE7] hover:underline">info@amisearch.org</a></p>
+        <h2 class="text-2xl font-bold mb-4" data-hu="6. Felmondás" data-en="6. Termination">6. Felmondás</h2>
+        <p class="text-gray-700" data-hu="Mind a felhasználó, mind a szolgáltató bármikor felmondhatja a szerződést. Súlyos szabályszegés esetén a szolgáltató azonnali hatállyal törölheti a fiókot." 
+           data-en="Either the user or the provider may terminate the agreement at any time. In case of serious breach, the provider may delete the account immediately.">
+           Mind a felhasználó, mind a szolgáltató bármikor felmondhatja a szerződést. Súlyos szabályszegés esetén a szolgáltató azonnali hatállyal törölheti a fiókot.
+        </p>
       </section>
+
+      <section>
+        <h2 class="text-2xl font-bold mb-4" data-hu="7. Egyéb rendelkezések" data-en="7. Miscellaneous">7. Egyéb rendelkezések</h2>
+        <ul class="list-disc pl-5 space-y-2 text-gray-700">
+          <li data-hu="Az ÁSZF módosításáról a felhasználót értesítjük." data-en="Users will be notified of any changes to these Terms.">Az ÁSZF módosításáról a felhasználót értesítjük.</li>
+          <li data-hu="A jelen szerződésre a magyar jog az irányadó." data-en="These Terms are governed by Hungarian law.">A jelen szerződésre a magyar jog az irányadó.</li>
+          <li data-hu="Vitás ügyekben a felek elsősorban egyeztetnek, majd a hatáskörrel rendelkező bírósághoz fordulnak." data-en="In case of disputes, the parties will first attempt amicable settlement, otherwise the competent court will have jurisdiction.">Vitás ügyekben a felek elsősorban egyeztetnek, majd a hatáskörrel rendelkező bírósághoz fordulnak.</li>
+        </ul>
+      </section>
+
+      <div class="pt-6 border-t">
+        <p class="text-sm text-gray-500" data-hu="Az Adatvédelmi Tájékoztató és a Cookie tájékoztató külön oldalon elérhető." 
+           data-en="The Privacy Policy and Cookie Policy are available on separate pages.">
+           Az <a href="/adatvedelmi-tajekoztato" class="text-[#6C5CE7] hover:underline">Adatvédelmi Tájékoztató</a> és a <a href="/cookie-tajekoztato" class="text-[#6C5CE7] hover:underline">Cookie tájékoztató</a> külön oldalon elérhető.
+        </p>
+        <p class="mt-4">
+          <strong>Kapcsolat:</strong> <a href="mailto:info@amisearch.org" class="text-[#6C5CE7] hover:underline">info@amisearch.org</a>
+        </p>
+      </div>
     </div>
   </div>
 </body>
