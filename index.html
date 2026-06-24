@@ -2278,37 +2278,8 @@
   };
 
   /* ──────────────────────────────────────────────────────────────
-     LemonSqueezy checkout indítása
+     LemonSqueezy checkout — lásd a </body> előtti <script> blokkban
      ────────────────────────────────────────────────────────────── */
-  window.startCheckout = async function(variantKey) {
-    const lang = window.currentLang === 'hu' ? 'hu' : 'en';
-    if (!window.currentUser) {
-      window.openModal('loginModal');
-      return;
-    }
-    const variant = variantKey || 'pro_1month';
-    try {
-      const resp = await fetch('/.netlify/functions/lemon-checkout?variant=' + encodeURIComponent(variant), {
-        method: 'GET',
-        headers: await window.getAuthHeaders({})
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        let msg = lang === 'hu' ? 'Nem sikerült a fizetési oldal megnyitása. ' : 'Could not open checkout. ';
-        try { const j = JSON.parse(t); msg += j.error || ''; } catch { msg += t.slice(0,200); }
-        alert(msg);
-        return;
-      }
-      const data = await resp.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(lang === 'hu' ? 'A fizetési URL hiányzik.' : 'Checkout URL missing.');
-      }
-    } catch (e) {
-      alert((lang === 'hu' ? 'Hiba: ' : 'Error: ') + (e?.message || e));
-    }
-  };
 
 
   window.handleDashboardSearch = async function() {
@@ -3787,7 +3758,32 @@
     }
   }
 </script>
-   
-  
+
+<!-- LemonSqueezy checkout — ez fut le UTOLJÁRA, a defer-es scriptek után is -->
+<script>
+  (function() {
+    // 1 hónap
+    var checkoutHU_1m = "https://amisearch.lemonsqueezy.com/checkout/buy/84e6755e-23db-402a-aa67-135dc58aabd0";
+    var checkoutEN_1m = "https://amisearch.lemonsqueezy.com/checkout/buy/84e6755e-23db-402a-aa67-135dc58aabd0";
+
+    // 6 hónap
+    var checkoutHU_6m = "https://amisearch.lemonsqueezy.com/checkout/buy/5ec8771a-6f0e-4d8a-9d39-b899f7a86492";
+    var checkoutEN_6m = "https://amisearch.lemonsqueezy.com/checkout/buy/5ec8771a-6f0e-4d8a-9d39-b899f7a86492";
+
+    window.startCheckout = function(variantKey) {
+      var lang = localStorage.getItem('lang') || window.currentLang || 'hu';
+      var variant = variantKey || 'pro_1month';
+
+      if (variant === 'pro_1month') {
+        window.location.href = lang === 'hu' ? checkoutHU_1m : checkoutEN_1m;
+      } else if (variant === 'pro_6month') {
+        window.location.href = lang === 'hu' ? checkoutHU_6m : checkoutEN_6m;
+      } else {
+        window.location.href = lang === 'hu' ? checkoutHU_1m : checkoutEN_1m;
+      }
+    };
+  })();
+</script>
+
   </body>
 </html>
