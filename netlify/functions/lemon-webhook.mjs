@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
  * /.netlify/functions/lemon-webhook
  *
  *  - HMAC-SHA256 aláírás ellenőrzés (LEMON_WEBHOOK_SECRET)
- *  - meta.custom_data.supabase_user_id → Supabase user_profiles.user_id
+ *  - meta.custom_data.supabase_user_id → Supabase user_profiles.identity_id
  *  - subscription_created / payment_success / order_created → plan='pro'
  *  - subscription_cancelled / expired → plan='free'
  *
@@ -124,7 +124,7 @@ export default async function handler(req) {
     const { error } = await supabase
       .from("user_profiles")
       .update(updateData)
-      .eq("user_id", supabaseUserId);
+      .eq("identity_id", supabaseUserId);
 
     if (error) {
       console.error("[lemon-webhook] Supabase update failed:", error);
