@@ -1,52 +1,37 @@
 import crypto from "node:crypto";
-import { db } from "../../db/index.js";
-import { userProfiles } from "../../db/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * /.netlify/functions/lemon-webhook
  *
- *  LemonSqueezy webhook fogadása.
- *  - HMAC-SHA256 aláírás ellenőrzés a LEMON_WEBHOOK_SECRET-tel
- *  - meta.custom_data.supabase_user_id → user_profiles.identity_id párosítás
- *  - subscription_created / subscription_payment_success / order_created → plan='pro' + plan_expires_at
- *  - subscription_cancelled / subscription_expired → plan='free'
+ *  - HMAC-SHA256 aláírás ellenőrzés (LEMON_WEBHOOK_SECRET)
+ *  - meta.custom_data.supabase_user_id → Supabase user_profiles.user_id
+ *  - subscription_created / payment_success / order_created → plan='pro'
+ *  - subscription_cancelled / expired → plan='free'
  *
- *  ENV: LEMON_WEBHOOK_SECRET
+ *  ENV:
+ *    SUPABASE_URL
+ *    SUPABASE_SERVICE_ROLE_KEY
+ *    LEMON_WEBHOOK_SECRET
  */
 
-let _schemaEnsured = false;
-async function ensureSchema() {
-  if (_schemaEnsured) return;
-  try {
-    await db.execute(sql`
-      ALTER TABLE user_profiles
-        ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS ls_subscription_id TEXT,
-        ADD COLUMN IF NOT EXISTS ls_customer_id TEXT
-    `);
-    _schemaEnsured = true;
-  } catch (e) {
-    console.error("[lemon-webhook] ensureSchema failed:", e?.message);
-  }
-}
-
 export default async function handler(req) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
+  }
 
   const secret = process.env.LEMON_WEBHOOK_SECRET;
   if (!secret) {
-    console.error("[lemon-webhook] LEMON_WEBHOOK_SECRET missing");
+    console.error("[lemon-webhook] Missing LEMON_WEBHOOK_SECRET");
     return new Response("Server misconfig", { status: 500 });
   }
 
-  /* 1) Raw body olvasás (HMAC-hoz a nyers byte-okra van szükség) */
+  // 1) RAW BODY (HMAC-hoz kötelező)
   const rawBody = await req.text();
   const signatureHeader =
     req.headers.get("x-signature") || req.headers.get("X-Signature") || "";
 
-  /* 2) HMAC ellenőrzés */
+  // 2) HMAC ellenőrzés
   const hmac = crypto.createHmac("sha256", secret);
   hmac.update(rawBody, "utf8");
   const computed = hmac.digest("hex");
@@ -54,15 +39,16 @@ export default async function handler(req) {
   const a = Buffer.from(computed, "utf8");
   const b = Buffer.from(signatureHeader, "utf8");
   const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
+
   if (!valid) {
-    console.warn("[lemon-webhook] invalid signature");
+    console.warn("[lemon-webhook] Invalid signature");
     return new Response(JSON.stringify({ error: "Invalid signature" }), {
       status: 401,
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  /* 3) Body parse */
+  // 3) JSON parse
   let body;
   try {
     body = JSON.parse(rawBody);
@@ -75,22 +61,21 @@ export default async function handler(req) {
     meta.event_name ||
     req.headers.get("x-event-name") ||
     req.headers.get("X-Event-Name");
+
   const customData = meta.custom_data || {};
   const supabaseUserId = customData.supabase_user_id;
-  const attrs = body.data?.attributes || {};
 
   if (!supabaseUserId) {
-    console.warn("[lemon-webhook] no supabase_user_id in custom_data:", eventName);
+    console.warn("[lemon-webhook] No supabase_user_id → ignored");
     return new Response(JSON.stringify({ ok: true, ignored: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  /* 4) DB schema biztosítás (idempotens) */
-  await ensureSchema();
+  const attrs = body.data?.attributes || {};
 
-  /* 5) Plan döntés esemény alapján */
+  // 4) Esemény → új plan
   let newPlan = null;
   let newExpiresAt = null;
 
@@ -107,7 +92,6 @@ export default async function handler(req) {
     eventName === "subscription_cancelled" ||
     eventName === "subscription_expired"
   ) {
-    /* Lejár a `renews_at`-kor, addig még pro */
     if (attrs.ends_at) {
       newPlan = "pro";
       newExpiresAt = new Date(attrs.ends_at);
@@ -115,39 +99,43 @@ export default async function handler(req) {
       newPlan = "free";
       newExpiresAt = null;
     }
-  } else if (eventName === "subscription_payment_failed") {
-    /* Hagyjuk pro-n a renews_at-ig, csak logoljunk */
-    console.warn("[lemon-webhook] payment failed for", supabaseUserId);
-    return new Response(JSON.stringify({ ok: true, noted: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
   } else {
-    /* Ismeretlen / nem érdekes esemény — ignorálva */
     return new Response(JSON.stringify({ ok: true, ignored: eventName }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  /* 6) DB update */
-  try {
-    const updateData = { plan: newPlan };
-    if (newExpiresAt) updateData.planExpiresAt = newExpiresAt;
-    if (attrs.subscription_id || body.data?.id) {
-      updateData.lsSubscriptionId = String(attrs.subscription_id || body.data.id);
-    }
-    if (attrs.customer_id) {
-      updateData.lsCustomerId = String(attrs.customer_id);
-    }
+  // 5) Supabase service role kliens
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
-    await db
-      .update(userProfiles)
-      .set(updateData)
-      .where(eq(userProfiles.identityId, supabaseUserId));
+  // 6) Supabase update
+  try {
+    const updateData = {
+      plan: newPlan,
+      plan_expires_at: newExpiresAt,
+      ls_subscription_id: attrs.subscription_id || body.data?.id || null,
+      ls_customer_id: attrs.customer_id || null
+    };
+
+    const { error } = await supabase
+      .from("user_profiles")
+      .update(updateData)
+      .eq("user_id", supabaseUserId);
+
+    if (error) {
+      console.error("[lemon-webhook] Supabase update failed:", error);
+      return new Response(JSON.stringify({ error: "DB update failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
     console.log(
-      "[lemon-webhook] updated",
+      "[lemon-webhook] Updated user",
       supabaseUserId,
       "→",
       newPlan,
@@ -155,8 +143,8 @@ export default async function handler(req) {
       newExpiresAt
     );
   } catch (e) {
-    console.error("[lemon-webhook] db update failed:", e?.message);
-    return new Response(JSON.stringify({ error: "DB update failed" }), {
+    console.error("[lemon-webhook] Fatal:", e?.message);
+    return new Response(JSON.stringify({ error: "Fatal error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
@@ -168,5 +156,5 @@ export default async function handler(req) {
   });
 }
 
-/* IMPORTANT: a raw body parser kell — disable Netlify default body parsing */
+// RAW body kell → Netlify ne parse-olja
 export const config = {};
