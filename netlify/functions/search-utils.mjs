@@ -21,6 +21,31 @@ export async function detectLanguage(text) {
 }
 
 // -------------------------------
+// TÉMA OSZTÁLYOZÓ (arXiv érdemes-e?)
+// -------------------------------
+
+const ARXIV_TOPICS = [
+  "math", "physics", "computer", "ai", "machine learning", "deep learning",
+  "neural", "algorithm", "quantum", "biology", "chemistry", "economics",
+  "statistics", "engineering", "astronomy", "genetics", "protein",
+  "matematika", "fizika", "számítástechnika", "kémia", "biológia", "algoritmus"
+];
+
+const NON_ARXIV_TOPICS = [
+  "irodalom", "pedagógia", "tanítás", "oktatás", "történelem", "jog", "szociológia",
+  "pszichológia", "művészet", "zene", "film", "language teaching", "literature",
+  "history", "law", "sociology", "education", "teaching", "pedagogy",
+  "philosophy", "religion", "politics", "marketing", "management"
+];
+
+function isArxivWorthy(query) {
+  const q = query.toLowerCase();
+  if (NON_ARXIV_TOPICS.some(t => q.includes(t))) return false;
+  if (ARXIV_TOPICS.some(t => q.includes(t))) return true;
+  return false; // ismeretlen témánál inkább kihagyjuk
+}
+
+// -------------------------------
 // ACADEMIC SEARCH
 // -------------------------------
 
@@ -49,6 +74,7 @@ async function searchCORE(query) {
 }
 
 async function searchArxiv(query) {
+  if (!isArxivWorthy(query)) return null; // témafigyelő
   try {
     const res = await fetch(`https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=1`);
     if (!res.ok) return null;
@@ -74,6 +100,7 @@ async function searchOpenAlex(query) {
           .sort((a, b) => a.pos - b.pos)
           .map(x => x.word).join(" ")
       : "";
+    if (!abstract) return null;
     return { title: w.display_name, summary: abstract, url: w.id, source: "OpenAlex" };
   } catch { return null; }
 }
@@ -116,7 +143,7 @@ export async function duckduckgoSearch(query) {
 }
 
 // -------------------------------
-// KOMBINÁLT WEB KERESÉS (több forrás egyszerre)
+// KOMBINÁLT WEB KERESÉS
 // -------------------------------
 
 export async function webSearch(query, lang = "en") {
@@ -134,7 +161,6 @@ export async function webSearch(query, lang = "en") {
 
   if (results.length === 0) return null;
 
-  // Visszaadjuk az összes forrást egységesített formában
   return {
     summary: results.map(r => `[${r.source}] ${r.title}\n${r.summary}`).join("\n\n---\n\n"),
     url: results[0].url,
