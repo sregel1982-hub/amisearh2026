@@ -1,106 +1,346 @@
+// ===============================
+// AMISEARCH 2026 – CHAT ENGINE (MULTIMODAL)
+// STRUKTURÁLT MINDMAP + CHART.JS JSON + KÉPKERESÉS
+// + KVÓTA ELLENŐRZÉS (ai_questions)
+// ===============================
+
+import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { checkQuota, incrementUsage } from "./quota.js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Netlify compatibilis env kezelés
+const getEnv = (key) => process.env[key];
 
-// quotaField lehet: "ai_questions", "uploads", "downloads", "mindmaps", "summaries", "zh_tasks"
-export async function checkQuota(userId, quotaField) {
-  // 1. Aktív előfizetés lekérése
-  const { data: sub, error: subError } = await supabase
-    .from("user_subscriptions")
-    .select("price_id, status, expires_at")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (subError) {
-    console.error("Subscription query error", subError);
-    // hiba esetén inkább engedjük
-    return { allowed: true };
-  }
-
-  const now = new Date();
-  const isActive =
-    sub && sub.expires_at && new Date(sub.expires_at) > now;
-
-  const priceId = isActive ? sub.price_id : "free";
-
-  // 2. Csomag kvótáinak lekérése
-  const { data: price, error: priceError } = await supabase
-    .from("prices")
-    .select("*")
-    .eq("id", priceId)
-    .maybeSingle();
-
-  if (priceError || !price) {
-    console.error("Price query error", priceError);
-    return { allowed: true };
-  }
-
-  const limit = price[quotaField];
-
-  // 3. Havi usage lekérése
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10); // YYYY-MM-DD
-
-  const { data: usage, error: usageError } = await supabase
-    .from("usage")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("period_start", periodStart)
-    .maybeSingle();
-
-  if (usageError) {
-    console.error("Usage query error", usageError);
-    return { allowed: true };
-  }
-
-  const used = usage ? usage[quotaField] || 0 : 0;
-
-  if (used >= limit) {
-    return {
-      allowed: false,
-      message:
-        "Lejárt a free limit. Ha tovább használnád a funkciókat válts pro-ra!",
-    };
-  }
-
-  return { allowed: true };
+const requiredEnv = ["GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+for (const key of requiredEnv) {
+  if (!getEnv(key)) console.error(`Hiányzó env: ${key}`);
 }
 
-export async function incrementUsage(userId, quotaField) {
-  const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10); // YYYY-MM-DD
+const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 
-  const { data: usage, error: usageError } = await supabase
-    .from("usage")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("period_start", periodStart)
-    .maybeSingle();
+// --- HELPER FUNKCIÓK ---
 
-  if (usageError) {
-    console.error("Usage query error", usageError);
-    return;
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    },
+  });
+}
+
+function corsOptionsResponse() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
+function textStreamResponse(generator) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of generator) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      } catch (err) {
+        console.error("Stream error:", err);
+        controller.error(err);
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
+function singleChunkStream(text) {
+  async function* gen() { yield text; }
+  return textStreamResponse(gen());
+}
+
+function getSupabaseAdmin() {
+  const url = getEnv("SUPABASE_URL");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+function cleanText(value, max = 70000) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim()
+    .slice(0, max);
+}
+
+function stripHtml(value) {
+  return String(value || "").replace(/<<[^>]*>/g, "").trim();
+}
+
+// --- AUTH HELPER ---
+
+async function getSupabaseUser(req) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return null;
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return null;
+
+  const supabase = createClient(
+    getEnv("SUPABASE_URL"),
+    getEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) return null;
+    return data.user;
+  } catch (e) {
+    console.error("Auth error:", e);
+    return null;
   }
+}
 
-  if (!usage) {
-    await supabase.from("usage").insert({
-      user_id: userId,
-      period_start: periodStart,
-      [quotaField]: 1,
+// --- RENDSZER INSTRUKCIÓ ---
+
+function buildSystemInstructionText() {
+  return `
+Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
+- Adj pontos, jól strukturált, oktatási célú válaszokat.
+- Ha hasznos, használj táblázatot és felsorolást.
+
+JEGYZETEK HASZNÁLATA:
+- A feltöltött jegyzetek és előzmények csak KIEGÉSZÍTŐ kontextusként szolgálnak. Szabadon használd az általános tudásodat is.
+
+VIZUALIZÁCIÓS SZABÁLYOK (VÁLASSZ AZ ALÁBBI 2 OPCIÓ KÖZÜL, HA VIZUALIZÁCIÓT KÉRNEK):
+
+1. HA FOLYAMATOT, STRUKTÚRÁT, FOGALMI ÖSSZEFÜGGÉST VAGY GONDOLATTÉRKÉPET KÉRNEK:
+   - Írj egy rövid magyarázatot, majd illessz be egy Mermaid MINDMAP kódblokkot:
+   \`\`\`mermaid
+   mindmap
+     root((Téma neve))
+       Főág 1
+         Alág 1
+       Főág 2
+   \`\`\`
+   - Tilos flowchart, xychart-beta vagy pie típusú Mermaidot használni!
+
+2. HA SZÁMSZERŰ ADATOKAT, STATISZTIKÁT, IDŐBELI VÁLTOZÁST VAGY GRAFIKONT KÉRNEK (pl. lakosság, GDP, hőmérséklet):
+   - Írj egy rövid magyar összefoglalót, majd tegyél be egy tiszta, érvényes Chart.js konfigurációt egy \`\`\`json-chart kódblokkba.
+   - Ne használj benne JavaScript függvényeket, csak tiszta JSON-t (type, data, options).
+   - Példa formátum:
+   \`\`\`json-chart
+   {
+     "type": "line",
+     "data": {
+       "labels": ["1990", "2000", "2010", "2020", "2023"],
+       "datasets": [{
+         "label": "Magyarország népessége (millió fő)",
+         "data": [10.4, 10.2, 10.0, 9.7, 9.6],
+         "borderColor": "#6366f1",
+         "backgroundColor": "rgba(99, 102, 241, 0.1)",
+         "tension": 0.2
+       }]
+     }
+   }
+   \`\`\`
+
+A válasz végén legyen "## Forrásjegyzék".
+`;
+}
+
+// --- JEGYZETEK BETÖLTÉSE ---
+
+async function loadUserNotesContext(user, inlineNotes = "") {
+  const parts = [];
+  const inline = cleanText(inlineNotes, 30000);
+  if (inline) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}`);
+
+  const supabase = getSupabaseAdmin();
+  if (supabase && user?.id) {
+    try {
+      const { data } = await supabase
+        .from("jegyzetek")
+        .select("cim, original_name, text_content")
+        .eq("user_id", user.id)
+        .eq("processed", true)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (Array.isArray(data)) {
+        for (const note of data) {
+          const title = note.cim || note.original_name || "Jegyzet";
+          const text = cleanText(note.text_content, 12000);
+          if (text.length > 80) parts.push(`=== JEGYZET: ${title} ===\n${text}`);
+        }
+      }
+    } catch (e) {
+      console.error("Notes error:", e);
+    }
+  }
+  return parts.join("\n\n");
+}
+
+function buildPrompt({ message, notesContext, history }) {
+  const historyArray = Array.isArray(history) ? history.slice(-8) : [];
+  const historyText = historyArray
+    .map(item => `${item.role === "assistant" ? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
+    .join("\n");
+
+  return [
+    notesContext ? `## Dokumentumok és jegyzetek\n${notesContext}\n\n` : "",
+    historyText ? `## Előzmények\n${historyText}\n\n` : "",
+    `## Aktuális kérdés\n${message}`,
+  ].filter(Boolean).join("");
+}
+
+// --- KÉRÉS OSZTÁLYOZÁS ---
+
+async function classifyRequest(message) {
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{
+        role: "user",
+        parts: [{
+          text: `Döntsd el, hogy a kérés VALÓDI FÉNYKÉPET vagy ILLUSZTRÁCIÓT kér konkrét személyről, tárgyról, állatról (pl. "kép", "fotó", "mutass egy képet X-ről"), vagy MAGYARÁZATOT, DIAGRAMOT, ADATOT kér.
+Válaszolj KIZÁRÓLAG ebben a formátumban:
+TIPUS: IMAGE vagy TEXT
+KERESES: <angol kifejezés ha IMAGE, különben ->
+Kérdés: "${message}"`
+        }],
+      }],
+      generationConfig: { temperature: 0, maxOutputTokens: 40 },
     });
-  } else {
-    await supabase
-      .from("usage")
-      .update({
-        [quotaField]: (usage[quotaField] || 0) + 1,
-      })
-      .eq("id", usage.id);
+
+    const text = result?.text || result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const typeMatch = text.match(/T[ÍI]PUS:\s*(IMAGE|TEXT)/i);
+    const searchMatch = text.match(/KERES[ÉE]S:\s*(.+)/i);
+
+    const type = typeMatch ? typeMatch[1].toUpperCase() : "TEXT";
+    let searchQuery = searchMatch ? searchMatch[1].trim() : "";
+    if (searchQuery === "-" || !searchQuery) searchQuery = message.slice(0, 60);
+
+    return { type, searchQuery };
+  } catch (err) {
+    return { type: "TEXT", searchQuery: "" };
   }
 }
+
+// --- KÉPKERESÉS ---
+
+async function searchCommonsImage(query) {
+  try {
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=3&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=800&format=json&origin=*`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pages = data?.query?.pages;
+    if (!pages) return null;
+    const page = Object.values(pages)[0];
+    const info = page?.imageinfo?.[0];
+    if (!info) return null;
+    return {
+      url: info.thumburl || info.url,
+      title: String(page.title || "").replace(/^File:/, ""),
+      artist: stripHtml(info.extmetadata?.Artist?.value),
+      license: stripHtml(info.extmetadata?.LicenseShortName?.value),
+      sourcePage: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
+      sourceName: "Wikimedia Commons"
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildImageMarkdown(image, message) {
+  return `![${(image.title || "Kép").replace(/[\[\]]/g, "")}](${image.url})\n\n**${image.title}** — ${image.artist || "Ismeretlen"} (${image.license || "CC"})\nForrás: [${image.sourceName}](${image.sourcePage})\n\n## Forrásjegyzék\n- ${image.sourceName}`;
+}
+
+// --- NETLIFY COMPATIBLE HANDLER ---
+
+export default async (req, context) => {
+  try {
+    if (req.method === "OPTIONS") return corsOptionsResponse();
+    if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+
+    // Biztonságos JSON törzs beolvasás
+    let body = {};
+    try {
+      const rawBody = await req.text();
+      if (rawBody) body = JSON.parse(rawBody);
+    } catch (jsonErr) {
+      console.error("JSON parse error in body:", jsonErr);
+      return jsonResponse({ error: "Érvénytelen JSON kérés." }, 400);
+    }
+
+    const user = await getSupabaseUser(req);
+    if (!user) return jsonResponse({ error: "Jelentkezz be!" }, 401);
+
+    // --- KVÓTA ELLENŐRZÉS ---
+    const quota = await checkQuota(user.id, "ai_questions");
+    if (!quota.allowed) {
+      return jsonResponse({
+        error: quota.message || "Lejárt a havi AI kérdés keretед. Válts Pro-ra a folytatáshoz!",
+        code: "quota_exceeded",
+        field: "ai_questions"
+      }, 402);
+    }
+
+    const message = cleanText(body.message || body.query || "", 12000);
+    if (!message) return jsonResponse({ error: "Hiányzó üzenet." }, 400);
+
+    const classification = await classifyRequest(message);
+
+    if (classification.type === "IMAGE") {
+      const image = await searchCommonsImage(classification.searchQuery);
+      // Képkérésnél is számoljuk a kvótát
+      await incrementUsage(user.id, "ai_questions");
+      if (!image) return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet ehhez a témához.");
+      return singleChunkStream(buildImageMarkdown(image, message));
+    }
+
+    const notesContext = await loadUserNotesContext(user, body.notes || "");
+    const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
+
+    // Kvóta növelése sikeres kérés előtt
+    await incrementUsage(user.id, "ai_questions");
+
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: promptText }] }],
+      systemInstruction: buildSystemInstructionText(),
+      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+    });
+
+    async function* generator() {
+      for await (const chunk of stream) {
+        const text = chunk?.text || chunk?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (text) yield text;
+      }
+    }
+
+    return textStreamResponse(generator());
+
+  } catch (error) {
+    console.error("Fatal error inside function:", error);
+    return jsonResponse({ error: "Belső szerverhiba történt." }, 500);
+  }
+};
