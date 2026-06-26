@@ -1520,6 +1520,11 @@
       if (response.status === 401) {
         return lang === 'hu' ? 'A kereséshez vagy AI chathez jelentkezz be újra.' : 'Please log in again to use search or AI chat.';
       }
+      if (response.status === 402 || (data && data.code === 'quota_exceeded')) {
+        return (lang === 'hu'
+          ? '⚠️ Elérted az ingyenes havi AI kérdés keretedet. <a href="#arak" onclick="window.closeModal && window.closeModal(\'aiTutorModal\')" class="text-[#6C5CE7] font-bold underline">Válts Pro-ra</a> a korlátlan használathoz!'
+          : '⚠️ You have reached your free monthly AI question limit. <a href="#arak" class="text-[#6C5CE7] font-bold underline">Upgrade to Pro</a> for unlimited access!');
+      }
       if (response.status === 503 || (data && data.code === 'ai_unavailable')) {
         return lang === 'hu' ? 'Az AI szolgáltatás jelenleg nincs beállítva vagy nem elérhető.' : 'The AI service is not configured or currently unavailable.';
       }
@@ -2342,7 +2347,7 @@
           aiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
         }
       } else {
-        aiResults.innerHTML = '<div class="text-gray-400 text-sm">' + escapeHtml(await window.getAiErrorMessage(response, lang)) + '</div>';
+        aiResults.innerHTML = '<div class="text-amber-700 text-sm font-medium">' + (await window.getAiErrorMessage(response, lang)) + '</div>';
       }
     } catch (e) {
       aiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'AI válasz nem érhető el vagy időtúllépés történt.' : 'AI response is unavailable or timed out.') + '</div>';
@@ -3060,7 +3065,12 @@
       }, 45000);
 
       if (!response.ok) {
-        throw new Error(await window.getAiErrorMessage(response, window.currentLang));
+        const errMsg = await window.getAiErrorMessage(response, window.currentLang);
+        const target402 = document.getElementById(aiMsgId);
+        if (target402) {
+          target402.innerHTML = '<span class="text-amber-700 font-medium">' + errMsg + '</span>';
+        }
+        return;
       }
 
       let fullText = '';
@@ -3215,7 +3225,7 @@
           heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
         }
       } else {
-        heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + escapeHtml(await window.getAiErrorMessage(response, lang)) + '</div>';
+        heroAiResults.innerHTML = '<div class="text-amber-700 text-sm font-medium">' + (await window.getAiErrorMessage(response, lang)) + '</div>';
       }
     } catch (e) {
       heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'AI válasz nem érhető el vagy időtúllépés történt.' : 'AI response is unavailable or timed out.') + '</div>';
