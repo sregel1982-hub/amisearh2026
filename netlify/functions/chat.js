@@ -1,24 +1,41 @@
 // ===============================
-// AMISEARCH 2026 – CHAT ENGINE (MULTIMODAL)
-// STRUKTURÁLT MINDMAP + CHART.JS JSON + KÉPKERESÉS
-// + KVÓTA ELLENŐRZÉS (ai_questions)
+// AMISEARCH 2026 – CHAT ENGINE (MAIN)
+// chat.js – Blokk 1/3
+// Importok + ENV + Helper + Auth + Notes Loader
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { checkQuota, incrementUsage } from "./quota.js";
+import { 
+  detectLanguage,
+  webSearch,
+  imageSearch
+} from "./search-utils.mjs";
 
-// Netlify compatibilis env kezelés
+// -------------------------------
+// ENV KEZELÉS
+// -------------------------------
+
 const getEnv = (key) => process.env[key];
 
-const requiredEnv = ["GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+const requiredEnv = [
+  "GEMINI_API_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY"
+];
+
 for (const key of requiredEnv) {
-  if (!getEnv(key)) console.error(`Hiányzó env: ${key}`);
+  if (!getEnv(key)) console.error(`Hiányzó env változó: ${key}`);
 }
 
-const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
+const ai = new GoogleGenAI({
+  apiKey: getEnv("GEMINI_API_KEY")
+});
 
-// --- HELPER FUNKCIÓK ---
+// -------------------------------
+// JSON RESPONSE
+// -------------------------------
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -28,9 +45,13 @@ function jsonResponse(data, status = 200) {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    },
+    }
   });
 }
+
+// -------------------------------
+// CORS OPTIONS
+// -------------------------------
 
 function corsOptionsResponse() {
   return new Response(null, {
@@ -38,13 +59,18 @@ function corsOptionsResponse() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    }
   });
 }
 
+// -------------------------------
+// STREAMING RESPONSE
+// -------------------------------
+
 function textStreamResponse(generator) {
   const encoder = new TextEncoder();
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -56,14 +82,15 @@ function textStreamResponse(generator) {
         console.error("Stream error:", err);
         controller.error(err);
       }
-    },
+    }
   });
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
-      "Access-Control-Allow-Origin": "*",
-    },
+      "Access-Control-Allow-Origin": "*"
+    }
   });
 }
 
@@ -72,12 +99,24 @@ function singleChunkStream(text) {
   return textStreamResponse(gen());
 }
 
+// -------------------------------
+// SUPABASE ADMIN CLIENT
+// -------------------------------
+
 function getSupabaseAdmin() {
   const url = getEnv("SUPABASE_URL");
-  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+
   if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
 }
+
+// -------------------------------
+// TEXT CLEANER
+// -------------------------------
 
 function cleanText(value, max = 70000) {
   return String(value || "")
@@ -89,11 +128,9 @@ function cleanText(value, max = 70000) {
     .slice(0, max);
 }
 
-function stripHtml(value) {
-  return String(value || "").replace(/<<[^>]*>/g, "").trim();
-}
-
-// --- AUTH HELPER ---
+// -------------------------------
+// SUPABASE AUTH
+// -------------------------------
 
 async function getSupabaseUser(req) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
@@ -118,60 +155,17 @@ async function getSupabaseUser(req) {
   }
 }
 
-// --- RENDSZER INSTRUKCIÓ ---
-
-function buildSystemInstructionText() {
-  return `
-Te az AMISEARCH oktatási asszisztense vagy. Mindig magyarul válaszolj.
-- Adj pontos, jól strukturált, oktatási célú válaszokat.
-- Ha hasznos, használj táblázatot és felsorolást.
-
-JEGYZETEK HASZNÁLATA:
-- A feltöltött jegyzetek és előzmények csak KIEGÉSZÍTŐ kontextusként szolgálnak. Szabadon használd az általános tudásodat is.
-
-VIZUALIZÁCIÓS SZABÁLYOK (VÁLASSZ AZ ALÁBBI 2 OPCIÓ KÖZÜL, HA VIZUALIZÁCIÓT KÉRNEK):
-
-1. HA FOLYAMATOT, STRUKTÚRÁT, FOGALMI ÖSSZEFÜGGÉST VAGY GONDOLATTÉRKÉPET KÉRNEK:
-   - Írj egy rövid magyarázatot, majd illessz be egy Mermaid MINDMAP kódblokkot:
-   \`\`\`mermaid
-   mindmap
-     root((Téma neve))
-       Főág 1
-         Alág 1
-       Főág 2
-   \`\`\`
-   - Tilos flowchart, xychart-beta vagy pie típusú Mermaidot használni!
-
-2. HA SZÁMSZERŰ ADATOKAT, STATISZTIKÁT, IDŐBELI VÁLTOZÁST VAGY GRAFIKONT KÉRNEK (pl. lakosság, GDP, hőmérséklet):
-   - Írj egy rövid magyar összefoglalót, majd tegyél be egy tiszta, érvényes Chart.js konfigurációt egy \`\`\`json-chart kódblokkba.
-   - Ne használj benne JavaScript függvényeket, csak tiszta JSON-t (type, data, options).
-   - Példa formátum:
-   \`\`\`json-chart
-   {
-     "type": "line",
-     "data": {
-       "labels": ["1990", "2000", "2010", "2020", "2023"],
-       "datasets": [{
-         "label": "Magyarország népessége (millió fő)",
-         "data": [10.4, 10.2, 10.0, 9.7, 9.6],
-         "borderColor": "#6366f1",
-         "backgroundColor": "rgba(99, 102, 241, 0.1)",
-         "tension": 0.2
-       }]
-     }
-   }
-   \`\`\`
-
-A válasz végén legyen "## Forrásjegyzék".
-`;
-}
-
-// --- JEGYZETEK BETÖLTÉSE ---
+// -------------------------------
+// NOTES LOADER
+// -------------------------------
 
 async function loadUserNotesContext(user, inlineNotes = "") {
   const parts = [];
   const inline = cleanText(inlineNotes, 30000);
-  if (inline) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}`);
+
+  if (inline) {
+    parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}`);
+  }
 
   const supabase = getSupabaseAdmin();
   if (supabase && user?.id) {
@@ -188,30 +182,118 @@ async function loadUserNotesContext(user, inlineNotes = "") {
         for (const note of data) {
           const title = note.cim || note.original_name || "Jegyzet";
           const text = cleanText(note.text_content, 12000);
-          if (text.length > 80) parts.push(`=== JEGYZET: ${title} ===\n${text}`);
+          if (text.length > 80) {
+            parts.push(`=== JEGYZET: ${title} ===\n${text}`);
+          }
         }
       }
     } catch (e) {
       console.error("Notes error:", e);
     }
   }
+
   return parts.join("\n\n");
 }
 
-function buildPrompt({ message, notesContext, history }) {
+export {
+  jsonResponse,
+  corsOptionsResponse,
+  textStreamResponse,
+  singleChunkStream,
+  getSupabaseUser,
+  loadUserNotesContext,
+  cleanText,
+  detectLanguage,
+  webSearch,
+  imageSearch,
+  ai
+};
+// ===============================
+// AMISEARCH 2026 – CHAT ENGINE (MAIN)
+// chat.js – Blokk 2/3
+// System Prompt + Prompt Builder + Classification
+// ===============================
+
+import {
+  detectLanguage,
+  webSearch,
+  imageSearch
+} from "./search-utils.mjs";
+
+import { cleanText } from "./chat.js"; // circular import kerülése miatt NEM használjuk így
+
+// -------------------------------
+// SYSTEM INSTRUCTION (AI BEÁLLÍTÁS)
+// -------------------------------
+
+function buildSystemInstructionText() {
+  return `
+You are the AMISEARCH educational assistant.
+
+LANGUAGE RULE:
+- Detect the user's question language automatically.
+- Always answer in the SAME language as the user's question.
+- If the question mixes languages, use the dominant one.
+
+ANSWERING RULES:
+- Provide clear, structured, academically reliable explanations.
+- Use tables and bullet points when helpful.
+- Use the external sources provided in the prompt (Academic → Wikipedia → DuckDuckGo → Notes).
+- Combine external sources with your own knowledge.
+- NEVER hallucinate facts. If uncertain, say so.
+
+VISUALIZATION RULES:
+1) If the user asks for a process, structure, concept map, or mindmap:
+   - Provide a short explanation.
+   - Then output a Mermaid MINDMAP block:
+   \`\`\`mermaid
+   mindmap
+     root((Topic))
+       Branch 1
+         Sub-branch
+       Branch 2
+   \`\`\`
+   - DO NOT use flowchart, pie, or xychart-beta.
+
+2) If the user asks for numeric data, statistics, or time-series:
+   - Provide a short explanation.
+   - Then output a Chart.js JSON config inside:
+   \`\`\`json-chart
+   { ... }
+   \`\`\`
+   - Only pure JSON allowed.
+
+FINAL REQUIREMENT:
+- Always end the answer with: "## Forrásjegyzék"
+`;
+}
+
+// -------------------------------
+// PROMPT BUILDER
+// -------------------------------
+
+function buildPrompt({ message, notesContext, webContext, history }) {
   const historyArray = Array.isArray(history) ? history.slice(-8) : [];
+
   const historyText = historyArray
-    .map(item => `${item.role === "assistant" ? "AI" : "Felhasználó"}: ${cleanText(item.content, 2500)}`)
+    .map(item =>
+      `${item.role === "assistant" ? "AI" : "User"}: ${cleanText(item.content, 2500)}`
+    )
     .join("\n");
 
   return [
-    notesContext ? `## Dokumentumok és jegyzetek\n${notesContext}\n\n` : "",
-    historyText ? `## Előzmények\n${historyText}\n\n` : "",
-    `## Aktuális kérdés\n${message}`,
-  ].filter(Boolean).join("");
+    notesContext ? `## NOTES\n${notesContext}\n\n` : "",
+    webContext ? `## EXTERNAL SOURCES\n${webContext}\n\n` : "",
+    historyText ? `## HISTORY\n${historyText}\n\n` : "",
+    `## QUESTION\n${message}`
+  ]
+    .filter(Boolean)
+    .join("");
 }
 
-// --- KÉRÉS OSZTÁLYOZÁS ---
+// -------------------------------
+// REQUEST CLASSIFICATION (IMAGE vs TEXT)
+// -------------------------------
 
 async function classifyRequest(message) {
   try {
@@ -220,23 +302,34 @@ async function classifyRequest(message) {
       contents: [{
         role: "user",
         parts: [{
-          text: `Döntsd el, hogy a kérés VALÓDI FÉNYKÉPET vagy ILLUSZTRÁCIÓT kér konkrét személyről, tárgyról, állatról (pl. "kép", "fotó", "mutass egy képet X-ről"), vagy MAGYARÁZATOT, DIAGRAMOT, ADATOT kér.
-Válaszolj KIZÁRÓLAG ebben a formátumban:
-TIPUS: IMAGE vagy TEXT
-KERESES: <angol kifejezés ha IMAGE, különben ->
-Kérdés: "${message}"`
-        }],
+          text: `Classify the request.
+
+If the user wants a REAL IMAGE or ILLUSTRATION of a person, object, animal, etc. (e.g. "show me a picture of X"), answer:
+
+TYPE: IMAGE
+QUERY: <English search phrase>
+
+Otherwise answer:
+
+TYPE: TEXT
+QUERY: -
+
+User message: "${message}"`
+        }]
       }],
-      generationConfig: { temperature: 0, maxOutputTokens: 40 },
+      generationConfig: { temperature: 0, maxOutputTokens: 40 }
     });
 
-    const text = result?.text || result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const typeMatch = text.match(/T[ÍI]PUS:\s*(IMAGE|TEXT)/i);
-    const searchMatch = text.match(/KERES[ÉE]S:\s*(.+)/i);
+    const text = result?.text || "";
+    const typeMatch = text.match(/TYPE:\s*(IMAGE|TEXT)/i);
+    const queryMatch = text.match(/QUERY:\s*(.+)/i);
 
     const type = typeMatch ? typeMatch[1].toUpperCase() : "TEXT";
-    let searchQuery = searchMatch ? searchMatch[1].trim() : "";
-    if (searchQuery === "-" || !searchQuery) searchQuery = message.slice(0, 60);
+    let searchQuery = queryMatch ? queryMatch[1].trim() : "";
+
+    if (searchQuery === "-" || !searchQuery) {
+      searchQuery = message.slice(0, 60);
+    }
 
     return { type, searchQuery };
   } catch (err) {
@@ -244,103 +337,127 @@ Kérdés: "${message}"`
   }
 }
 
-// --- KÉPKERESÉS ---
+// -------------------------------
+// EXPORT
+// -------------------------------
 
-async function searchCommonsImage(query) {
-  try {
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=3&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=800&format=json&origin=*`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const pages = data?.query?.pages;
-    if (!pages) return null;
-    const page = Object.values(pages)[0];
-    const info = page?.imageinfo?.[0];
-    if (!info) return null;
-    return {
-      url: info.thumburl || info.url,
-      title: String(page.title || "").replace(/^File:/, ""),
-      artist: stripHtml(info.extmetadata?.Artist?.value),
-      license: stripHtml(info.extmetadata?.LicenseShortName?.value),
-      sourcePage: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
-      sourceName: "Wikimedia Commons"
-    };
-  } catch {
-    return null;
-  }
-}
+export {
+  buildSystemInstructionText,
+  buildPrompt,
+  classifyRequest
+};
+// ===============================
+// AMISEARCH 2026 – CHAT ENGINE (MAIN)
+// chat.js – Blokk 3/3
+// Handler + Quota + Notes + WebSearch + ImageSearch + Streaming
+// ===============================
 
-function buildImageMarkdown(image, message) {
-  return `![${(image.title || "Kép").replace(/[\[\]]/g, "")}](${image.url})\n\n**${image.title}** — ${image.artist || "Ismeretlen"} (${image.license || "CC"})\nForrás: [${image.sourceName}](${image.sourcePage})\n\n## Forrásjegyzék\n- ${image.sourceName}`;
-}
+import {
+  jsonResponse,
+  corsOptionsResponse,
+  textStreamResponse,
+  singleChunkStream,
+  getSupabaseUser,
+  loadUserNotesContext,
+  cleanText,
+  detectLanguage,
+  webSearch,
+  imageSearch,
+  ai
+} from "./chat.js";
 
-// --- NETLIFY COMPATIBLE HANDLER ---
+import {
+  buildSystemInstructionText,
+  buildPrompt,
+  classifyRequest
+} from "./chat.js";
 
-export default async (req, context) => {
+import { checkQuota, incrementUsage } from "./quota.js";
+
+export default async (req) => {
   try {
     if (req.method === "OPTIONS") return corsOptionsResponse();
     if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-    // Biztonságos JSON törzs beolvasás
     let body = {};
     try {
-      const rawBody = await req.text();
-      if (rawBody) body = JSON.parse(rawBody);
-    } catch (jsonErr) {
-      console.error("JSON parse error in body:", jsonErr);
-      return jsonResponse({ error: "Érvénytelen JSON kérés." }, 400);
+      const raw = await req.text();
+      if (raw) body = JSON.parse(raw);
+    } catch {
+      return jsonResponse({ error: "Invalid JSON" }, 400);
     }
 
     const user = await getSupabaseUser(req);
-    if (!user) return jsonResponse({ error: "Jelentkezz be!" }, 401);
+    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
 
-    // --- KVÓTA ELLENŐRZÉS ---
     const quota = await checkQuota(user.id, "ai_questions");
     if (!quota.allowed) {
       return jsonResponse({
-        error: quota.message || "Lejárt a havi AI kérdés keretед. Válts Pro-ra a folytatáshoz!",
+        error: quota.message || "AI quota exceeded",
         code: "quota_exceeded",
         field: "ai_questions"
       }, 402);
     }
 
     const message = cleanText(body.message || body.query || "", 12000);
-    if (!message) return jsonResponse({ error: "Hiányzó üzenet." }, 400);
+    if (!message) return jsonResponse({ error: "Missing message" }, 400);
 
     const classification = await classifyRequest(message);
 
     if (classification.type === "IMAGE") {
-      const image = await searchCommonsImage(classification.searchQuery);
-      // Képkérésnél is számoljuk a kvótát
+      const img = await imageSearch(classification.searchQuery);
       await incrementUsage(user.id, "ai_questions");
-      if (!image) return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet ehhez a témához.");
-      return singleChunkStream(buildImageMarkdown(image, message));
+
+      if (!img) {
+        return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet ehhez a témához.\n\n## Forrásjegyzék");
+      }
+
+      const md = `![${img.title}](${img.url})
+
+**${img.title}**  
+Forrás: ${img.source}  
+${img.sourceUrl}
+
+## Forrásjegyzék
+- ${img.source}`;
+
+      return singleChunkStream(md);
     }
 
-    const notesContext = await loadUserNotesContext(user, body.notes || "");
-    const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
+    const lang = await detectLanguage(message);
 
-    // Kvóta növelése sikeres kérés előtt
+    const notesContext = await loadUserNotesContext(user, body.notes || "");
+    const webContext = await webSearch(message, lang);
+
+    const promptText = buildPrompt({
+      message,
+      notesContext,
+      webContext: webContext
+        ? `=== SOURCE: ${webContext.source} ===\n${webContext.summary}\nURL: ${webContext.url}`
+        : "",
+      history: body.history || []
+    });
+
     await incrementUsage(user.id, "ai_questions");
 
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: promptText }] }],
       systemInstruction: buildSystemInstructionText(),
-      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+      contents: [{ role: "user", parts: [{ text: promptText }] }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
     });
 
     async function* generator() {
       for await (const chunk of stream) {
-        const text = chunk?.text || chunk?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const text = chunk?.text || "";
         if (text) yield text;
       }
     }
 
     return textStreamResponse(generator());
 
-  } catch (error) {
-    console.error("Fatal error inside function:", error);
-    return jsonResponse({ error: "Belső szerverhiba történt." }, 500);
+  } catch (err) {
+    console.error("Fatal error:", err);
+    return jsonResponse({ error: "Internal server error" }, 500);
   }
 };
