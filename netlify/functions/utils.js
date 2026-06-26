@@ -67,6 +67,42 @@ export function cleanText(value, max = 70000) {
     .slice(0, max);
 }
 
+export function latexToUnicode(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/\\alpha/g, "α")
+    .replace(/\\beta/g, "β")
+    .replace(/\\gamma/g, "γ")
+    .replace(/\\delta/g, "δ")
+    .replace(/\\epsilon/g, "ε")
+    .replace(/\\theta/g, "θ")
+    .replace(/\\lambda/g, "λ")
+    .replace(/\\mu/g, "μ")
+    .replace(/\\pi/g, "π")
+    .replace(/\\rho/g, "ρ")
+    .replace(/\\sigma/g, "σ")
+    .replace(/\\tau/g, "τ")
+    .replace(/\\phi/g, "φ")
+    .replace(/\\omega/g, "ω")
+    .replace(/\\infty/g, "∞")
+    .replace(/\\sum/g, "∑")
+    .replace(/\\prod/g, "∏")
+    .replace(/\\int/g, "∫")
+    .replace(/\\pm/g, "±")
+    .replace(/\\times/g, "×")
+    .replace(/\\div/g, "÷")
+    .replace(/\\leq/g, "≤")
+    .replace(/\\geq/g, "≥")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\approx/g, "≈")
+    .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)")
+    .replace(/\$\$([^$]+)\$\$/g, "$1")
+    .replace(/\$([^$]+)\$/g, "$1")
+    .replace(/\\\[(.+?)\\\]/gs, "$1")
+    .replace(/\\\((.+?)\\\)/gs, "$1");
+}
+
 export async function getSupabaseUser(req) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
   if (!authHeader) return null;
