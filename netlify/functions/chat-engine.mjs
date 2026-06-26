@@ -4,7 +4,7 @@ import {
   webSearch,
   imageSearch
 } from "./search-utils.mjs";
-import { cleanText } from "./utils.mjs";
+import { cleanText } from "./utils.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
@@ -124,4 +124,4 @@ ${img.sourceUrl}
 - ${img.source}`;
 
   return singleChunkStream(md);
-}
+      }
