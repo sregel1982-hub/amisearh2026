@@ -1,4 +1,4 @@
- import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 export function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
