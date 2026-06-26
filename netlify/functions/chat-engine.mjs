@@ -39,10 +39,7 @@ function singleChunkStream(text) {
 }
 
 function buildSystemInstructionText() {
-  return `You are the AMISEARCH educational assistant.
-Answer in the same language as the user.
-Use reliable sources when available.
-Always end with "## Forrásjegyzék".`;
+  return `You are the AMISEARCH educational assistant.\nAnswer in the same language as the user.\nUse reliable sources when available.\nAlways end with "## Forrásjegyzék".`;
 }
 
 function buildPrompt({ message, webContext, history, notes }) {
@@ -50,24 +47,13 @@ function buildPrompt({ message, webContext, history, notes }) {
 
   const historyText = historyArray
     .map(item => `${item.role === "assistant" ? "AI" : "User"}: ${cleanText(item.content, 2500)}`)
-    .join("
-");
+    .join("\n");
 
   return [
-    notes ? `## NOTES
-${cleanText(notes, 12000)}
-
-` : "",
-    webContext ? `## EXTERNAL SOURCES
-${webContext}
-
-` : "",
-    historyText ? `## HISTORY
-${historyText}
-
-` : "",
-    `## QUESTION
-${message}`
+    notes ? `## NOTES\n${cleanText(notes, 12000)}\n\n` : "",
+    webContext ? `## EXTERNAL SOURCES\n${webContext}\n\n` : "",
+    historyText ? `## HISTORY\n${historyText}\n\n` : "",
+    `## QUESTION\n${message}`
   ].filter(Boolean).join("");
 }
 
@@ -76,9 +62,7 @@ export async function answerText({ message, history = [], notes = "" }) {
   const web = await webSearch(message, lang);
 
   const webContext = web
-    ? `=== SOURCE: ${web.source} ===
-${web.summary}
-URL: ${web.url}`
+    ? `=== SOURCE: ${web.source} ===\n${web.summary}\nURL: ${web.url}`
     : "";
 
   const promptText = buildPrompt({
@@ -109,19 +93,14 @@ export async function answerImage(message) {
   const img = await imageSearch(message);
 
   if (!img) {
-    return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet.
-
-## Forrásjegyzék");
+    return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet.\n\n## Forrásjegyzék");
   }
 
-  const md = `![${img.title}](${img.url})
+  const md = `
 
-**${img.title}**  
-Forrás: ${img.source}  
-${img.sourceUrl}
+![${img.title}](${img.url})
 
-## Forrásjegyzék
-- ${img.source}`;
+\n\n**${img.title}**  \nForrás: ${img.source}  \n${img.sourceUrl}\n\n## Forrásjegyzék\n- ${img.source}`;
 
   return singleChunkStream(md);
-      }
+}  
