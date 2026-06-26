@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUser } from "./auth-helper.mjs";
 import { aiUnavailableResponse, isAiConfigured, jsonError, streamText } from "./ai-response.js";
+import { checkQuota, incrementUsage } from "./quota.js";
 
 const getEnv = (key) =>
   (typeof Netlify !== "undefined" && Netlify.env.get(key)) || process.env[key];
@@ -85,10 +86,29 @@ export default async function handler(req) {
     if (!user) return jsonError("A kereséshez vagy AI chathez jelentkezz be újra.", 401, "unauthorized");
     if (!isAiConfigured()) return aiUnavailableResponse();
 
+    // --- KVÓTA ELLENŐRZÉS ---
+    const quota = await checkQuota(user.id, "ai_questions");
+    if (!quota.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: quota.message || "Lejárt a havi AI kérdés kereted. Válts Pro-ra a folytatáshoz!",
+          code: "quota_exceeded",
+          field: "ai_questions"
+        }),
+        {
+          status: 402,
+          headers: { "Content-Type": "application/json; charset=utf-8" }
+        }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const query = cleanText(body.query || body.message || "", 8000);
     const lang = body.lang === "en" ? "en" : "hu";
     if (!query) return jsonError("Hiányzó keresőkifejezés.", 400, "missing_query");
+
+    // Kvóta növelése
+    await incrementUsage(user.id, "ai_questions");
 
     const notesContext = await loadRelevantNotes(user, query, body.notes || "");
     const prompt = `${instruction(lang)}\n\n${notesContext ? "## Saját jegyzetekből kinyert kontextus\n" + notesContext + "\n\n" : ""}## Kérdés / keresés\n${query}`;
