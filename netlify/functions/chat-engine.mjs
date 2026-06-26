@@ -1,16 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
-import { createClient } from "@supabase/supabase-js";
-import { detectLanguage, webSearch } from "./search-utils.mjs";
+import {
+  detectLanguage,
+  webSearch,
+  imageSearch
+} from "./search-utils.mjs";
+import { cleanText } from "./utils.mjs";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
 
-const jsonResponse = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" }
-  });
-
-const textStreamResponse = (generator) => {
+function textStreamResponse(generator) {
   const encoder = new TextEncoder();
   return new Response(new ReadableStream({
     async start(controller) {
@@ -20,81 +20,108 @@ const textStreamResponse = (generator) => {
         }
         controller.close();
       } catch (err) {
-        console.error("stream error:", err);
+        console.error("Stream error:", err);
         controller.error(err);
       }
     }
   }), {
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" }
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*"
+    }
   });
-};
-
-async function getSupabaseUser(req) {
-  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
-  if (!authHeader) return null;
-  const token = authHeader.replace("Bearer ", "").trim();
-  if (!token) return null;
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
-
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) return null;
-  return data.user;
 }
 
-export default async (req) => {
-  try {
-    if (req.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization"
-        }
-      });
+function singleChunkStream(text) {
+  async function* gen() { yield text; }
+  return textStreamResponse(gen());
+}
+
+function buildSystemInstructionText() {
+  return `You are the AMISEARCH educational assistant.
+Answer in the same language as the user.
+Use reliable sources when available.
+Always end with "## Forrásjegyzék".`;
+}
+
+function buildPrompt({ message, webContext, history, notes }) {
+  const historyArray = Array.isArray(history) ? history.slice(-8) : [];
+
+  const historyText = historyArray
+    .map(item => `${item.role === "assistant" ? "AI" : "User"}: ${cleanText(item.content, 2500)}`)
+    .join("
+");
+
+  return [
+    notes ? `## NOTES
+${cleanText(notes, 12000)}
+
+` : "",
+    webContext ? `## EXTERNAL SOURCES
+${webContext}
+
+` : "",
+    historyText ? `## HISTORY
+${historyText}
+
+` : "",
+    `## QUESTION
+${message}`
+  ].filter(Boolean).join("");
+}
+
+export async function answerText({ message, history = [], notes = "" }) {
+  const lang = await detectLanguage(message);
+  const web = await webSearch(message, lang);
+
+  const webContext = web
+    ? `=== SOURCE: ${web.source} ===
+${web.summary}
+URL: ${web.url}`
+    : "";
+
+  const promptText = buildPrompt({
+    message,
+    webContext,
+    history,
+    notes
+  });
+
+  const stream = await ai.models.generateContentStream({
+    model: "gemini-2.5-flash",
+    systemInstruction: buildSystemInstructionText(),
+    contents: [{ role: "user", parts: [{ text: promptText }] }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
+  });
+
+  async function* generator() {
+    for await (const chunk of stream) {
+      const text = chunk?.text || "";
+      if (text) yield text;
     }
-
-    if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
-
-    const body = await req.json().catch(() => ({}));
-    const user = await getSupabaseUser(req);
-    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
-
-    const message = String(body.message || body.query || "").trim();
-    if (!message) return jsonResponse({ error: "Missing message" }, 400);
-
-    const lang = await detectLanguage(message);
-    const web = await webSearch(message, lang);
-
-    const prompt = `Answer in the user's language.
-
-Question:
-${message}
-
-${web ? `Web:
-${web.summary}` : ""}`;
-
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
-      systemInstruction: "You are an educational assistant. Answer clearly.",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
-    });
-
-    async function* generator() {
-      for await (const chunk of stream) {
-        if (chunk?.text) yield chunk.text;
-      }
-    }
-
-    return textStreamResponse(generator());
-  } catch (err) {
-    console.error("Fatal error:", err);
-    return jsonResponse({ error: "Internal server error" }, 500);
   }
-};
+
+  return textStreamResponse(generator());
+}
+
+export async function answerImage(message) {
+  const img = await imageSearch(message);
+
+  if (!img) {
+    return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet.
+
+## Forrásjegyzék");
+  }
+
+  const md = `![${img.title}](${img.url})
+
+**${img.title}**  
+Forrás: ${img.source}  
+${img.sourceUrl}
+
+## Forrásjegyzék
+- ${img.source}`;
+
+  return singleChunkStream(md);
+}
