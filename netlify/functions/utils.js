@@ -23,6 +23,40 @@ export function corsOptionsResponse() {
   });
 }
 
+export function textStreamResponse(generator) {
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of generator) {
+            if (chunk) controller.enqueue(encoder.encode(chunk));
+          }
+          controller.close();
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.error(err);
+        }
+      }
+    }),
+    {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*"
+      }
+    }
+  );
+}
+
+export function singleChunkStream(text) {
+  async function* gen() {
+    yield text;
+  }
+  return textStreamResponse(gen());
+}
+
 export function cleanText(value, max = 70000) {
   return String(value || "")
     .replace(/
