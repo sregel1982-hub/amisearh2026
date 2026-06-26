@@ -4,7 +4,7 @@ import {
   jsonResponse,
   corsOptionsResponse,
   cleanText
-} from "./utils.mjs";
+} from "./utils.js";
 import {
   answerText,
   answerImage
