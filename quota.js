@@ -17,7 +17,6 @@ export async function checkQuota(userId, quotaField) {
 
   if (subError) {
     console.error("Subscription query error", subError);
-    // hiba esetén inkább engedjük
     return { allowed: true };
   }
 
