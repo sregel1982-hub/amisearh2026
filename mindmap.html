@@ -72,6 +72,23 @@
     .timer-warning .timer-text { color: #ef4444; }
     #quizMainCard { display: none; }
     #quizMainCard.visible { display: block; }
+
+    /* Anatómia stílusok */
+    .anatomy-tag {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .anatomy-tag:hover { background: #dcfce7; border-color: #4ade80; }
+    #anatomyDisplay { min-height: 420px; width: 100%; }
+    #anatomyDisplay svg { max-width: 100%; height: auto; }
   </style>
 </head>
 <body class="text-gray-900 min-h-screen flex flex-col">
@@ -101,33 +118,38 @@
 <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
   <div class="mb-8 text-center md:text-left">
     <h1 class="text-3xl font-extrabold text-gray-900 mb-2" data-i18n="title">Vizualizációs & Tesztközpont</h1>
-    <p class="text-gray-600" data-i18n="subtitle">Ábrázolj képleteket, folyamatokat, gondolattérképeket, vagy teszteld a tudásod a kvízgenerátorral.</p>
+    <p class="text-gray-600" data-i18n="subtitle">Ábrázolj képleteket, folyamatokat, gondolattérképeket, anatómiai ábrákat, vagy teszteld a tudásod.</p>
   </div>
 
   <!-- Tabs -->
-  <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-8">
-    <button onclick="switchTab('math')" id="tab-math" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2 tab-active">
-      <i class="fa-solid fa-chart-line text-2xl"></i>
+  <div class="grid grid-cols-4 md:grid-cols-7 gap-2 mb-8">
+    <button onclick="switchTab('math')" id="tab-math" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1 tab-active">
+      <i class="fa-solid fa-chart-line text-xl"></i>
       <span class="font-bold text-xs" data-i18n="tab_math">Függvény</span>
     </button>
-    <button onclick="switchTab('graph')" id="tab-graph" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
-      <i class="fa-solid fa-circle-nodes text-2xl text-gray-500"></i>
+    <button onclick="switchTab('graph')" id="tab-graph" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1">
+      <i class="fa-solid fa-circle-nodes text-xl text-gray-500"></i>
       <span class="font-bold text-xs" data-i18n="tab_graph">Struktúrák</span>
     </button>
-    <button onclick="switchTab('mermaid')" id="tab-mermaid" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
-      <i class="fa-solid fa-diagram-project text-2xl text-gray-500"></i>
+    <button onclick="switchTab('mermaid')" id="tab-mermaid" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1">
+      <i class="fa-solid fa-diagram-project text-xl text-gray-500"></i>
       <span class="font-bold text-xs" data-i18n="tab_mermaid">Folyamat</span>
     </button>
-    <button onclick="switchTab('mindmap')" id="tab-mindmap" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
-      <i class="fa-solid fa-sitemap text-2xl text-gray-500"></i>
+    <button onclick="switchTab('mindmap')" id="tab-mindmap" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1">
+      <i class="fa-solid fa-sitemap text-xl text-gray-500"></i>
       <span class="font-bold text-xs" data-i18n="tab_mindmap">Gondolattérkép</span>
     </button>
-    <button onclick="switchTab('stats')" id="tab-stats" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
-      <i class="fa-solid fa-chart-pie text-2xl text-gray-500"></i>
+    <button onclick="switchTab('stats')" id="tab-stats" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1">
+      <i class="fa-solid fa-chart-pie text-xl text-gray-500"></i>
       <span class="font-bold text-xs" data-i18n="tab_stats">Statisztika</span>
     </button>
-    <button onclick="switchTab('quiz')" id="tab-quiz" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-2">
-      <i class="fa-solid fa-lightbulb text-2xl text-gray-500"></i>
+    <!-- ÚJ: Anatómia fül -->
+    <button onclick="switchTab('anatomy')" id="tab-anatomy" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1">
+      <i class="fa-solid fa-person-dots-from-line text-xl text-gray-500"></i>
+      <span class="font-bold text-xs" data-i18n="tab_anatomy">Anatómia</span>
+    </button>
+    <button onclick="switchTab('quiz')" id="tab-quiz" class="p-3 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 transition text-center flex flex-col items-center gap-1">
+      <i class="fa-solid fa-lightbulb text-xl text-gray-500"></i>
       <span class="font-bold text-xs" data-i18n="tab_quiz">AI Kvíz</span>
     </button>
   </div>
@@ -157,6 +179,7 @@
             <button onclick="setFormula('1/x')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">1/x</button>
             <button onclick="setFormula('Math.exp(x)')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">eˣ</button>
             <button onclick="setFormula('Math.log(Math.abs(x))')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">ln|x|</button>
+            <button onclick="setFormula('Math.exp(-x*x)*Math.cos(5*x)')" class="px-2 py-1 bg-purple-50 text-[#6C5CE7] text-xs rounded-lg border border-purple-200 hover:bg-purple-100">Gauss·cos</button>
           </div>
         </div>
         <button onclick="drawMathFunction()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm" data-i18n="update_plot">Ábrázolás frissítése</button>
@@ -240,10 +263,51 @@
         <button onclick="drawStatsChart()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm" data-i18n="update_chart">Frissítés</button>
       </div>
 
+      <!-- ÚJ: Anatómia -->
+      <div id="controls-anatomy" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
+        <h3 class="font-bold text-lg text-gray-900 border-b pb-2">
+          <i class="fa-solid fa-person-dots-from-line text-[#6C5CE7] mr-2"></i>
+          <span data-i18n="anatomy_settings">Anatómia Ábragenerátor</span>
+        </h3>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="anatomy_topic">Anatómiai fogalom / testrész:</label>
+          <input type="text" id="anatomyTopic"
+            class="w-full px-3 py-2 border rounded-xl outline-none focus:ring-2 focus:ring-[#6C5CE7]/30 text-sm"
+            placeholder="pl. emberi szív, tüdő felépítése, neuron...">
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-gray-500 mb-2" data-i18n="anatomy_examples">Gyors példák:</p>
+          <div class="flex flex-wrap gap-1">
+            <!-- Magyar -->
+            <span class="anatomy-tag" onclick="setAnatomyTopic('emberi szív')">❤️ Szív</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('tüdő felépítése')">🫁 Tüdő</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('neuron szerkezete')">🧠 Neuron</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('emberi agy lebenyei')">🧠 Agy</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('csontváz felépítése')">🦴 Csontváz</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('emberi szem keresztmetszete')">👁️ Szem</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('vese felépítése')">🫘 Vese</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('sejt felépítése')">🔬 Sejt</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('gerincoszlop')">🦴 Gerinc</span>
+            <span class="anatomy-tag" onclick="setAnatomyTopic('emésztőrendszer')">🫃 Emésztés</span>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+          <i class="fa-solid fa-circle-info mr-1"></i>
+          <span data-i18n="anatomy_hint">Az AI SVG ábrát generál feliratozva. Magyar keresés → magyar feliratok, angol keresés → angol feliratok.</span>
+        </div>
+
+        <button onclick="generateAnatomy()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+          <span data-i18n="generate_anatomy">Ábra generálása</span>
+        </button>
+      </div>
+
       <!-- Quiz -->
       <div id="controls-quiz" class="glass-card rounded-2xl p-6 shadow-md space-y-4 hidden">
         <h3 class="font-bold text-lg text-gray-900 border-b pb-2"><i class="fa-solid fa-lightbulb text-[#6C5CE7] mr-2"></i><span data-i18n="quiz_settings">AI Kvíz Beállítások</span></h3>
-
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="level">Szint</label>
@@ -261,7 +325,6 @@
             </select>
           </div>
         </div>
-
         <div>
           <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="subject">Tantárgy</label>
           <select id="quizSubject" class="w-full px-3 py-2 border rounded-xl outline-none text-xs">
@@ -273,14 +336,13 @@
             <option value="history" data-i18n="history">Történelem</option>
             <option value="literature" data-i18n="literature">Irodalom</option>
             <option value="geography" data-i18n="geography">Földrajz</option>
+            <option value="anatomy" data-i18n="anatomy_quiz">Anatómia</option>
           </select>
         </div>
-
         <div>
           <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="custom_topic_label">Egyedi téma (opcionális):</label>
           <input type="text" id="quizCustomTopic" class="w-full px-3 py-2 border rounded-xl text-xs outline-none" placeholder="pl. deriválás, fotoszintézis...">
         </div>
-
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1" data-i18n="num_questions">Kérdések száma</label>
@@ -300,7 +362,6 @@
             </select>
           </div>
         </div>
-
         <button onclick="startQuiz()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm">
           <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="generate_ai">Generálás AI-val</span>
         </button>
@@ -344,6 +405,15 @@
 
           <div id="statsChartWrapper" class="hidden w-full p-2" style="min-height:400px;">
             <canvas id="statsCanvas"></canvas>
+          </div>
+
+          <!-- ÚJ: Anatómia megjelenítő -->
+          <div id="anatomyDisplay" class="hidden w-full flex flex-col items-center justify-center" style="min-height:420px;">
+            <div id="anatomySvgContainer" class="w-full flex items-center justify-center"></div>
+            <div id="anatomyPlaceholder" class="flex flex-col items-center justify-center gap-4 py-16 text-center">
+              <i class="fa-solid fa-person-dots-from-line text-6xl text-gray-200"></i>
+              <p class="text-gray-400 text-sm font-medium" data-i18n="anatomy_placeholder">Írj be egy anatómiai fogalmat és kattints a generálásra!</p>
+            </div>
           </div>
 
           <!-- Quiz -->
@@ -406,7 +476,7 @@
 
 <footer class="bg-gray-900 text-white py-6 mt-12 border-t border-gray-800">
   <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-400">
-    <p>© 2026 AMISEARCH · Multitool v3.2 · <span data-i18n="powered">Powered by Gemini 2.5 Flash</span></p>
+    <p>© 2026 AMISEARCH · Multitool v3.3 · <span data-i18n="powered">Powered by Gemini 2.5 Flash</span></p>
   </div>
 </footer>
 
@@ -415,9 +485,10 @@
 const translations = {
   hu: {
     back:"Vissza", title:"Vizualizációs & Tesztközpont",
-    subtitle:"Ábrázolj képleteket, folyamatokat, gondolattérképeket, vagy teszteld a tudásod a kvízgenerátorral.",
+    subtitle:"Ábrázolj képleteket, folyamatokat, gondolattérképeket, anatómiai ábrákat, vagy teszteld a tudásod.",
     tab_math:"Függvény", tab_graph:"Struktúrák", tab_mermaid:"Folyamat", tab_mindmap:"Gondolattérkép",
-    tab_stats:"Statisztika", tab_quiz:"AI Kvíz", display:"Kijelző", download:"Letöltés PNG",
+    tab_stats:"Statisztika", tab_anatomy:"Anatómia", tab_quiz:"AI Kvíz",
+    display:"Kijelző", download:"Letöltés PNG",
     math_settings:"Függvény Beállítások", formula:"Matematikai Formula (f(x) =...)", update_plot:"Ábrázolás frissítése",
     examples:"Példák:", graph_settings:"Struktúra / Molekula", describe_structure:"Írd le amit szeretnél látni:",
     quick_examples:"Gyors példák:", draw:"Kirajzolás / AI-val",
@@ -426,11 +497,22 @@ const translations = {
     mindmap_hint:"Írj egy témát és az AI elkészíti, vagy szerkeszd kézzel.",
     chart_data:"Diagram Adatok", bar_chart:"Oszlop", line_chart:"Vonal", pie_chart:"Kör", donut_chart:"Fánk",
     labels:"Kategóriák (vesszővel):", values:"Értékek (vesszővel):", chart_title:"Diagram neve:",
-    update_chart:"Frissítés", quiz_settings:"AI Kvíz Beállítások",
+    update_chart:"Frissítés",
+    anatomy_settings:"Anatómia Ábragenerátor",
+    anatomy_topic:"Anatómiai fogalom / testrész:",
+    anatomy_examples:"Gyors példák:",
+    anatomy_hint:"Az AI SVG ábrát generál feliratozva. Magyar keresés → magyar feliratok, angol keresés → angol feliratok.",
+    generate_anatomy:"Ábra generálása",
+    anatomy_placeholder:"Írj be egy anatómiai fogalmat és kattints a generálásra!",
+    anatomy_generating:"Anatómiai ábra generálása...",
+    anatomy_info:"AI által generált anatómiai ábra",
+    anatomy_error:"Nem sikerült ábrát generálni. Próbálj pontosabb fogalmat!",
+    quiz_settings:"AI Kvíz Beállítások",
     level:"Szint", difficulty:"Nehézség", highschool:"Középiskola", university:"Egyetem",
     easy:"Könnyű", medium:"Közepes", hard:"Nehéz", subject:"Tantárgy",
     math:"Matematika", cs:"Informatika", chemistry:"Kémia", physics:"Fizika",
     biology:"Biológia", history:"Történelem", literature:"Irodalom", geography:"Földrajz",
+    anatomy_quiz:"Anatómia",
     custom_topic_label:"Egyedi téma (opcionális):", num_questions:"Kérdések száma",
     time_per_q:"Idő / kérdés (mp)", no_limit:"Nincs limit", generate_ai:"Generálás AI-val",
     score:"Pontszám", quiz_start_hint:"Adj meg beállításokat és kattints a generálásra!",
@@ -442,9 +524,10 @@ const translations = {
   },
   en: {
     back:"Back", title:"Visualization & Test Center",
-    subtitle:"Plot formulas, processes, mindmaps, or test your knowledge with the quiz generator.",
+    subtitle:"Plot formulas, processes, mindmaps, anatomy diagrams, or test your knowledge.",
     tab_math:"Function", tab_graph:"Structures", tab_mermaid:"Process", tab_mindmap:"Mindmap",
-    tab_stats:"Statistics", tab_quiz:"AI Quiz", display:"Display", download:"Download PNG",
+    tab_stats:"Statistics", tab_anatomy:"Anatomy", tab_quiz:"AI Quiz",
+    display:"Display", download:"Download PNG",
     math_settings:"Function Settings", formula:"Mathematical Formula (f(x) =...)", update_plot:"Update Plot",
     examples:"Examples:", graph_settings:"Structure / Molecule", describe_structure:"Describe what you want to see:",
     quick_examples:"Quick examples:", draw:"Draw / with AI",
@@ -453,11 +536,22 @@ const translations = {
     mindmap_hint:"Type a topic and AI will create it, or edit Markdown manually.",
     chart_data:"Chart Data", bar_chart:"Bar", line_chart:"Line", pie_chart:"Pie", donut_chart:"Doughnut",
     labels:"Categories (comma-separated):", values:"Values (comma-separated):", chart_title:"Chart title:",
-    update_chart:"Update", quiz_settings:"AI Quiz Settings",
+    update_chart:"Update",
+    anatomy_settings:"Anatomy Diagram Generator",
+    anatomy_topic:"Anatomical term / body part:",
+    anatomy_examples:"Quick examples:",
+    anatomy_hint:"AI generates a labeled SVG diagram. English search → English labels, Hungarian search → Hungarian labels.",
+    generate_anatomy:"Generate Diagram",
+    anatomy_placeholder:"Type an anatomical term and click generate!",
+    anatomy_generating:"Generating anatomy diagram...",
+    anatomy_info:"AI-generated anatomy diagram",
+    anatomy_error:"Could not generate diagram. Try a more specific term!",
+    quiz_settings:"AI Quiz Settings",
     level:"Level", difficulty:"Difficulty", highschool:"High School", university:"University",
     easy:"Easy", medium:"Medium", hard:"Hard", subject:"Subject",
     math:"Mathematics", cs:"Computer Science", chemistry:"Chemistry", physics:"Physics",
     biology:"Biology", history:"History", literature:"Literature", geography:"Geography",
+    anatomy_quiz:"Anatomy",
     custom_topic_label:"Custom topic (optional):", num_questions:"Number of questions",
     time_per_q:"Time / question (s)", no_limit:"No limit", generate_ai:"Generate with AI",
     score:"Score", quiz_start_hint:"Configure settings and click generate!",
@@ -483,9 +577,49 @@ function setLang(lang) {
     if (el.tagName === 'OPTION') el.text = t(key);
     else el.textContent = t(key);
   });
-  document.querySelectorAll('option[data-i18n]').forEach(el => {
-    el.textContent = t(el.getAttribute('data-i18n'));
-  });
+  // Anatómia gyors példák frissítése nyelv szerint
+  updateAnatomyTags();
+}
+
+// Anatómia gyors példák nyelvfüggően
+const anatomyExamples = {
+  hu: [
+    { icon: '❤️', label: 'Szív',     topic: 'emberi szív felépítése' },
+    { icon: '🫁', label: 'Tüdő',     topic: 'tüdő felépítése' },
+    { icon: '🧠', label: 'Neuron',   topic: 'neuron szerkezete' },
+    { icon: '🧠', label: 'Agy',      topic: 'emberi agy lebenyei' },
+    { icon: '🦴', label: 'Csontváz', topic: 'csontváz felépítése' },
+    { icon: '👁️', label: 'Szem',     topic: 'emberi szem keresztmetszete' },
+    { icon: '🫘', label: 'Vese',     topic: 'vese felépítése' },
+    { icon: '🔬', label: 'Sejt',     topic: 'sejt felépítése' },
+    { icon: '🦴', label: 'Gerinc',   topic: 'gerincoszlop' },
+    { icon: '🫃', label: 'Emésztés', topic: 'emésztőrendszer' },
+  ],
+  en: [
+    { icon: '❤️', label: 'Heart',    topic: 'human heart anatomy' },
+    { icon: '🫁', label: 'Lungs',    topic: 'lung structure' },
+    { icon: '🧠', label: 'Neuron',   topic: 'neuron structure' },
+    { icon: '🧠', label: 'Brain',    topic: 'human brain lobes' },
+    { icon: '🦴', label: 'Skeleton', topic: 'human skeleton' },
+    { icon: '👁️', label: 'Eye',      topic: 'human eye cross-section' },
+    { icon: '🫘', label: 'Kidney',   topic: 'kidney anatomy' },
+    { icon: '🔬', label: 'Cell',     topic: 'cell structure' },
+    { icon: '🦴', label: 'Spine',    topic: 'spinal column' },
+    { icon: '🫃', label: 'Digestion',topic: 'digestive system' },
+  ]
+};
+
+function updateAnatomyTags() {
+  const container = document.querySelector('#controls-anatomy .flex.flex-wrap.gap-1');
+  if (!container) return;
+  const examples = anatomyExamples[currentLang] || anatomyExamples.hu;
+  container.innerHTML = examples.map(e =>
+    `<span class="anatomy-tag" onclick="setAnatomyTopic('${e.topic}')">${e.icon} ${e.label}</span>`
+  ).join('');
+}
+
+function setAnatomyTopic(topic) {
+  document.getElementById('anatomyTopic').value = topic;
 }
 
 // ===================== GEMINI API (Netlify proxy) =====================
@@ -505,7 +639,7 @@ async function callGemini(prompt) {
 
 // ===================== TABS =====================
 let activeTab = 'math';
-const ALL_TABS = ['math','graph','mermaid','mindmap','stats','quiz'];
+const ALL_TABS = ['math','graph','mermaid','mindmap','stats','anatomy','quiz'];
 
 function switchTab(tabId) {
   activeTab = tabId;
@@ -513,16 +647,18 @@ function switchTab(tabId) {
     document.getElementById(`tab-${id}`).classList.toggle('tab-active', id === tabId);
     document.getElementById(`controls-${id}`).classList.toggle('hidden', id !== tabId);
   });
-  const displays = ['mathCanvas','graphContainer','mermaidDisplay','mindmapDisplay','statsChartWrapper','quizContainer'];
+
+  const displays = ['mathCanvas','graphContainer','mermaidDisplay','mindmapDisplay','statsChartWrapper','anatomyDisplay','quizContainer'];
   displays.forEach(id => document.getElementById(id).classList.add('hidden'));
   document.getElementById('downloadBtn').classList.toggle('hidden', tabId === 'quiz');
 
-  if (tabId === 'math') { document.getElementById('mathCanvas').classList.remove('hidden'); drawMathFunction(); }
-  else if (tabId === 'graph') { document.getElementById('graphContainer').classList.remove('hidden'); }
-  else if (tabId === 'mermaid') { document.getElementById('mermaidDisplay').classList.remove('hidden'); }
-  else if (tabId === 'mindmap') { document.getElementById('mindmapDisplay').classList.remove('hidden'); }
-  else if (tabId === 'stats') { document.getElementById('statsChartWrapper').classList.remove('hidden'); drawStatsChart(); }
-  else if (tabId === 'quiz') { document.getElementById('quizContainer').classList.remove('hidden'); }
+  if (tabId === 'math')     { document.getElementById('mathCanvas').classList.remove('hidden'); drawMathFunction(); }
+  else if (tabId === 'graph')    { document.getElementById('graphContainer').classList.remove('hidden'); }
+  else if (tabId === 'mermaid')  { document.getElementById('mermaidDisplay').classList.remove('hidden'); }
+  else if (tabId === 'mindmap')  { document.getElementById('mindmapDisplay').classList.remove('hidden'); }
+  else if (tabId === 'stats')    { document.getElementById('statsChartWrapper').classList.remove('hidden'); drawStatsChart(); }
+  else if (tabId === 'anatomy')  { document.getElementById('anatomyDisplay').classList.remove('hidden'); }
+  else if (tabId === 'quiz')     { document.getElementById('quizContainer').classList.remove('hidden'); }
 }
 
 // ===================== MATH =====================
@@ -538,8 +674,7 @@ function drawMathFunction() {
   const xMin = parseFloat(document.getElementById('xMin').value) || -10;
   const xMax = parseFloat(document.getElementById('xMax').value) || 10;
   const formulaStr = document.getElementById('mathFormula').value;
-  const steps = 500;
-  const pts = [];
+  const steps = 800;
 
   const evalF = (x) => {
     try {
@@ -549,6 +684,7 @@ function drawMathFunction() {
     } catch { return NaN; }
   };
 
+  const pts = [];
   for (let i = 0; i <= steps; i++) {
     const x = xMin + (i/steps)*(xMax-xMin);
     const y = evalF(x);
@@ -612,7 +748,6 @@ function handleGraphRequest() {
   const txt = document.getElementById('graphFreeText').value.trim();
   if (!txt) return;
   const lo = txt.toLowerCase();
-
   if (/víz|h2o|water/i.test(lo)) { drawH2O(); return; }
   if (/co2|szén-dioxid|carbon dioxide/i.test(lo)) { drawCO2(); return; }
   if (/ch4|metán|methane/i.test(lo)) { drawCH4(); return; }
@@ -621,21 +756,17 @@ function handleGraphRequest() {
   if (/nh3|ammónia|ammonia/i.test(lo)) { drawNH3(); return; }
   if (/\bo2\b|oxigénmolekula/i.test(lo)) { drawO2(); return; }
   if (/etanol|ethanol|c2h5oh/i.test(lo)) { drawEthanol(); return; }
-
   if (/bináris|bst|keresőfa|binary.*tree/i.test(lo)) {
     const nums = lo.match(/\d+/g);
     if (nums) { drawBST(nums.map(Number)); return; }
   }
-
   const edgeMatches = txt.match(/([A-Za-z0-9]+)\s*[-–]\s*([A-Za-z0-9]+)/g);
   if (edgeMatches && edgeMatches.length > 0) { drawCustomGraph(edgeMatches); return; }
-
   if (/hatszög|hexagon/i.test(lo)) { drawPolygon(6,'Hatszög'); return; }
   if (/ötszög|pentagon/i.test(lo)) { drawPolygon(5,'Ötszög'); return; }
   if (/háromszög|triangle/i.test(lo)) { drawPolygon(3,'Háromszög'); return; }
   if (/négyzet|square/i.test(lo)) { drawPolygon(4,'Négyzet'); return; }
   if (/nyolcszög|octagon/i.test(lo)) { drawPolygon(8,'Nyolcszög'); return; }
-
   drawGraphWithAI(txt);
 }
 
@@ -841,8 +972,13 @@ Csak a tiszta SVG kódot add vissza, DOCTYPE és html tag nélkül. Fehér/vilá
   finally { hideLoading(); }
 }
 
-// ===================== MERMAID =====================
-mermaid.initialize({startOnLoad:false, theme:'default', securityLevel:'loose'});
+// ===================== MERMAID (try/catch védelemmel) =====================
+try {
+  mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+} catch(e) {
+  console.warn('Mermaid init error:', e);
+}
+
 const defaultMermaid = `flowchart TD\n    A[Kezdet] --> B{Feltétel}\n    B -->|Igen| C[Ág 1]\n    B -->|Nem| D[Ág 2]\n    C --> E[Vége]\n    D --> E`;
 
 async function generateMermaidFromTopic() {
@@ -861,16 +997,34 @@ CSAK a Mermaid kódot add vissza, semmi más! Legyen max 12 node. Kezdd: flowcha
   } catch(e) { setInfo(t('error') + ' ' + e.message); }
   finally { hideLoading(); }
 }
+
 async function renderMermaidDirect() {
   const code = document.getElementById('mermaidCode').value.trim() || defaultMermaid;
   const display = document.getElementById('mermaidDisplay');
   display.innerHTML = '';
   try {
     const id = 'mm' + Date.now();
+    // Szintaxis ellenőrzés try/catch-ben – ez védi a többi fület
     const {svg} = await mermaid.render(id, code);
     display.innerHTML = svg;
+    // Esetleges maradék Mermaid error element eltávolítása
+    document.querySelectorAll('[id^="dmermaid"]').forEach(el => el.remove());
     setInfo('Mermaid diagram renderelve.');
-  } catch(e) { display.innerHTML = `<div class="text-red-500 text-sm p-4">Mermaid hiba: ${e.message}</div>`; }
+  } catch(e) {
+    // CSAK a mermaidDisplay-ben jelenik meg, nem globálisan
+    display.innerHTML = `
+      <div class="w-full p-6 text-center">
+        <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-3"></i>
+        <p class="text-red-500 text-sm font-semibold mb-1">Mermaid szintaxis hiba</p>
+        <p class="text-gray-500 text-xs">${e.message || 'Érvénytelen Mermaid kód'}</p>
+        <p class="text-gray-400 text-xs mt-2">Ellenőrizd a kódot, vagy használd az AI Generálás gombot.</p>
+      </div>`;
+    // Globális Mermaid error div eltávolítása (ez okozta az eredeti hibát)
+    setTimeout(() => {
+      document.querySelectorAll('[id^="dmermaid"]').forEach(el => el.remove());
+    }, 100);
+    console.warn('Mermaid render error (izolált):', e);
+  }
 }
 
 // ===================== MINDMAP =====================
@@ -880,17 +1034,33 @@ async function generateMindmapAI() {
   if (topic.startsWith('#')) { renderMarkmap(); return; }
   showLoading(t('generating'));
   const lang = currentLang === 'hu' ? 'magyar' : 'English';
-  const prompt = `Készíts részletes Markdown gondolattérképet ${lang} nyelven: "${topic}".
+  try {
+    const res = await fetch('/.netlify/functions/generate-mindmap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, lang })
+    });
+    const data = await res.json();
+    if (data.markdown) {
+      document.getElementById('mindmapInput').value = data.markdown;
+      renderMarkmap();
+    } else {
+      throw new Error(data.error || 'Ismeretlen hiba');
+    }
+  } catch(e) {
+    // Fallback: callGemini
+    try {
+      const prompt = `Készíts részletes Markdown gondolattérképet ${lang === 'hu' ? 'magyar' : 'English'} nyelven: "${topic}".
 Formátum: # Főtéma\n## Főág\n- részlet\n### Alág\n- részlet
 Legalább 4-5 főág, mindegyikhez 3-4 pont. CSAK Markdownt adj, semmi mást!`;
-  try {
-    const md = await callGemini(prompt);
-    const clean = md.replace(/```markdown\n?/g,'').replace(/```\n?/g,'').trim();
-    document.getElementById('mindmapInput').value = clean;
-    renderMarkmap();
-  } catch(e) { setInfo(t('error') + ' ' + e.message); }
-  finally { hideLoading(); }
+      const md = await callGemini(prompt);
+      const clean = md.replace(/```markdown\n?/g,'').replace(/```\n?/g,'').trim();
+      document.getElementById('mindmapInput').value = clean;
+      renderMarkmap();
+    } catch(e2) { setInfo(t('error') + ' ' + e2.message); }
+  } finally { hideLoading(); }
 }
+
 async function renderMarkmap() {
   const input = document.getElementById('mindmapInput').value.trim();
   if (!input) return;
@@ -903,7 +1073,9 @@ async function renderMarkmap() {
     const mm = Markmap.create(svgEl2, deriveOptions({}), root);
     setTimeout(() => mm.fit(), 300);
     setInfo('Gondolattérkép megjelenítve.');
-  } catch(e) { document.getElementById('mindmapDisplay').innerHTML = `<div class="text-red-500 p-4 text-sm">Hiba: ${e.message}</div>`; }
+  } catch(e) {
+    document.getElementById('mindmapDisplay').innerHTML = `<div class="text-red-500 p-4 text-sm">Hiba: ${e.message}</div>`;
+  }
 }
 
 // ===================== STATS =====================
@@ -934,6 +1106,69 @@ function drawStatsChart() {
   setInfo(`${type} diagram | ${labels.length} kategória | Összeg: ${values.reduce((a,b)=>a+b,0)}`);
 }
 
+// ===================== ANATÓMIA (ÚJ) =====================
+async function generateAnatomy() {
+  const topic = document.getElementById('anatomyTopic').value.trim();
+  if (!topic) {
+    setInfo(currentLang === 'hu' ? 'Írj be egy anatómiai fogalmat!' : 'Please enter an anatomical term!');
+    return;
+  }
+
+  showLoading(t('anatomy_generating'));
+
+  // Svg konténer előkészítése
+  const svgContainer = document.getElementById('anatomySvgContainer');
+  const placeholder = document.getElementById('anatomyPlaceholder');
+  svgContainer.innerHTML = '';
+  placeholder.classList.add('hidden');
+
+  try {
+    const res = await fetch('/.netlify/functions/generate-anatomy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, lang: currentLang })
+    });
+
+    const data = await res.json();
+
+    if (data.svg) {
+      svgContainer.innerHTML = data.svg;
+      // SVG responsive beállítás
+      const svgEl = svgContainer.querySelector('svg');
+      if (svgEl) {
+        svgEl.setAttribute('width', '100%');
+        svgEl.style.maxWidth = '100%';
+        svgEl.style.height = 'auto';
+      }
+      setInfo(`${t('anatomy_info')}: ${topic}`);
+    } else {
+      placeholder.classList.remove('hidden');
+      placeholder.innerHTML = `
+        <i class="fa-solid fa-triangle-exclamation text-4xl text-amber-400 mb-3"></i>
+        <p class="text-gray-500 text-sm">${data.error || t('anatomy_error')}</p>`;
+      setInfo(t('anatomy_error'));
+    }
+  } catch(e) {
+    placeholder.classList.remove('hidden');
+    placeholder.innerHTML = `
+      <i class="fa-solid fa-wifi text-4xl text-gray-300 mb-3"></i>
+      <p class="text-gray-500 text-sm">${t('error')}: ${e.message}</p>`;
+    setInfo(t('error') + ': ' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+// Enter billentyű az anatómia inputon
+document.addEventListener('DOMContentLoaded', () => {
+  const anatomyInput = document.getElementById('anatomyTopic');
+  if (anatomyInput) {
+    anatomyInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') generateAnatomy();
+    });
+  }
+});
+
 // ===================== QUIZ =====================
 let questions=[], qIdx=0, score=0, timerInterval=null, totalTime=0;
 
@@ -948,10 +1183,13 @@ async function startQuiz() {
   const isHu = currentLang === 'hu';
   const levelMap = {highschool:isHu?'középiskolai':'high school', university:isHu?'egyetemi':'university'};
   const diffMap = {easy:isHu?'könnyű':'easy', medium:isHu?'közepes':'medium', hard:isHu?'nehéz':'hard'};
-  const subjMap = {math:isHu?'matematika':'mathematics', cs:isHu?'informatika':'computer science',
+  const subjMap = {
+    math:isHu?'matematika':'mathematics', cs:isHu?'informatika':'computer science',
     chemistry:isHu?'kémia':'chemistry', physics:isHu?'fizika':'physics',
     biology:isHu?'biológia':'biology', history:isHu?'történelem':'history',
-    literature:isHu?'irodalom':'literature', geography:isHu?'földrajz':'geography'};
+    literature:isHu?'irodalom':'literature', geography:isHu?'földrajz':'geography',
+    anatomy:isHu?'anatómia':'anatomy'
+  };
 
   const topic = customTopic || subjMap[subject];
   const lang = isHu ? 'magyar' : 'English';
@@ -1061,6 +1299,7 @@ function showResult() {
 
 // ===================== UTILS =====================
 function setInfo(txt) { document.getElementById('interactive-info').textContent = txt; }
+
 function showLoading(txt='...') {
   document.getElementById('mainDisplay').classList.add('hidden');
   const ov = document.getElementById('loadingOverlay');
@@ -1072,12 +1311,14 @@ function hideLoading() {
   ov.classList.add('hidden'); ov.classList.remove('flex');
   document.getElementById('mainDisplay').classList.remove('hidden');
 }
+
 function downloadAsPNG() {
   if (activeTab==='math') { dlCanvas('mathCanvas'); return; }
   if (activeTab==='stats') { dlCanvas('statsCanvas'); return; }
-  if (activeTab==='graph') { dlSvg(document.getElementById('graphSvg')); return; }
+  if (activeTab==='graph') { const s=document.querySelector('#graphContainer svg'); if(s) dlSvg(s); return; }
   if (activeTab==='mermaid') { const s=document.querySelector('#mermaidDisplay svg'); if(s) dlSvg(s); return; }
   if (activeTab==='mindmap') { dlSvg(document.getElementById('markmapSvg')); return; }
+  if (activeTab==='anatomy') { const s=document.querySelector('#anatomySvgContainer svg'); if(s) dlSvg(s); return; }
 }
 function dlCanvas(id) { const a=document.createElement('a'); a.download='amisearch.png'; a.href=document.getElementById(id).toDataURL(); a.click(); }
 function dlSvg(svg) { const b=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}); const a=document.createElement('a'); a.download='amisearch.svg'; a.href=URL.createObjectURL(b); a.click(); }
@@ -1086,13 +1327,18 @@ function dlSvg(svg) { const b=new Blob([new XMLSerializer().serializeToString(sv
 window.onload = function() {
   const lang = localStorage.getItem('amisearch_lang') || 'hu';
   setLang(lang);
+  updateAnatomyTags();
+
   const urlParams = new URLSearchParams(window.location.search);
   const topic = urlParams.get('topic');
   const tab = urlParams.get('tab');
+
   if (topic && tab==='mindmap') { switchTab('mindmap'); document.getElementById('mindmapInput').value=topic; generateMindmapAI(); }
+  else if (topic && tab==='anatomy') { switchTab('anatomy'); document.getElementById('anatomyTopic').value=topic; generateAnatomy(); }
   else if (topic) { switchTab('mermaid'); document.getElementById('mermaidCode').value=topic; generateMermaidFromTopic(); }
   else if (tab) switchTab(tab);
   else { switchTab('math'); drawMathFunction(); }
+
   if (!document.getElementById('mermaidCode').value) document.getElementById('mermaidCode').value = defaultMermaid;
   if (!document.getElementById('mindmapInput').value) {
     document.getElementById('mindmapInput').value = lang==='hu'
