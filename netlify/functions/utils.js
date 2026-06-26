@@ -59,18 +59,10 @@ export function singleChunkStream(text) {
 
 export function cleanText(value, max = 70000) {
   return String(value || "")
-    .replace(/
-/g, "
-")
-    .replace(/
-/g, "
-")
+    .replace(/\r/g, "\n")
+    .replace(/\n/g, "\n")
     .replace(/[ \t]+/g, " ")
-    .replace(/
-{4,}/g, "
-
-
-")
+    .replace(/\n{4,}/g, "\n\n")
     .trim()
     .slice(0, max);
 }
