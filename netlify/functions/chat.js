@@ -1,10 +1,12 @@
 // ===============================
 // AMISEARCH 2026 – CHAT ENGINE (MULTIMODAL)
 // STRUKTURÁLT MINDMAP + CHART.JS JSON + KÉPKERESÉS
+// + KVÓTA ELLENŐRZÉS (ai_questions)
 // ===============================
 
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { checkQuota, incrementUsage } from "./quota.js";
 
 // Netlify compatibilis env kezelés
 const getEnv = (key) => process.env[key];
@@ -21,11 +23,11 @@ const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 
-      "Content-Type": "application/json; charset=utf-8", 
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
     },
   });
 }
@@ -36,7 +38,7 @@ function corsOptionsResponse() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
     },
   });
 }
@@ -91,12 +93,12 @@ function stripHtml(value) {
   return String(value || "").replace(/<<[^>]*>/g, "").trim();
 }
 
-// --- AUTH HELPER (beépítve, ne külön fájl) ---
+// --- AUTH HELPER ---
 
 async function getSupabaseUser(req) {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
   if (!authHeader) return null;
-  
+
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) return null;
 
@@ -247,13 +249,13 @@ Kérdés: "${message}"`
 async function searchCommonsImage(query) {
   try {
     const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=3&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=800&format=json&origin=*`;
-    const res = await fetch(url); 
+    const res = await fetch(url);
     if (!res.ok) return null;
-    const data = await res.json(); 
-    const pages = data?.query?.pages; 
+    const data = await res.json();
+    const pages = data?.query?.pages;
     if (!pages) return null;
-    const page = Object.values(pages)[0]; 
-    const info = page?.imageinfo?.[0]; 
+    const page = Object.values(pages)[0];
+    const info = page?.imageinfo?.[0];
     if (!info) return null;
     return {
       url: info.thumburl || info.url,
@@ -263,8 +265,8 @@ async function searchCommonsImage(query) {
       sourcePage: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
       sourceName: "Wikimedia Commons"
     };
-  } catch { 
-    return null; 
+  } catch {
+    return null;
   }
 }
 
@@ -292,6 +294,16 @@ export default async (req, context) => {
     const user = await getSupabaseUser(req);
     if (!user) return jsonResponse({ error: "Jelentkezz be!" }, 401);
 
+    // --- KVÓTA ELLENŐRZÉS ---
+    const quota = await checkQuota(user.id, "ai_questions");
+    if (!quota.allowed) {
+      return jsonResponse({
+        error: quota.message || "Lejárt a havi AI kérdés keretед. Válts Pro-ra a folytatáshoz!",
+        code: "quota_exceeded",
+        field: "ai_questions"
+      }, 402);
+    }
+
     const message = cleanText(body.message || body.query || "", 12000);
     if (!message) return jsonResponse({ error: "Hiányzó üzenet." }, 400);
 
@@ -299,12 +311,17 @@ export default async (req, context) => {
 
     if (classification.type === "IMAGE") {
       const image = await searchCommonsImage(classification.searchQuery);
+      // Képkérésnél is számoljuk a kvótát
+      await incrementUsage(user.id, "ai_questions");
       if (!image) return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet ehhez a témához.");
       return singleChunkStream(buildImageMarkdown(image, message));
     }
 
     const notesContext = await loadUserNotesContext(user, body.notes || "");
     const promptText = buildPrompt({ message, notesContext, history: body.history || [] });
+
+    // Kvóta növelése sikeres kérés előtt
+    await incrementUsage(user.id, "ai_questions");
 
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
@@ -327,4 +344,3 @@ export default async (req, context) => {
     return jsonResponse({ error: "Belső szerverhiba történt." }, 500);
   }
 };
-    
