@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teacher Hub – Amisearch</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
+  <style>
+    :root { --primary: #e63939; }
+    .sidebar { background: #0f172a; }
+    .card-hover:hover { transform: translateY(-4px); transition: all 0.3s; }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans">
+
+<div class="flex h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="w-64 sidebar text-white flex flex-col">
+    <div class="p-6 border-b border-slate-700">
+      <h1 class="text-2xl font-bold flex items-center gap-2">
+        <span class="text-red-500">A</span>misearch
+      </h1>
+      <p class="text-sm text-slate-400" data-i18n="teacher_hub">Teacher Hub</p>
+    </div>
+
+    <nav class="flex-1 p-4 space-y-1">
+      <button class="w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg bg-red-600"
+              data-i18n="dashboard">
+        <i class="fas fa-home"></i> Irányítópult
+      </button>
+      <button class="w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-700"
+              data-i18n="classes">
+        <i class="fas fa-users"></i> Osztályaim
+      </button>
+      <button class="w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-700"
+              data-i18n="online_exams">
+        <i class="fas fa-clipboard-list"></i> Online vizsgák
+      </button>
+      <button class="w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-700"
+              data-i18n="assignments">
+        <i class="fas fa-upload"></i> Beadandók
+      </button>
+      <button class="w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-700"
+              data-i18n="settings">
+        <i class="fas fa-cog"></i> Beállítások
+      </button>
+    </nav>
+
+    <div class="p-4 border-t border-slate-700 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="https://i.pravatar.cc/40" class="w-10 h-10 rounded-full" alt="Tanár profilkép" />
+        <div>
+          <p class="font-medium" id="teacherName">Katalin (Tanár)</p>
+          <p class="text-xs text-slate-400" id="teacherSchool">Pécsi Gimnázium</p>
+        </div>
+      </div>
+      <button id="switchMode"
+              class="text-xs px-3 py-1 rounded-full bg-slate-700">
+        Diák mód
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 overflow-auto">
+
+    <!-- HEADER -->
+    <header class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center">
+      <div>
+        <h2 class="text-2xl font-semibold" data-i18n="dashboard">Irányítópult</h2>
+        <p class="text-sm text-slate-500" id="welcomeText">
+          Üdvözöljük, Katalin! Itt kezelheti osztályait, vizsgáit és beadandóit.
+        </p>
+      </div>
+      <div class="flex gap-3 items-center">
+        <button id="langBtn"
+                class="px-4 py-2 rounded-xl border border-slate-300 text-sm">
+          HU / EN
+        </button>
+        <button id="newClassBtn"
+                class="px-4 py-2 rounded-xl bg-red-600 text-white text-sm flex items-center gap-2">
+          <i class="fas fa-plus"></i>
+          <span data-i18n="new_class">Új osztály</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <section class="p-6 space-y-8">
+
+      <!-- AKTÍV OSZTÁLYOK -->
+      <div>
+        <h3 class="font-semibold mb-3" data-i18n="active_classes">Aktív osztályok</h3>
+        <div id="classCards"
+             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- JS tölti be Supabase-ből -->
+        </div>
+      </div>
+
+      <!-- RENDSZERESMÉNYEK + AKTÍV VIZSGÁK -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- RENDSZERESMÉNYEK -->
+        <div class="bg-white rounded-2xl p-4 shadow card-hover">
+          <h3 class="font-semibold mb-3" data-i18n="system_events">Rendszeresemények</h3>
+          <div id="events" class="space-y-2 text-sm">
+            <!-- JS tölti be: határidők, tab-váltások, kizárások -->
+          </div>
+        </div>
+
+        <!-- AKTÍV VIZSGÁK -->
+        <div class="bg-white rounded-2xl p-4 shadow card-hover">
+          <h3 class="font-semibold mb-3" data-i18n="active_exams">Aktív vizsgák</h3>
+          <div id="exams" class="space-y-2 text-sm">
+            <!-- JS tölti be: vizsgakód, tantárgy, diákok száma -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+  </main>
+</div>
+
+<!-- ÚJ OSZTÁLY MODÁL -->
+<div id="newClassModal"
+     class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl">
+    <h3 class="font-semibold mb-4" data-i18n="new_class_title">Új osztály létrehozása</h3>
+    <input id="className"
+           class="w-full border border-slate-300 p-3 rounded-xl mb-3"
+           placeholder="Osztály neve (pl. 11.B)" />
+    <input id="schoolName"
+           class="w-full border border-slate-300 p-3 rounded-xl mb-3"
+           placeholder="Iskola neve" />
+    <button id="createClass"
+            class="w-full bg-red-600 text-white py-3 rounded-xl mb-2">
+      <span data-i18n="create_class_btn">Osztály létrehozása</span>
+    </button>
+    <button id="closeClassModal"
+            class="w-full border border-slate-300 text-slate-700 py-2 rounded-xl text-sm mt-1">
+      <span data-i18n="cancel">Mégse</span>
+    </button>
+  </div>
+</div>
+
+<script src="/js/teacher-dashboard.js"></script>
+</body>
+</html>
