@@ -371,7 +371,7 @@
         <a href="#funkciok" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Funkciók" data-en="Features">Funkciók</a>
         <a href="#arak" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Árak" data-en="Pricing">Árak</a>
         <button onclick="openModal('aiTutorModal')" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition">AI Tutor</button>
-        <a href="#teacher" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Teacher Hub" data-en="Teacher Hub">Teacher Hub</a>
+        <a href="teacher-hub.html" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Teacher Hub" data-en="Teacher Hub">Teacher Hub</a>
         <a href="#rolunk" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Rólunk" data-en="About">Rólunk</a>
         <a href="#faq" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition">FAQ</a>
       </nav>
@@ -448,7 +448,7 @@
       <a href="#funkciok" class="block py-2 text-gray-700 font-medium" data-hu="Funkciók" data-en="Features">Funkciók</a>
       <a href="#arak" class="block py-2 text-gray-700 font-medium" data-hu="Árak" data-en="Pricing">Árak</a>
       <button onclick="openModal('aiTutorModal')" class="block py-2 text-gray-700 font-medium text-left w-full">AI Tutor</button>
-      <a href="#teacher" class="block py-2 text-gray-700 font-medium" data-hu="Teacher Hub" data-en="Teacher Hub">Teacher Hub</a>
+      <a href="teacher-hub.html" class="block py-2 text-gray-700 font-medium" data-hu="Teacher Hub" data-en="Teacher Hub">Teacher Hub</a>
       <a href="#rolunk" class="block py-2 text-gray-700 font-medium" data-hu="Rólunk" data-en="About">Rólunk</a>
       <a href="#faq" class="block py-2 text-gray-700 font-medium">FAQ</a>
       <button id="mobileLoginBtn" onclick="openModal('loginModal')" class="block w-full py-2.5 text-[#6C5CE7] font-semibold text-center rounded-xl border-2 border-[#6C5CE7]" data-hu="Belépés" data-en="Login">Belépés</button>
@@ -831,7 +831,10 @@
           </div>
         </div>
         
-        <button onclick="openModal('registerModal')" class="btn-primary px-8 py-4 text-white font-bold rounded-xl text-lg" data-hu="Próbáld ki ingyen" data-en="Try for free">Próbáld ki ingyen</button>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <button onclick="openModal('registerModal')" class="btn-primary px-8 py-4 text-white font-bold rounded-xl text-lg" data-hu="Próbáld ki ingyen" data-en="Try for free">Próbáld ki ingyen</button>
+          <a href="teacher-hub.html" class="px-8 py-4 bg-white border-2 border-[#6C5CE7] text-[#6C5CE7] font-bold rounded-xl text-lg hover:bg-[#F3F0FF] transition flex items-center justify-center gap-2" data-hu="Teacher Hub megnyitása" data-en="Open Teacher Hub"><i class="fa-solid fa-chalkboard-user"></i> Teacher Hub megnyitása</a>
+        </div>
       </div>
       
       <div class="relative">
