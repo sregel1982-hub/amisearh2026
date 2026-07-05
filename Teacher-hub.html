@@ -3,103 +3,544 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amisearch – Teacher Hub</title>
+  <title>AMISEARCH – Teacher Hub</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          fontFamily: { sans: ['Poppins', 'system-ui', 'sans-serif'] },
           colors: {
-            amisearch: { DEFAULT: '#6B46C1', light: '#8B5CF6', soft: '#F3E8FF', dark: '#4C1D95' }
+            amisearch: { DEFAULT: '#6C5CE7', light: '#A29BFE', soft: '#F3F0FF', dark: '#5A4BD1' }
           }
         }
       }
     }
   </script>
   <style>
-    body { font-family: 'Inter', system-ui, sans-serif; }
+    * { font-family: 'Poppins', system-ui, sans-serif; box-sizing: border-box; }
+    body { scroll-behavior: smooth; overflow-x: hidden; }
     .card { border-radius: 1.25rem; }
     .logo { letter-spacing: -0.04em; }
-    .knowledge-cell { border-radius: 6px; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6C5CE7 0%, #5A4BD1 100%);
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(108, 92, 231, 0.4);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav-link-active {
+      background: #F3F0FF;
+      color: #6C5CE7;
+      font-weight: 600;
+    }
+
+    .scroller-thin::-webkit-scrollbar { width: 4px; }
+    .scroller-thin::-webkit-scrollbar-track { background: transparent; }
+    .scroller-thin::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.3s ease; }
+
+    .stat-card {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px -8px rgba(108, 92, 231, 0.18);
+    }
   </style>
 </head>
 <body class="bg-gray-50 antialiased min-h-screen">
 
 <div id="app" class="min-h-screen flex">
-  <!-- Sidebar -->
-  <aside id="sidebar" class="fixed lg:sticky top-0 left-0 z-40 w-[280px] lg:w-[268px] h-screen bg-white border-r border-gray-200 flex flex-col transition-transform -translate-x-full lg:translate-x-0">
-    <div class="px-6 pt-6 pb-5 border-b">
-      <div class="flex items-center gap-3">
-        <div class="w-11 h-11 bg-violet-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow">🎓</div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="fixed lg:sticky top-0 left-0 z-40 w-[268px] h-screen bg-white border-r border-gray-200 flex flex-col transition-transform -translate-x-full lg:translate-x-0 shadow-sm">
+
+    <!-- Logo – click goes back to main page -->
+    <div class="px-6 pt-6 pb-5 border-b border-gray-100">
+      <a href="index.html" class="flex items-center gap-3 group" title="Vissza a főoldalra">
+        <div class="w-11 h-11 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-xl shadow">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
         <div>
-          <div class="font-bold text-2xl text-gray-900 logo">AMISEARCH</div>
-          <div class="text-xs text-violet-600 font-medium">Teacher Hub</div>
+          <div class="font-bold text-2xl text-gray-900 logo group-hover:text-[#6C5CE7] transition">AMISEARCH</div>
+          <div class="text-xs text-[#6C5CE7] font-semibold">Teacher Hub</div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="px-3 pt-5 flex-1 overflow-y-auto scroller-thin">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Menü</p>
+      <ul class="space-y-1">
+        <li>
+          <a href="#" onclick="showSection('dashboard'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition" data-section="dashboard">
+            <i class="fa-solid fa-border-all w-5 text-center"></i>
+            <span>Irányítópult</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onclick="showSection('classes'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="classes">
+            <i class="fa-solid fa-users w-5 text-center"></i>
+            <span>Osztályaim</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onclick="showSection('exams'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="exams">
+            <i class="fa-solid fa-file-lines w-5 text-center"></i>
+            <span>Online Vizsgák</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onclick="showSection('analytics'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="analytics">
+            <i class="fa-solid fa-chart-line w-5 text-center"></i>
+            <span>Analitika</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" onclick="showSection('materials'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="materials">
+            <i class="fa-solid fa-book-open w-5 text-center"></i>
+            <span>Tananyagok</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Bottom -->
+    <div class="px-4 pb-6 mt-auto border-t border-gray-100 pt-5 space-y-4">
+      <!-- Mode switcher -->
+      <div class="bg-[#F3F0FF] rounded-2xl p-1 flex text-sm font-medium">
+        <button id="mode-btn-teacher" onclick="setMode('teacher')"
+          class="flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition">
+          <i class="fa-solid fa-chalkboard-user mr-1"></i> Tanár
+        </button>
+        <button id="mode-btn-student" onclick="setMode('student')"
+          class="flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition">
+          <i class="fa-solid fa-user-graduate mr-1"></i> Diák
+        </button>
+      </div>
+
+      <!-- Back to main page -->
+      <a href="index.html"
+        class="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-[#F3F0FF] text-gray-600 hover:text-[#6C5CE7] transition text-sm font-medium">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Vissza a főoldalra</span>
+      </a>
+
+      <!-- User card -->
+      <div class="rounded-2xl bg-white border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+        <div class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white font-bold text-lg">K</div>
+        <div class="min-w-0">
+          <div class="font-semibold text-gray-900 text-sm truncate">Katalin</div>
+          <div class="text-xs text-[#6C5CE7]">Tanár &bull; Pro</div>
         </div>
       </div>
     </div>
-
-    <nav id="sidebar-nav" class="px-3 pt-6 flex-1 overflow-y-auto scroller-thin"></nav>
-
-    <div class="px-4 pb-6 mt-auto border-t pt-6">
-      <div class="bg-violet-50 rounded-2xl p-1 flex text-sm font-medium mb-4" id="mode-switcher">
-        <button id="mode-btn-teacher" data-mode="teacher" class="flex-1 py-2.5 rounded-xl bg-white shadow text-violet-700">Tanár</button>
-        <button id="mode-btn-student" data-mode="student" class="flex-1 py-2.5 rounded-xl text-gray-500">Diák</button>
-      </div>
-      <!-- User card -->
-      <div id="sidebar-usercard" class="rounded-2xl bg-white border p-4 flex items-center gap-3"></div>
-    </div>
   </aside>
 
-  <!-- Main -->
-  <div class="flex-1 flex flex-col">
-    <header class="lg:hidden bg-white border-b p-4 flex items-center justify-between">
-      <button id="mobile-menu-btn" class="p-3 text-xl">☰</button>
-      <div class="flex items-center gap-2 font-bold text-xl">AMISEARCH</div>
+  <!-- MAIN CONTENT -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Mobile header -->
+    <header class="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+      <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-gray-100 text-xl text-gray-700">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <a href="index.html" class="flex items-center gap-2 font-bold text-xl gradient-text">
+        <i class="fa-solid fa-graduation-cap text-[#6C5CE7]"></i> AMISEARCH
+      </a>
+      <a href="index.html" class="text-sm text-[#6C5CE7] font-medium hover:underline">
+        <i class="fa-solid fa-arrow-left mr-1"></i>Főoldal
+      </a>
     </header>
 
-    <main id="main-content" class="flex-1 p-6 lg:p-10"></main>
+    <main id="main-content" class="flex-1 p-6 lg:p-10 fade-in"></main>
   </div>
 </div>
 
+<!-- Mobile sidebar overlay -->
+<div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/40 z-30 lg:hidden" onclick="toggleSidebar()"></div>
+
 <!-- Toast -->
-<div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl hidden">Kész</div>
+<div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl hidden z-50 text-sm font-medium">Kész</div>
 
 <script>
-/* Egyszerűsített verzió - teljes funkcionalitás megtartva, de lila színekkel */
-let mode = 'teacher';
+let currentMode = 'teacher';
+let currentSection = 'dashboard';
 
-function renderSidebar() {
-  document.getElementById('sidebar-nav').innerHTML = `
-    <ul class="space-y-1 px-3">
-      <li><a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-violet-50 text-violet-700 font-medium"><i class="fa-solid fa-border-all"></i> Irányítópult</a></li>
-      <li><a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100"><i class="fa-solid fa-users"></i> Osztályaim</a></li>
-      <li><a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100"><i class="fa-solid fa-file-lines"></i> Online Vizsgák</a></li>
-    </ul>
-  `;
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.toggle('hidden');
 }
 
-function teacherMainHTML() {
+function setMode(m) {
+  currentMode = m;
+  const tBtn = document.getElementById('mode-btn-teacher');
+  const sBtn = document.getElementById('mode-btn-student');
+  if (m === 'teacher') {
+    tBtn.className = 'flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition';
+    sBtn.className = 'flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition';
+  } else {
+    sBtn.className = 'flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition';
+    tBtn.className = 'flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition';
+  }
+  showSection(currentSection);
+}
+
+function showSection(section) {
+  currentSection = section;
+  document.querySelectorAll('.nav-link').forEach(link => {
+    if (link.dataset.section === section) {
+      link.className = 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition';
+    } else {
+      link.className = 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700';
+    }
+  });
+  const main = document.getElementById('main-content');
+  main.className = 'flex-1 p-6 lg:p-10 fade-in';
+  void main.offsetWidth;
+  switch(section) {
+    case 'dashboard':  main.innerHTML = dashboardHTML(); break;
+    case 'classes':    main.innerHTML = classesHTML(); break;
+    case 'exams':      main.innerHTML = examsHTML(); break;
+    case 'analytics':  main.innerHTML = analyticsHTML(); break;
+    case 'materials':  main.innerHTML = materialsHTML(); break;
+    default:           main.innerHTML = dashboardHTML();
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2500);
+}
+
+/* ── Dashboard ── */
+function dashboardHTML() {
   return `
     <div class="max-w-7xl mx-auto">
-      <h1 class="text-4xl font-bold mb-2">Jó reggelt, Katalin! 👋</h1>
-      <p class="text-gray-600 mb-10">3 aktív osztály • 2 javításra váró beadandó</p>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
-        <div class="bg-white p-8 rounded-3xl shadow-sm"><div class="text-violet-600 text-sm">Osztályok</div><div class="text-5xl font-bold">3</div></div>
-        <div class="bg-white p-8 rounded-3xl shadow-sm"><div class="text-violet-600 text-sm">Diákok</div><div class="text-5xl font-bold">78</div></div>
-        <div class="bg-white p-8 rounded-3xl shadow-sm"><div class="text-violet-600 text-sm">Feladatsor</div><div class="text-5xl font-bold">14</div></div>
-        <div class="bg-white p-8 rounded-3xl shadow-sm"><div class="text-violet-600 text-sm">Aktivitás</div><div class="text-5xl font-bold text-emerald-600">94%</div></div>
+      <div class="mb-8">
+        <h1 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Jó napot, Katalin! 👋</h1>
+        <p class="text-gray-500">3 aktív osztály &bull; 2 javításra váró beadandó</p>
       </div>
-      <!-- További tartalom -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-users text-[#6C5CE7]"></i>
+            </div>
+            <span class="text-sm text-gray-500">Osztályok</span>
+          </div>
+          <div class="text-4xl font-extrabold text-gray-900">3</div>
+        </div>
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-user-graduate text-[#6C5CE7]"></i>
+            </div>
+            <span class="text-sm text-gray-500">Diákok</span>
+          </div>
+          <div class="text-4xl font-extrabold text-gray-900">78</div>
+        </div>
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-file-lines text-[#6C5CE7]"></i>
+            </div>
+            <span class="text-sm text-gray-500">Feladatsor</span>
+          </div>
+          <div class="text-4xl font-extrabold text-gray-900">14</div>
+        </div>
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+              <i class="fa-solid fa-chart-line text-emerald-600"></i>
+            </div>
+            <span class="text-sm text-gray-500">Aktivitás</span>
+          </div>
+          <div class="text-4xl font-extrabold text-emerald-600">94%</div>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-bolt text-[#6C5CE7]"></i> Gyors műveletek
+          </h3>
+          <div class="space-y-3">
+            <button onclick="showSection('exams')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
+              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-file-circle-plus text-white text-sm"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Új vizsga létrehozása</span>
+            </button>
+            <button onclick="showSection('classes')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
+              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-users text-white text-sm"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Osztályok kezelése</span>
+            </button>
+            <button onclick="showSection('analytics')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
+              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-chart-bar text-white text-sm"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Statisztikák megtekintése</span>
+            </button>
+            <a href="index.html" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
+              <div class="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fa-solid fa-house text-gray-600 text-sm"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-600">Vissza a főoldalra</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-[#6C5CE7]"></i> Legutóbbi tevékenység
+          </h3>
+          <div class="space-y-4">
+            ${[
+              { icon: 'fa-file-circle-check', color: 'text-emerald-600 bg-emerald-50', text: 'Matematika ZH – 23 beadott megoldás', time: '2 órája' },
+              { icon: 'fa-user-plus', color: 'text-blue-600 bg-blue-50', text: 'Új diák csatlakozott: 9.B osztály', time: '5 órája' },
+              { icon: 'fa-wand-magic-sparkles', color: 'text-[#6C5CE7] bg-[#F3F0FF]', text: 'AI feladatsor generálva – Fizika', time: 'Tegnap' },
+              { icon: 'fa-shield-halved', color: 'text-amber-600 bg-amber-50', text: 'Plágium riasztás – 1 beadandó', time: 'Tegnap' },
+            ].map(item => `
+              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition">
+                <div class="w-10 h-10 ${item.color} rounded-xl flex items-center justify-center flex-shrink-0">
+                  <i class="fa-solid ${item.icon}"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">${item.text}</p>
+                  <p class="text-xs text-gray-400">${item.time}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
 
-renderSidebar();
-document.getElementById('main-content').innerHTML = teacherMainHTML();
+/* ── Classes ── */
+function classesHTML() {
+  const classes = [
+    { name: '9.A Osztály', students: 28, subject: 'Matematika', active: true },
+    { name: '10.B Osztály', students: 25, subject: 'Fizika', active: true },
+    { name: '11.C Osztály', students: 25, subject: 'Kémia', active: false },
+  ];
+  return `
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 mb-1">Osztályaim</h1>
+          <p class="text-gray-500">Kezeld osztályaidat és diákjaidat</p>
+        </div>
+        <button onclick="showToast('Új osztály létrehozva!')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i> Új osztály
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        ${classes.map(cls => `
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-12 h-12 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white text-xl font-bold">
+                ${cls.name.charAt(0)}
+              </div>
+              <span class="px-2 py-1 rounded-full text-xs font-semibold ${cls.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
+                ${cls.active ? 'Aktív' : 'Archív'}
+              </span>
+            </div>
+            <h3 class="font-bold text-gray-900 text-lg mb-1">${cls.name}</h3>
+            <p class="text-sm text-gray-500 mb-4">${cls.subject}</p>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-600"><i class="fa-solid fa-users text-[#6C5CE7] mr-1"></i>${cls.students} diák</span>
+              <button onclick="showToast('Osztály megnyitva')" class="text-[#6C5CE7] font-semibold hover:underline">Megnyitás →</button>
+            </div>
+          </div>
+        `).join('')}
+        <div onclick="showToast('Új osztály létrehozva!')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[180px]">
+          <div class="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center mb-3">
+            <i class="fa-solid fa-plus text-gray-500 text-xl"></i>
+          </div>
+          <p class="text-sm font-medium text-gray-500">Új osztály hozzáadása</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Exams ── */
+function examsHTML() {
+  const exams = [
+    { title: 'Matematika ZH – Deriválás', cls: '9.A', date: '2026-07-10', status: 'Aktív', submissions: 23 },
+    { title: 'Fizika Dolgozat – Optika', cls: '10.B', date: '2026-07-08', status: 'Lezárt', submissions: 25 },
+    { title: 'Kémia Teszt – Szerves vegyületek', cls: '11.C', date: '2026-07-15', status: 'Tervezett', submissions: 0 },
+  ];
+  return `
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 mb-1">Online Vizsgák</h1>
+          <p class="text-gray-500">Hozz létre és kezelj vizsgákat AI segítségével</p>
+        </div>
+        <button onclick="showToast('Új vizsga létrehozva!')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
+          <i class="fa-solid fa-file-circle-plus"></i> Új vizsga
+        </button>
+      </div>
+      <div class="bg-gradient-to-br from-[#6C5CE7] to-[#5A4BD1] rounded-2xl p-6 mb-8 text-white">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Feladatsor Generátor</h3>
+            <p class="text-purple-100 text-sm">Add meg a témát és az AI automatikusan generál feladatokat megoldással</p>
+          </div>
+          <button onclick="showToast('AI generálás elindítva...')" class="bg-white text-[#6C5CE7] font-bold px-6 py-3 rounded-xl hover:bg-gray-100 transition flex-shrink-0">
+            Generálás indítása
+          </button>
+        </div>
+      </div>
+      <div class="space-y-4">
+        ${exams.map(exam => `
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center gap-4 hover:shadow-md transition">
+            <div class="w-12 h-12 bg-[#F3F0FF] rounded-xl flex items-center justify-center flex-shrink-0">
+              <i class="fa-solid fa-file-lines text-[#6C5CE7] text-xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="font-bold text-gray-900">${exam.title}</h4>
+              <p class="text-sm text-gray-500">${exam.cls} &bull; ${exam.date}</p>
+            </div>
+            <div class="flex items-center gap-4 flex-wrap">
+              <span class="text-sm text-gray-500"><i class="fa-solid fa-inbox text-[#6C5CE7] mr-1"></i>${exam.submissions} beadás</span>
+              <span class="px-3 py-1 rounded-full text-xs font-semibold ${
+                exam.status === 'Aktív' ? 'bg-emerald-100 text-emerald-700' :
+                exam.status === 'Lezárt' ? 'bg-gray-100 text-gray-600' :
+                'bg-amber-100 text-amber-700'
+              }">${exam.status}</span>
+              <button onclick="showToast('Vizsga megnyitva')" class="text-[#6C5CE7] font-semibold text-sm hover:underline">Megnyitás →</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ── Analytics ── */
+function analyticsHTML() {
+  return `
+    <div class="max-w-7xl mx-auto">
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-1">Analitika</h1>
+        <p class="text-gray-500">Diákjaid teljesítményének áttekintése</p>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        ${[
+          { label: 'Átlagos teljesítmény', value: '76%', icon: 'fa-star', color: 'text-amber-600 bg-amber-50' },
+          { label: 'Beadott feladatok', value: '142', icon: 'fa-inbox', color: 'text-blue-600 bg-blue-50' },
+          { label: 'Aktív diákok', value: '71', icon: 'fa-user-check', color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Plágium riasztás', value: '3', icon: 'fa-shield-halved', color: 'text-red-600 bg-red-50' },
+        ].map(s => `
+          <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 ${s.color} rounded-xl flex items-center justify-center">
+                <i class="fa-solid ${s.icon}"></i>
+              </div>
+              <span class="text-sm text-gray-500">${s.label}</span>
+            </div>
+            <div class="text-4xl font-extrabold text-gray-900">${s.value}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <i class="fa-solid fa-chart-bar text-[#6C5CE7]"></i> Osztályok teljesítménye
+        </h3>
+        <div class="space-y-5">
+          ${[
+            { name: '9.A – Matematika', pct: 82 },
+            { name: '10.B – Fizika', pct: 74 },
+            { name: '11.C – Kémia', pct: 68 },
+          ].map(c => `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="font-medium text-gray-700">${c.name}</span>
+                <span class="font-bold text-[#6C5CE7]">${c.pct}%</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-3">
+                <div class="h-3 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#A29BFE] transition-all duration-700" style="width:${c.pct}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Materials ── */
+function materialsHTML() {
+  return `
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 mb-1">Tananyagok</h1>
+          <p class="text-gray-500">Tölts fel és kezelj tananyagokat osztályaidhoz</p>
+        </div>
+        <button onclick="showToast('Feltöltés elindítva!')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Feltöltés
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        ${[
+          { name: 'Deriválás – összefoglaló.pdf', cls: '9.A', size: '2.4 MB', icon: 'fa-file-pdf', color: 'text-red-500 bg-red-50' },
+          { name: 'Optika – feladatgyűjtemény.docx', cls: '10.B', size: '1.1 MB', icon: 'fa-file-word', color: 'text-blue-500 bg-blue-50' },
+          { name: 'Szerves kémia – prezentáció.pptx', cls: '11.C', size: '5.8 MB', icon: 'fa-file-powerpoint', color: 'text-orange-500 bg-orange-50' },
+          { name: 'Matematika – képletgyűjtemény.pdf', cls: 'Összes', size: '0.8 MB', icon: 'fa-file-pdf', color: 'text-red-500 bg-red-50' },
+        ].map(f => `
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:shadow-md transition">
+            <div class="w-12 h-12 ${f.color} rounded-xl flex items-center justify-center flex-shrink-0">
+              <i class="fa-solid ${f.icon} text-xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-900 text-sm truncate">${f.name}</p>
+              <p class="text-xs text-gray-400">${f.cls} &bull; ${f.size}</p>
+            </div>
+            <button onclick="showToast('Letöltés elindítva')" class="text-[#6C5CE7] hover:text-[#5A4BD1] transition">
+              <i class="fa-solid fa-download"></i>
+            </button>
+          </div>
+        `).join('')}
+        <div onclick="showToast('Feltöltés elindítva!')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[88px]">
+          <i class="fa-solid fa-cloud-arrow-up text-gray-400 text-2xl mb-2"></i>
+          <p class="text-sm font-medium text-gray-500">Új fájl feltöltése</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* Init */
+showSection('dashboard');
 </script>
 </body>
 </html>
