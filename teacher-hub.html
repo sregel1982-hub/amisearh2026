@@ -34,6 +34,7 @@
       transform: translateY(-2px);
       box-shadow: 0 10px 25px -5px rgba(108, 92, 231, 0.4);
     }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
 
     .gradient-text {
       background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);
@@ -58,23 +59,36 @@
     }
     .fade-in { animation: fadeIn 0.3s ease; }
 
-    .stat-card {
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .stat-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 28px -8px rgba(108, 92, 231, 0.18);
+    .stat-card { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px -8px rgba(108, 92, 231, 0.18); }
+
+    .modal { display: none; }
+    .modal.active { display: flex; }
+
+    #authGate {
+      position: fixed; inset: 0; z-index: 100; background: #F9FAFB;
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1rem;
     }
   </style>
 </head>
 <body class="bg-gray-50 antialiased min-h-screen">
 
-<div id="app" class="min-h-screen flex">
+<!-- ── Auth / role gate — shown until we've confirmed a logged-in teacher ── -->
+<div id="authGate">
+  <div class="w-14 h-14 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">
+    <i class="fa-solid fa-graduation-cap"></i>
+  </div>
+  <p id="authGateMsg" class="text-gray-500 text-sm flex items-center gap-2">
+    <i class="fa-solid fa-spinner fa-spin"></i> Ellenőrzés folyamatban...
+  </p>
+</div>
+
+<div id="app" class="min-h-screen hidden">
+  <div class="flex">
 
   <!-- SIDEBAR -->
   <aside id="sidebar" class="fixed lg:sticky top-0 left-0 z-40 w-[268px] h-screen bg-white border-r border-gray-200 flex flex-col transition-transform -translate-x-full lg:translate-x-0 shadow-sm">
 
-    <!-- Logo – click goes back to main page -->
     <div class="px-6 pt-6 pb-5 border-b border-gray-100">
       <a href="index.html" class="flex items-center gap-3 group" title="Vissza a főoldalra">
         <div class="w-11 h-11 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-xl shadow">
@@ -87,103 +101,168 @@
       </a>
     </div>
 
-    <!-- Navigation -->
     <nav class="px-3 pt-5 flex-1 overflow-y-auto scroller-thin">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Menü</p>
       <ul class="space-y-1">
-        <li>
-          <a href="#" onclick="showSection('dashboard'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition" data-section="dashboard">
-            <i class="fa-solid fa-border-all w-5 text-center"></i>
-            <span>Irányítópult</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" onclick="showSection('classes'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="classes">
-            <i class="fa-solid fa-users w-5 text-center"></i>
-            <span>Osztályaim</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" onclick="showSection('exams'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="exams">
-            <i class="fa-solid fa-file-lines w-5 text-center"></i>
-            <span>Online Vizsgák</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" onclick="showSection('analytics'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="analytics">
-            <i class="fa-solid fa-chart-line w-5 text-center"></i>
-            <span>Analitika</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" onclick="showSection('materials'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="materials">
-            <i class="fa-solid fa-book-open w-5 text-center"></i>
-            <span>Tananyagok</span>
-          </a>
-        </li>
+        <li><a href="#" onclick="showSection('dashboard'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition" data-section="dashboard"><i class="fa-solid fa-border-all w-5 text-center"></i><span>Irányítópult</span></a></li>
+        <li><a href="#" onclick="showSection('classes'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="classes"><i class="fa-solid fa-users w-5 text-center"></i><span>Osztályaim</span></a></li>
+        <li><a href="#" onclick="showSection('exams'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="exams"><i class="fa-solid fa-file-lines w-5 text-center"></i><span>Online Vizsgák</span></a></li>
+        <li><a href="#" onclick="showSection('analytics'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="analytics"><i class="fa-solid fa-chart-line w-5 text-center"></i><span>Analitika</span></a></li>
+        <li><a href="#" onclick="showSection('materials'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="materials"><i class="fa-solid fa-book-open w-5 text-center"></i><span>Tananyagok</span></a></li>
       </ul>
     </nav>
 
-    <!-- Bottom -->
     <div class="px-4 pb-6 mt-auto border-t border-gray-100 pt-5 space-y-4">
-      <!-- Mode switcher -->
-      <div class="bg-[#F3F0FF] rounded-2xl p-1 flex text-sm font-medium">
-        <button id="mode-btn-teacher" onclick="setMode('teacher')"
-          class="flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition">
-          <i class="fa-solid fa-chalkboard-user mr-1"></i> Tanár
-        </button>
-        <button id="mode-btn-student" onclick="setMode('student')"
-          class="flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition">
-          <i class="fa-solid fa-user-graduate mr-1"></i> Diák
-        </button>
-      </div>
-
-      <!-- Back to main page -->
-      <a href="index.html"
-        class="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-[#F3F0FF] text-gray-600 hover:text-[#6C5CE7] transition text-sm font-medium">
+      <a href="index.html" class="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-[#F3F0FF] text-gray-600 hover:text-[#6C5CE7] transition text-sm font-medium">
         <i class="fa-solid fa-arrow-left"></i>
         <span>Vissza a főoldalra</span>
       </a>
 
-      <!-- User card -->
+      <!-- Real user card, filled in by loadTeacherProfile() -->
       <div class="rounded-2xl bg-white border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-        <div class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white font-bold text-lg">K</div>
+        <div id="sidebarAvatar" class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white font-bold text-lg">?</div>
         <div class="min-w-0">
-          <div class="font-semibold text-gray-900 text-sm truncate">Katalin</div>
-          <div class="text-xs text-[#6C5CE7]">Tanár &bull; Pro</div>
+          <div id="sidebarName" class="font-semibold text-gray-900 text-sm truncate">…</div>
+          <div class="text-xs text-[#6C5CE7]">Tanár &bull; <span id="sidebarPlan">…</span></div>
         </div>
+        <button onclick="handleLogout()" title="Kijelentkezés" class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
       </div>
     </div>
   </aside>
 
   <!-- MAIN CONTENT -->
   <div class="flex-1 flex flex-col min-w-0">
-
-    <!-- Mobile header -->
     <header class="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
-      <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-gray-100 text-xl text-gray-700">
-        <i class="fa-solid fa-bars"></i>
-      </button>
-      <a href="index.html" class="flex items-center gap-2 font-bold text-xl gradient-text">
-        <i class="fa-solid fa-graduation-cap text-[#6C5CE7]"></i> AMISEARCH
-      </a>
-      <a href="index.html" class="text-sm text-[#6C5CE7] font-medium hover:underline">
-        <i class="fa-solid fa-arrow-left mr-1"></i>Főoldal
-      </a>
+      <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-gray-100 text-xl text-gray-700"><i class="fa-solid fa-bars"></i></button>
+      <a href="index.html" class="flex items-center gap-2 font-bold text-xl gradient-text"><i class="fa-solid fa-graduation-cap text-[#6C5CE7]"></i> AMISEARCH</a>
+      <a href="index.html" class="text-sm text-[#6C5CE7] font-medium hover:underline"><i class="fa-solid fa-arrow-left mr-1"></i>Főoldal</a>
     </header>
 
     <main id="main-content" class="flex-1 p-6 lg:p-10 fade-in"></main>
   </div>
+  </div>
 </div>
 
-<!-- Mobile sidebar overlay -->
 <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/40 z-30 lg:hidden" onclick="toggleSidebar()"></div>
-
-<!-- Toast -->
 <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl hidden z-50 text-sm font-medium">Kész</div>
 
+<!-- New class modal -->
+<div id="newClassModal" class="modal fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-gray-900">Új osztály</h3>
+      <button onclick="closeModal('newClassModal')" class="w-9 h-9 hover:bg-gray-100 rounded-lg flex items-center justify-center"><i class="fa-solid fa-xmark text-gray-500"></i></button>
+    </div>
+    <form onsubmit="event.preventDefault(); submitNewClass();" class="space-y-3">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Osztály neve</label>
+        <input id="newClassName" required class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none" placeholder="Pl: 9.A Osztály">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Tantárgy</label>
+        <input id="newClassSubject" required class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none" placeholder="Pl: Matematika">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Diáklétszám</label>
+        <input id="newClassStudents" type="number" min="0" value="0" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none">
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="closeModal('newClassModal')" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg">Mégse</button>
+        <button type="submit" class="flex-1 py-2.5 btn-primary text-white font-semibold rounded-lg">Létrehozás</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+/* ────────────────────────────────────────────────────────────────
+   1) SUPABASE AUTH + ROLE GUARD
+   Uses the same project the rest of AMISEARCH uses. This page is
+   only usable by someone who is (a) logged in and (b) has
+   profile.status === 'teacher' in /.netlify/functions/user-profile.
+   ──────────────────────────────────────────────────────────────── */
+const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+const supabase = createClient(
+  'https://rvgzvseejzbzmcqidnzc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ'
+);
+window.supabaseClient = supabase;
+window.teacherProfile = null;
+
+function setGateMsg(html) {
+  const el = document.getElementById('authGateMsg');
+  if (el) el.innerHTML = html;
+}
+
+async function getAuthHeaders(extra) {
+  const headers = extra ? Object.assign({}, extra) : {};
+  const { data } = await supabase.auth.getSession();
+  const token = data.session ? data.session.access_token : null;
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  return headers;
+}
+window.getAuthHeaders = getAuthHeaders;
+
+window.handleLogout = async function() {
+  try { await supabase.auth.signOut(); } catch (e) {}
+  window.location.href = 'index.html';
+};
+
+async function guardAndInit() {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    // Nincs bejelentkezve → vissza a főoldalra, ahol be tud lépni
+    setGateMsg('Bejelentkezés szükséges. Átirányítás...');
+    setTimeout(() => { window.location.href = 'index.html'; }, 900);
+    return;
+  }
+
+  setGateMsg('<i class="fa-solid fa-spinner fa-spin"></i> Profil ellenőrzése...');
+
+  let profile = null;
+  try {
+    const res = await fetch('/.netlify/functions/user-profile', { headers: await getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      profile = data.profile || null;
+    }
+  } catch (e) {
+    console.error('Profile fetch failed:', e);
+  }
+
+  if (!profile) {
+    setGateMsg('Nem sikerült betölteni a profilt. <a href="index.html" class="text-[#6C5CE7] underline">Vissza a főoldalra</a>');
+    return;
+  }
+
+  if (profile.status !== 'teacher') {
+    // Diák próbálja megnyitni → vissza a diák dashboardra
+    setGateMsg('Ez a terület csak tanároknak érhető el. Átirányítás a főoldalra...');
+    setTimeout(() => { window.location.href = 'index.html'; }, 1200);
+    return;
+  }
+
+  // ✅ Belépett és tanár — beengedjük
+  window.teacherProfile = profile;
+  document.getElementById('authGate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+
+  const initial = (profile.username || profile.fullName || 'T').charAt(0).toUpperCase();
+  const isPro = String(profile.plan || '').toLowerCase() === 'pro';
+  document.getElementById('sidebarAvatar').textContent = initial;
+  document.getElementById('sidebarName').textContent = profile.fullName || profile.username || 'Tanár';
+  document.getElementById('sidebarPlan').textContent = isPro ? 'Pro' : 'Free';
+
+  window.showSection('dashboard');
+}
+
+guardAndInit();
+</script>
+
 <script>
-let currentMode = 'teacher';
 let currentSection = 'dashboard';
 
 function toggleSidebar() {
@@ -191,41 +270,8 @@ function toggleSidebar() {
   document.getElementById('sidebar-overlay').classList.toggle('hidden');
 }
 
-function setMode(m) {
-  currentMode = m;
-  const tBtn = document.getElementById('mode-btn-teacher');
-  const sBtn = document.getElementById('mode-btn-student');
-  if (m === 'teacher') {
-    tBtn.className = 'flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition';
-    sBtn.className = 'flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition';
-  } else {
-    sBtn.className = 'flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition';
-    tBtn.className = 'flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition';
-  }
-  showSection(currentSection);
-}
-
-function showSection(section) {
-  currentSection = section;
-  document.querySelectorAll('.nav-link').forEach(link => {
-    if (link.dataset.section === section) {
-      link.className = 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition';
-    } else {
-      link.className = 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700';
-    }
-  });
-  const main = document.getElementById('main-content');
-  main.className = 'flex-1 p-6 lg:p-10 fade-in';
-  void main.offsetWidth;
-  switch(section) {
-    case 'dashboard':  main.innerHTML = dashboardHTML(); break;
-    case 'classes':    main.innerHTML = classesHTML(); break;
-    case 'exams':      main.innerHTML = examsHTML(); break;
-    case 'analytics':  main.innerHTML = analyticsHTML(); break;
-    case 'materials':  main.innerHTML = materialsHTML(); break;
-    default:           main.innerHTML = dashboardHTML();
-  }
-}
+function openModal(id) { document.getElementById(id).classList.add('active'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); document.body.style.overflow = ''; }
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -234,129 +280,264 @@ function showToast(msg) {
   setTimeout(() => t.classList.add('hidden'), 2500);
 }
 
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   2) CLASSES — real backend (/.netlify/functions/classes), with a
+   localStorage fallback ONLY while that function/table isn't live
+   yet. Once you've run the SQL migration and deployed classes.js,
+   every call below hits the real API and the fallback is never used.
+   window.classesBackendLive tells the UI which mode is active so it
+   can show a small notice instead of silently diverging.
+   ──────────────────────────────────────────────────────────────── */
+window.classesBackendLive = null; // null = unknown yet, true/false once probed
+
+function classesStorageKey() {
+  const uid = (window.teacherProfile && window.teacherProfile.id) || 'anon';
+  return 'amisearch_teacher_classes_' + uid;
+}
+function loadClassesLocal() {
+  try { return JSON.parse(localStorage.getItem(classesStorageKey()) || '[]'); }
+  catch (e) { return []; }
+}
+function saveClassesLocal(list) {
+  localStorage.setItem(classesStorageKey(), JSON.stringify(list));
+}
+
+// Normalizes API rows (snake_case) and local rows (camelCase) to one shape.
+function normalizeClass(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    subject: row.subject,
+    students: Number(row.students) || 0,
+    active: row.active !== false,
+  };
+}
+
+async function loadClasses() {
+  try {
+    const resp = await fetch('/.netlify/functions/classes', { headers: await window.getAuthHeaders() });
+    if (resp.ok) {
+      window.classesBackendLive = true;
+      const data = await resp.json();
+      return Array.isArray(data) ? data.map(normalizeClass) : [];
+    }
+    // 404/500 → function not deployed yet or DB not migrated → fallback
+    window.classesBackendLive = false;
+  } catch (e) {
+    window.classesBackendLive = false;
+  }
+  return loadClassesLocal().map(normalizeClass);
+}
+
+window.submitNewClass = async function() {
+  const name = document.getElementById('newClassName').value.trim();
+  const subject = document.getElementById('newClassSubject').value.trim();
+  const students = parseInt(document.getElementById('newClassStudents').value || '0', 10) || 0;
+  if (!name || !subject) return;
+
+  if (window.classesBackendLive !== false) {
+    try {
+      const resp = await fetch('/.netlify/functions/classes', {
+        method: 'POST',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name, subject, students }),
+      });
+      if (resp.ok) {
+        window.classesBackendLive = true;
+        closeModal('newClassModal');
+        resetNewClassForm();
+        showToast('Osztály létrehozva!');
+        showSection('classes');
+        return;
+      }
+      window.classesBackendLive = false;
+    } catch (e) {
+      window.classesBackendLive = false;
+    }
+  }
+
+  // Fallback: local only
+  const list = loadClassesLocal();
+  list.push({ id: 'c' + Date.now(), name, subject, students, active: true, createdAt: new Date().toISOString() });
+  saveClassesLocal(list);
+  closeModal('newClassModal');
+  resetNewClassForm();
+  showToast('Osztály létrehozva (helyben tárolva)');
+  showSection('classes');
+};
+
+function resetNewClassForm() {
+  document.getElementById('newClassName').value = '';
+  document.getElementById('newClassSubject').value = '';
+  document.getElementById('newClassStudents').value = '0';
+}
+
+window.deleteClass = async function(id) {
+  if (!confirm('Biztosan törlöd ezt az osztályt?')) return;
+
+  if (window.classesBackendLive !== false) {
+    try {
+      const resp = await fetch('/.netlify/functions/classes?id=' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: await window.getAuthHeaders(),
+      });
+      if (resp.ok) { window.classesBackendLive = true; showSection('classes'); return; }
+      window.classesBackendLive = false;
+    } catch (e) {
+      window.classesBackendLive = false;
+    }
+  }
+
+  saveClassesLocal(loadClassesLocal().filter(c => c.id !== id));
+  showSection('classes');
+};
+
+window.toggleClassActive = async function(id, currentActive) {
+  if (window.classesBackendLive !== false) {
+    try {
+      const resp = await fetch('/.netlify/functions/classes?id=' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ active: !currentActive }),
+      });
+      if (resp.ok) { window.classesBackendLive = true; showSection('classes'); return; }
+      window.classesBackendLive = false;
+    } catch (e) {
+      window.classesBackendLive = false;
+    }
+  }
+
+  const list = loadClassesLocal().map(c => c.id === id ? Object.assign({}, c, { active: !c.active }) : c);
+  saveClassesLocal(list);
+  showSection('classes');
+};
+
+/* ────────────────────────────────────────────────────────────────
+   3) SECTION ROUTER
+   ──────────────────────────────────────────────────────────────── */
+function showSection(section) {
+  currentSection = section;
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.className = link.dataset.section === section
+      ? 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition'
+      : 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700';
+  });
+  const main = document.getElementById('main-content');
+  main.className = 'flex-1 p-6 lg:p-10 fade-in';
+  void main.offsetWidth;
+
+  switch (section) {
+    case 'dashboard': renderDashboard(); break;
+    case 'classes': renderClasses(); break;
+    case 'exams': renderExams(); break;
+    case 'analytics': renderAnalytics(); break;
+    case 'materials': renderMaterials(); break;
+    default: renderDashboard();
+  }
+}
+window.showSection = showSection;
+
 /* ── Dashboard ── */
-function dashboardHTML() {
-  return `
+async function renderDashboard() {
+  const profile = window.teacherProfile || {};
+  const classes = await loadClasses();
+  const totalStudents = classes.reduce((sum, c) => sum + (Number(c.students) || 0), 0);
+  const name = profile.fullName || profile.username || 'Tanár';
+
+  document.getElementById('main-content').innerHTML = `
     <div class="max-w-7xl mx-auto">
       <div class="mb-8">
-        <h1 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Jó napot, Katalin! 👋</h1>
-        <p class="text-gray-500">3 aktív osztály &bull; 2 javításra váró beadandó</p>
+        <h1 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Jó napot, ${escapeHtml(name)}! 👋</h1>
+        <p class="text-gray-500">${classes.length} osztály &bull; ${totalStudents} diák összesen</p>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-5 mb-10">
         <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center">
-              <i class="fa-solid fa-users text-[#6C5CE7]"></i>
-            </div>
+            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center"><i class="fa-solid fa-users text-[#6C5CE7]"></i></div>
             <span class="text-sm text-gray-500">Osztályok</span>
           </div>
-          <div class="text-4xl font-extrabold text-gray-900">3</div>
+          <div class="text-4xl font-extrabold text-gray-900">${classes.length}</div>
         </div>
         <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center">
-              <i class="fa-solid fa-user-graduate text-[#6C5CE7]"></i>
-            </div>
+            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-graduate text-[#6C5CE7]"></i></div>
             <span class="text-sm text-gray-500">Diákok</span>
           </div>
-          <div class="text-4xl font-extrabold text-gray-900">78</div>
+          <div class="text-4xl font-extrabold text-gray-900">${totalStudents}</div>
         </div>
         <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center">
-              <i class="fa-solid fa-file-lines text-[#6C5CE7]"></i>
-            </div>
-            <span class="text-sm text-gray-500">Feladatsor</span>
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-crown text-emerald-600"></i></div>
+            <span class="text-sm text-gray-500">Előfizetés</span>
           </div>
-          <div class="text-4xl font-extrabold text-gray-900">14</div>
-        </div>
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-              <i class="fa-solid fa-chart-line text-emerald-600"></i>
-            </div>
-            <span class="text-sm text-gray-500">Aktivitás</span>
-          </div>
-          <div class="text-4xl font-extrabold text-emerald-600">94%</div>
+          <div class="text-2xl font-extrabold text-emerald-600">${String(profile.plan || 'Free').toLowerCase() === 'pro' ? 'Pro' : 'Free'}</div>
         </div>
       </div>
 
       <div class="grid lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-bolt text-[#6C5CE7]"></i> Gyors műveletek
-          </h3>
+          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-[#6C5CE7]"></i> Gyors műveletek</h3>
           <div class="space-y-3">
-            <button onclick="showSection('exams')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-file-circle-plus text-white text-sm"></i>
-              </div>
-              <span class="text-sm font-medium text-gray-700">Új vizsga létrehozása</span>
-            </button>
             <button onclick="showSection('classes')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-users text-white text-sm"></i>
-              </div>
+              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-users text-white text-sm"></i></div>
               <span class="text-sm font-medium text-gray-700">Osztályok kezelése</span>
             </button>
-            <button onclick="showSection('analytics')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-chart-bar text-white text-sm"></i>
-              </div>
-              <span class="text-sm font-medium text-gray-700">Statisztikák megtekintése</span>
+            <button onclick="showSection('materials')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
+              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-book-open text-white text-sm"></i></div>
+              <span class="text-sm font-medium text-gray-700">Feltöltött jegyzeteim</span>
             </button>
-            <a href="index.html" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-house text-gray-600 text-sm"></i>
-              </div>
-              <span class="text-sm font-medium text-gray-600">Vissza a főoldalra</span>
+            <a href="index.html#exam-simulator" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
+              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-file-circle-plus text-white text-sm"></i></div>
+              <span class="text-sm font-medium text-gray-700">AI vizsgaszimulátor megnyitása</span>
             </a>
           </div>
         </div>
 
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left text-[#6C5CE7]"></i> Legutóbbi tevékenység
-          </h3>
-          <div class="space-y-4">
-            ${[
-              { icon: 'fa-file-circle-check', color: 'text-emerald-600 bg-emerald-50', text: 'Matematika ZH – 23 beadott megoldás', time: '2 órája' },
-              { icon: 'fa-user-plus', color: 'text-blue-600 bg-blue-50', text: 'Új diák csatlakozott: 9.B osztály', time: '5 órája' },
-              { icon: 'fa-wand-magic-sparkles', color: 'text-[#6C5CE7] bg-[#F3F0FF]', text: 'AI feladatsor generálva – Fizika', time: 'Tegnap' },
-              { icon: 'fa-shield-halved', color: 'text-amber-600 bg-amber-50', text: 'Plágium riasztás – 1 beadandó', time: 'Tegnap' },
-            ].map(item => `
-              <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition">
-                <div class="w-10 h-10 ${item.color} rounded-xl flex items-center justify-center flex-shrink-0">
-                  <i class="fa-solid ${item.icon}"></i>
+          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-users text-[#6C5CE7]"></i> Osztályaim</h3>
+          ${classes.length ? `
+            <div class="space-y-3">
+              ${classes.slice(0, 5).map(c => `
+                <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition">
+                  <div class="w-10 h-10 bg-[#F3F0FF] text-[#6C5CE7] font-bold rounded-xl flex items-center justify-center flex-shrink-0">${escapeHtml((c.name || '?').charAt(0))}</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(c.name)}</p>
+                    <p class="text-xs text-gray-400">${escapeHtml(c.subject)} &bull; ${c.students || 0} diák</p>
+                  </div>
                 </div>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-900 truncate">${item.text}</p>
-                  <p class="text-xs text-gray-400">${item.time}</p>
-                </div>
-              </div>
-            `).join('')}
-          </div>
+              `).join('')}
+            </div>
+          ` : `
+            <div class="text-center py-8 text-gray-400">
+              <i class="fa-solid fa-users text-3xl mb-3"></i>
+              <p class="text-sm">Még nincs osztályod. <button onclick="showSection('classes')" class="text-[#6C5CE7] font-semibold hover:underline">Hozz létre egyet</button></p>
+            </div>
+          `}
         </div>
       </div>
     </div>
   `;
 }
 
-/* ── Classes ── */
-function classesHTML() {
-  const classes = [
-    { name: '9.A Osztály', students: 28, subject: 'Matematika', active: true },
-    { name: '10.B Osztály', students: 25, subject: 'Fizika', active: true },
-    { name: '11.C Osztály', students: 25, subject: 'Kémia', active: false },
-  ];
-  return `
+/* ── Classes (real backend CRUD, with local fallback) ── */
+async function renderClasses() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-10 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Osztályok betöltése...</span></div>';
+  const classes = await loadClasses();
+  document.getElementById('main-content').innerHTML = `
     <div class="max-w-7xl mx-auto">
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-3xl font-bold text-gray-900 mb-1">Osztályaim</h1>
           <p class="text-gray-500">Kezeld osztályaidat és diákjaidat</p>
         </div>
-        <button onclick="showToast('Új osztály létrehozva!')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
+        <button onclick="openModal('newClassModal')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
           <i class="fa-solid fa-plus"></i> Új osztály
         </button>
       </div>
@@ -364,183 +545,186 @@ function classesHTML() {
         ${classes.map(cls => `
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
             <div class="flex items-start justify-between mb-4">
-              <div class="w-12 h-12 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white text-xl font-bold">
-                ${cls.name.charAt(0)}
-              </div>
-              <span class="px-2 py-1 rounded-full text-xs font-semibold ${cls.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
+              <div class="w-12 h-12 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white text-xl font-bold">${escapeHtml((cls.name || '?').charAt(0))}</div>
+              <button onclick="toggleClassActive('${cls.id}', ${cls.active ? 'true' : 'false'})" class="px-2 py-1 rounded-full text-xs font-semibold ${cls.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
                 ${cls.active ? 'Aktív' : 'Archív'}
-              </span>
+              </button>
             </div>
-            <h3 class="font-bold text-gray-900 text-lg mb-1">${cls.name}</h3>
-            <p class="text-sm text-gray-500 mb-4">${cls.subject}</p>
+            <h3 class="font-bold text-gray-900 text-lg mb-1">${escapeHtml(cls.name)}</h3>
+            <p class="text-sm text-gray-500 mb-4">${escapeHtml(cls.subject)}</p>
             <div class="flex items-center justify-between text-sm">
-              <span class="text-gray-600"><i class="fa-solid fa-users text-[#6C5CE7] mr-1"></i>${cls.students} diák</span>
-              <button onclick="showToast('Osztály megnyitva')" class="text-[#6C5CE7] font-semibold hover:underline">Megnyitás →</button>
+              <span class="text-gray-600"><i class="fa-solid fa-users text-[#6C5CE7] mr-1"></i>${cls.students || 0} diák</span>
+              <button onclick="deleteClass('${cls.id}')" class="text-red-500 font-semibold hover:underline text-xs"><i class="fa-solid fa-trash mr-1"></i>Törlés</button>
             </div>
           </div>
         `).join('')}
-        <div onclick="showToast('Új osztály létrehozva!')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[180px]">
-          <div class="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center mb-3">
-            <i class="fa-solid fa-plus text-gray-500 text-xl"></i>
-          </div>
+        <div onclick="openModal('newClassModal')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[180px]">
+          <div class="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-plus text-gray-500 text-xl"></i></div>
           <p class="text-sm font-medium text-gray-500">Új osztály hozzáadása</p>
         </div>
       </div>
+      <p class="text-xs ${window.classesBackendLive ? 'text-emerald-500' : 'text-amber-500'} mt-6">
+        <i class="fa-solid ${window.classesBackendLive ? 'fa-cloud-check' : 'fa-circle-info'} mr-1"></i>
+        ${window.classesBackendLive
+          ? 'Az osztályaid a fiókodhoz vannak mentve, minden eszközön elérhetők.'
+          : 'A háttér-adatbázis (classes.js / classes tábla) még nincs élesítve, így az osztályok egyelőre csak ezen a böngészőn tárolódnak.'}
+      </p>
     </div>
   `;
 }
 
-/* ── Exams ── */
-function examsHTML() {
-  const exams = [
-    { title: 'Matematika ZH – Deriválás', cls: '9.A', date: '2026-07-10', status: 'Aktív', submissions: 23 },
-    { title: 'Fizika Dolgozat – Optika', cls: '10.B', date: '2026-07-08', status: 'Lezárt', submissions: 25 },
-    { title: 'Kémia Teszt – Szerves vegyületek', cls: '11.C', date: '2026-07-15', status: 'Tervezett', submissions: 0 },
-  ];
-  return `
+/* ── Exams: links to the real AI exam simulator already on index.html ── */
+function renderExams() {
+  document.getElementById('main-content').innerHTML = `
     <div class="max-w-7xl mx-auto">
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-3xl font-bold text-gray-900 mb-1">Online Vizsgák</h1>
-          <p class="text-gray-500">Hozz létre és kezelj vizsgákat AI segítségével</p>
+          <p class="text-gray-500">Az AI vizsgaszimulátor a főoldalon érhető el</p>
         </div>
-        <button onclick="showToast('Új vizsga létrehozva!')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
-          <i class="fa-solid fa-file-circle-plus"></i> Új vizsga
-        </button>
       </div>
       <div class="bg-gradient-to-br from-[#6C5CE7] to-[#5A4BD1] rounded-2xl p-6 mb-8 text-white">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h3 class="text-xl font-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Feladatsor Generátor</h3>
-            <p class="text-purple-100 text-sm">Add meg a témát és az AI automatikusan generál feladatokat megoldással</p>
+            <h3 class="text-xl font-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Vizsgaszimulátor</h3>
+            <p class="text-purple-100 text-sm">Add meg a témát, nehézséget és időtartamot — az AI elkészíti az időzített feladatsort, majd ki is tudod értékeltetni vele a diákok válaszait.</p>
           </div>
-          <button onclick="showToast('AI generálás elindítva...')" class="bg-white text-[#6C5CE7] font-bold px-6 py-3 rounded-xl hover:bg-gray-100 transition flex-shrink-0">
-            Generálás indítása
-          </button>
+          <a href="index.html#exam-simulator" class="bg-white text-[#6C5CE7] font-bold px-6 py-3 rounded-xl hover:bg-gray-100 transition flex-shrink-0 whitespace-nowrap">
+            Megnyitás <i class="fa-solid fa-arrow-right ml-1"></i>
+          </a>
         </div>
       </div>
-      <div class="space-y-4">
-        ${exams.map(exam => `
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center gap-4 hover:shadow-md transition">
-            <div class="w-12 h-12 bg-[#F3F0FF] rounded-xl flex items-center justify-center flex-shrink-0">
-              <i class="fa-solid fa-file-lines text-[#6C5CE7] text-xl"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h4 class="font-bold text-gray-900">${exam.title}</h4>
-              <p class="text-sm text-gray-500">${exam.cls} &bull; ${exam.date}</p>
-            </div>
-            <div class="flex items-center gap-4 flex-wrap">
-              <span class="text-sm text-gray-500"><i class="fa-solid fa-inbox text-[#6C5CE7] mr-1"></i>${exam.submissions} beadás</span>
-              <span class="px-3 py-1 rounded-full text-xs font-semibold ${
-                exam.status === 'Aktív' ? 'bg-emerald-100 text-emerald-700' :
-                exam.status === 'Lezárt' ? 'bg-gray-100 text-gray-600' :
-                'bg-amber-100 text-amber-700'
-              }">${exam.status}</span>
-              <button onclick="showToast('Vizsga megnyitva')" class="text-[#6C5CE7] font-semibold text-sm hover:underline">Megnyitás →</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
+      <p class="text-sm text-gray-400"><i class="fa-solid fa-circle-info mr-1"></i>A generált feladatsorok és kiértékelések jelenleg munkamenetenként jönnek létre. Ha szeretnéd, hogy a diákok beadott vizsgái és eredményei itt, osztályonként listázva jelenjenek meg, ahhoz egy vizsga-eredmény tábla bekötése szükséges a backendben.</p>
     </div>
   `;
 }
 
-/* ── Analytics ── */
-function analyticsHTML() {
-  return `
+/* ── Analytics: derived from real data we actually have ── */
+async function renderAnalytics() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-10 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Adatok betöltése...</span></div>';
+  const classes = await loadClasses();
+  const totalStudents = classes.reduce((sum, c) => sum + (Number(c.students) || 0), 0);
+  const avgClassSize = classes.length ? Math.round(totalStudents / classes.length) : 0;
+
+  document.getElementById('main-content').innerHTML = `
     <div class="max-w-7xl mx-auto">
       <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 mb-1">Analitika</h1>
-        <p class="text-gray-500">Diákjaid teljesítményének áttekintése</p>
+        <p class="text-gray-500">Osztályaid áttekintése</p>
       </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        ${[
-          { label: 'Átlagos teljesítmény', value: '76%', icon: 'fa-star', color: 'text-amber-600 bg-amber-50' },
-          { label: 'Beadott feladatok', value: '142', icon: 'fa-inbox', color: 'text-blue-600 bg-blue-50' },
-          { label: 'Aktív diákok', value: '71', icon: 'fa-user-check', color: 'text-emerald-600 bg-emerald-50' },
-          { label: 'Plágium riasztás', value: '3', icon: 'fa-shield-halved', color: 'text-red-600 bg-red-50' },
-        ].map(s => `
-          <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 ${s.color} rounded-xl flex items-center justify-center">
-                <i class="fa-solid ${s.icon}"></i>
-              </div>
-              <span class="text-sm text-gray-500">${s.label}</span>
-            </div>
-            <div class="text-4xl font-extrabold text-gray-900">${s.value}</div>
-          </div>
-        `).join('')}
-      </div>
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-900 mb-6 flex items-center gap-2">
-          <i class="fa-solid fa-chart-bar text-[#6C5CE7]"></i> Osztályok teljesítménye
-        </h3>
-        <div class="space-y-5">
-          ${[
-            { name: '9.A – Matematika', pct: 82 },
-            { name: '10.B – Fizika', pct: 74 },
-            { name: '11.C – Kémia', pct: 68 },
-          ].map(c => `
-            <div>
-              <div class="flex justify-between text-sm mb-1">
-                <span class="font-medium text-gray-700">${c.name}</span>
-                <span class="font-bold text-[#6C5CE7]">${c.pct}%</span>
-              </div>
-              <div class="w-full bg-gray-100 rounded-full h-3">
-                <div class="h-3 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#A29BFE] transition-all duration-700" style="width:${c.pct}%"></div>
-              </div>
-            </div>
-          `).join('')}
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-users text-blue-600"></i></div><span class="text-sm text-gray-500">Összes diák</span></div>
+          <div class="text-4xl font-extrabold text-gray-900">${totalStudents}</div>
+        </div>
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-chalkboard text-emerald-600"></i></div><span class="text-sm text-gray-500">Osztályok</span></div>
+          <div class="text-4xl font-extrabold text-gray-900">${classes.length}</div>
+        </div>
+        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-scale-balanced text-amber-600"></i></div><span class="text-sm text-gray-500">Átlag osztálylétszám</span></div>
+          <div class="text-4xl font-extrabold text-gray-900">${avgClassSize}</div>
         </div>
       </div>
+      ${classes.length ? `
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-bold text-gray-900 mb-6 flex items-center gap-2"><i class="fa-solid fa-chart-bar text-[#6C5CE7]"></i> Osztályonkénti létszám</h3>
+          <div class="space-y-5">
+            ${classes.map(c => {
+              const pct = totalStudents ? Math.round((Number(c.students) || 0) / totalStudents * 100) : 0;
+              return `
+                <div>
+                  <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">${escapeHtml(c.name)}</span><span class="font-bold text-[#6C5CE7]">${c.students || 0} diák</span></div>
+                  <div class="w-full bg-gray-100 rounded-full h-3"><div class="h-3 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#A29BFE]" style="width:${pct}%"></div></div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : `
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400">
+          <i class="fa-solid fa-chart-line text-3xl mb-3"></i>
+          <p class="text-sm">Hozz létre osztályokat, hogy itt megjelenjen az analitika.</p>
+        </div>
+      `}
+      <p class="text-xs text-gray-400 mt-6"><i class="fa-solid fa-circle-info mr-1"></i>Teljesítmény- és plágium-analitikához (pl. beadott dolgozatok pontszáma) egy vizsgaeredmény-tábla bekötése szükséges a backendben — ez az adat még nem létezik.</p>
     </div>
   `;
 }
 
-/* ── Materials ── */
-function materialsHTML() {
-  return `
+/* ── Materials: REAL data from /.netlify/functions/notes ── */
+async function renderMaterials() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
     <div class="max-w-7xl mx-auto">
       <div class="flex items-center justify-between mb-8">
         <div>
           <h1 class="text-3xl font-bold text-gray-900 mb-1">Tananyagok</h1>
-          <p class="text-gray-500">Tölts fel és kezelj tananyagokat osztályaidhoz</p>
+          <p class="text-gray-500">A saját fiókodba feltöltött jegyzeteid</p>
         </div>
-        <button onclick="showToast('Feltöltés elindítva!')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
-          <i class="fa-solid fa-cloud-arrow-up"></i> Feltöltés
-        </button>
+        <a href="index.html" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Feltöltés a főoldalon
+        </a>
       </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-        ${[
-          { name: 'Deriválás – összefoglaló.pdf', cls: '9.A', size: '2.4 MB', icon: 'fa-file-pdf', color: 'text-red-500 bg-red-50' },
-          { name: 'Optika – feladatgyűjtemény.docx', cls: '10.B', size: '1.1 MB', icon: 'fa-file-word', color: 'text-blue-500 bg-blue-50' },
-          { name: 'Szerves kémia – prezentáció.pptx', cls: '11.C', size: '5.8 MB', icon: 'fa-file-powerpoint', color: 'text-orange-500 bg-orange-50' },
-          { name: 'Matematika – képletgyűjtemény.pdf', cls: 'Összes', size: '0.8 MB', icon: 'fa-file-pdf', color: 'text-red-500 bg-red-50' },
-        ].map(f => `
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:shadow-md transition">
-            <div class="w-12 h-12 ${f.color} rounded-xl flex items-center justify-center flex-shrink-0">
-              <i class="fa-solid ${f.icon} text-xl"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium text-gray-900 text-sm truncate">${f.name}</p>
-              <p class="text-xs text-gray-400">${f.cls} &bull; ${f.size}</p>
-            </div>
-            <button onclick="showToast('Letöltés elindítva')" class="text-[#6C5CE7] hover:text-[#5A4BD1] transition">
-              <i class="fa-solid fa-download"></i>
-            </button>
-          </div>
-        `).join('')}
-        <div onclick="showToast('Feltöltés elindítva!')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[88px]">
-          <i class="fa-solid fa-cloud-arrow-up text-gray-400 text-2xl mb-2"></i>
-          <p class="text-sm font-medium text-gray-500">Új fájl feltöltése</p>
-        </div>
+      <div id="materialsList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div class="col-span-full flex items-center gap-2 text-gray-400 py-6 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Jegyzetek betöltése...</span></div>
       </div>
     </div>
   `;
+
+  const listEl = document.getElementById('materialsList');
+  try {
+    const resp = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders() });
+    if (!resp.ok) {
+      listEl.innerHTML = '<div class="col-span-full text-center text-red-500 py-6">Hiba a jegyzetek betöltésekor.</div>';
+      return;
+    }
+    const notes = await resp.json();
+    if (!Array.isArray(notes) || notes.length === 0) {
+      listEl.innerHTML = `
+        <div class="col-span-full bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center text-gray-400">
+          <i class="fa-solid fa-book-open text-3xl mb-3"></i>
+          <p class="text-sm">Még nincs feltöltött jegyzeted. <a href="index.html" class="text-[#6C5CE7] font-semibold hover:underline">Tölts fel egyet a főoldalon</a>.</p>
+        </div>
+      `;
+      return;
+    }
+    listEl.innerHTML = notes.map(n => {
+      const title = n.title || n.originalName || n.fileName || 'Névtelen jegyzet';
+      const subject = n.subject || '';
+      const ext = ((n.originalName || n.fileName || '').split('.').pop() || 'file').toLowerCase();
+      const iconMap = { pdf: ['fa-file-pdf', 'text-red-500 bg-red-50'], docx: ['fa-file-word', 'text-blue-500 bg-blue-50'], pptx: ['fa-file-powerpoint', 'text-orange-500 bg-orange-50'] };
+      const [icon, color] = iconMap[ext] || ['fa-file-lines', 'text-gray-500 bg-gray-100'];
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:shadow-md transition">
+          <div class="w-12 h-12 ${color} rounded-xl flex items-center justify-center flex-shrink-0"><i class="fa-solid ${icon} text-xl"></i></div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-gray-900 text-sm truncate">${escapeHtml(title)}</p>
+            <p class="text-xs text-gray-400">${escapeHtml(subject)}</p>
+          </div>
+          <button onclick="downloadMaterial('${n.id}')" class="text-[#6C5CE7] hover:text-[#5A4BD1] transition" title="Letöltés"><i class="fa-solid fa-download"></i></button>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div class="col-span-full text-center text-red-500 py-6">' + escapeHtml(e.message || String(e)) + '</div>';
+  }
 }
 
-/* Init */
-showSection('dashboard');
+window.downloadMaterial = async function(noteId) {
+  try {
+    const resp = await fetch('/.netlify/functions/download-my-note?id=' + encodeURIComponent(noteId), { headers: await window.getAuthHeaders() });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.url) { showToast('Letöltési hiba'); return; }
+    const a = document.createElement('a');
+    a.href = data.url; a.target = '_blank'; a.rel = 'noopener';
+    if (data.originalName) a.download = data.originalName;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (e) {
+    showToast('Letöltési hiba');
+  }
+};
 </script>
 </body>
 </html>
