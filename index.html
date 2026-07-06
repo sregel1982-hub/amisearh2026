@@ -371,7 +371,7 @@
         <a href="#funkciok" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Funkciók" data-en="Features">Funkciók</a>
         <a href="#arak" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Árak" data-en="Pricing">Árak</a>
         <button onclick="openModal('aiTutorModal')" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition">AI Tutor</button>
-        <a href="teacher-hub.html" onclick="window.location.href='teacher-hub.html'; return false;" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition">Teacher Hub</a>
+        <button onclick="openTeacherHub('dashboard')" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition">Teacher Hub</button>
         <a href="#rolunk" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition" data-hu="Rólunk" data-en="About">Rólunk</a>
         <a href="#faq" class="text-gray-700 hover:text-[#6C5CE7] font-medium transition">FAQ</a>
       </nav>
@@ -448,7 +448,7 @@
       <a href="#funkciok" class="block py-2 text-gray-700 font-medium" data-hu="Funkciók" data-en="Features">Funkciók</a>
       <a href="#arak" class="block py-2 text-gray-700 font-medium" data-hu="Árak" data-en="Pricing">Árak</a>
       <button onclick="openModal('aiTutorModal')" class="block py-2 text-gray-700 font-medium text-left w-full">AI Tutor</button>
-      <a href="teacher-hub.html" onclick="window.location.href='teacher-hub.html'; return false;" class="block py-2 text-gray-700 font-medium">Teacher Hub</a>
+      <button onclick="openTeacherHub('dashboard'); toggleMobileMenu();" class="block py-2 text-gray-700 font-medium text-left w-full">Teacher Hub</button>
       <a href="#rolunk" class="block py-2 text-gray-700 font-medium" data-hu="Rólunk" data-en="About">Rólunk</a>
       <a href="#faq" class="block py-2 text-gray-700 font-medium">FAQ</a>
       <button id="mobileLoginBtn" onclick="openModal('loginModal')" class="block w-full py-2.5 text-[#6C5CE7] font-semibold text-center rounded-xl border-2 border-[#6C5CE7]" data-hu="Belépés" data-en="Login">Belépés</button>
@@ -833,7 +833,7 @@
         
         <div class="flex flex-col sm:flex-row gap-4">
           <button onclick="openModal('registerModal')" class="btn-primary px-8 py-4 text-white font-bold rounded-xl text-lg" data-hu="Próbáld ki ingyen" data-en="Try for free">Próbáld ki ingyen</button>
-          <a href="teacher-hub.html" onclick="window.location.href='teacher-hub.html'; return false;" class="px-8 py-4 bg-white border-2 border-[#6C5CE7] text-[#6C5CE7] font-bold rounded-xl text-lg hover:bg-[#F3F0FF] transition flex items-center justify-center gap-2"><i class="fa-solid fa-chalkboard-user mr-2"></i>Teacher Hub megnyitása</a>
+          <button onclick="openTeacherHub('dashboard')" class="px-8 py-4 bg-white border-2 border-[#6C5CE7] text-[#6C5CE7] font-bold rounded-xl text-lg hover:bg-[#F3F0FF] transition flex items-center justify-center gap-2"><i class="fa-solid fa-chalkboard-user mr-2"></i>Teacher Hub megnyitása</button>
         </div>
       </div>
       
@@ -1184,6 +1184,81 @@
   </section>
 </div>
 <!-- End Dashboard Section -->
+
+<!-- Teacher Hub Section (embedded, no separate file needed) -->
+<div id="teacherHubSection" class="hidden">
+
+  <!-- Teacher Hub styles -->
+  <style>
+    #teacherHubSection .th-nav-active { background:#F3F0FF; color:#6C5CE7; font-weight:600; }
+    #teacherHubSection .th-stat-card { transition:all .25s cubic-bezier(.4,0,.2,1); }
+    #teacherHubSection .th-stat-card:hover { transform:translateY(-3px); box-shadow:0 12px 28px -8px rgba(108,92,231,.18); }
+    @keyframes thFadeIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    #teacherHubSection .th-fade { animation:thFadeIn .3s ease; }
+  </style>
+
+  <div class="min-h-screen flex bg-gray-50">
+
+    <!-- Sidebar -->
+    <aside class="hidden lg:flex flex-col w-[268px] min-h-screen bg-white border-r border-gray-200 sticky top-0 shadow-sm">
+      <!-- Logo -->
+      <div class="px-6 pt-6 pb-5 border-b border-gray-100">
+        <button onclick="openTeacherHub('dashboard')" class="flex items-center gap-3 group w-full text-left">
+          <div class="w-11 h-11 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-xl shadow">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <div>
+            <div class="font-bold text-2xl text-gray-900 group-hover:text-[#6C5CE7] transition" style="letter-spacing:-.04em">AMISEARCH</div>
+            <div class="text-xs text-[#6C5CE7] font-semibold">Teacher Hub</div>
+          </div>
+        </button>
+      </div>
+      <!-- Nav -->
+      <nav class="px-3 pt-5 flex-1 overflow-y-auto">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Menü</p>
+        <ul class="space-y-1">
+          <li><button onclick="openTeacherHub('dashboard')" data-th="dashboard" class="th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl th-nav-active transition text-left"><i class="fa-solid fa-border-all w-5 text-center"></i><span>Irányítópult</span></button></li>
+          <li><button onclick="openTeacherHub('classes')" data-th="classes" class="th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700 text-left"><i class="fa-solid fa-users w-5 text-center"></i><span>Osztályaim</span></button></li>
+          <li><button onclick="openTeacherHub('exams')" data-th="exams" class="th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700 text-left"><i class="fa-solid fa-file-lines w-5 text-center"></i><span>Online Vizsgák</span></button></li>
+          <li><button onclick="openTeacherHub('analytics')" data-th="analytics" class="th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700 text-left"><i class="fa-solid fa-chart-line w-5 text-center"></i><span>Analitika</span></button></li>
+          <li><button onclick="openTeacherHub('materials')" data-th="materials" class="th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700 text-left"><i class="fa-solid fa-book-open w-5 text-center"></i><span>Tananyagok</span></button></li>
+        </ul>
+      </nav>
+      <!-- Bottom -->
+      <div class="px-4 pb-6 mt-auto border-t border-gray-100 pt-5 space-y-4">
+        <div class="bg-[#F3F0FF] rounded-2xl p-1 flex text-sm font-medium">
+          <button id="th-mode-teacher" onclick="setThMode('teacher')" class="flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition"><i class="fa-solid fa-chalkboard-user mr-1"></i> Tanár</button>
+          <button id="th-mode-student" onclick="setThMode('student')" class="flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition"><i class="fa-solid fa-user-graduate mr-1"></i> Diák</button>
+        </div>
+        <button onclick="closeTeacherHub()" class="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-[#F3F0FF] text-gray-600 hover:text-[#6C5CE7] transition text-sm font-medium">
+          <i class="fa-solid fa-arrow-left"></i> Vissza a főoldalra
+        </button>
+        <div class="rounded-2xl bg-white border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+          <div class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white font-bold text-lg" id="th-avatar-letter">T</div>
+          <div class="min-w-0">
+            <div class="font-semibold text-gray-900 text-sm truncate" id="th-user-name">Tanár</div>
+            <div class="text-xs text-[#6C5CE7]">Teacher Hub</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Mobile top bar -->
+      <div class="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+        <button onclick="openTeacherHub('dashboard')" class="font-bold text-lg" style="background:linear-gradient(135deg,#6C5CE7,#A29BFE);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+          <i class="fa-solid fa-graduation-cap" style="-webkit-text-fill-color:#6C5CE7"></i> AMISEARCH
+        </button>
+        <button onclick="closeTeacherHub()" class="text-sm text-[#6C5CE7] font-semibold px-3 py-2 rounded-xl hover:bg-[#F3F0FF] transition">
+          <i class="fa-solid fa-arrow-left mr-1"></i>Főoldal
+        </button>
+      </div>
+      <main id="th-main" class="flex-1 p-6 lg:p-10 th-fade"></main>
+    </div>
+  </div>
+</div>
+<!-- End Teacher Hub Section -->
 
 <!-- Star Rating Section -->
 <section class="py-12 bg-gray-50">
@@ -3803,6 +3878,298 @@
       }
     };
   })();
+</script>
+
+<!-- Teacher Hub JavaScript -->
+<script>
+(function() {
+  var thCurrentSection = 'dashboard';
+
+  /* ── Show Teacher Hub ── */
+  window.openTeacherHub = function(section) {
+    section = section || 'dashboard';
+    thCurrentSection = section;
+
+    // Hide main page sections, show Teacher Hub
+    var landing = document.getElementById('landingContent');
+    var hero = document.getElementById('heroSection');
+    var dash = document.getElementById('dashboardSection');
+    var rating = document.querySelector('section.py-12.bg-gray-50');
+    var footer = document.querySelector('footer');
+    var th = document.getElementById('teacherHubSection');
+
+    if (landing) landing.classList.add('hidden');
+    if (hero) hero.classList.add('hidden');
+    if (dash) dash.classList.add('hidden');
+    if (rating) rating.classList.add('hidden');
+    if (footer) footer.classList.add('hidden');
+    if (th) th.classList.remove('hidden');
+
+    // Update user card name
+    var user = window.currentUser;
+    if (user) {
+      var name = user.user_metadata && user.user_metadata.full_name ? user.user_metadata.full_name : (user.email ? user.email.split('@')[0] : 'Tanár');
+      var nameEl = document.getElementById('th-user-name');
+      var avatarEl = document.getElementById('th-avatar-letter');
+      if (nameEl) nameEl.textContent = name;
+      if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+    }
+
+    window.scrollTo(0, 0);
+    renderThSection(section);
+  };
+
+  /* ── Close Teacher Hub, go back to main ── */
+  window.closeTeacherHub = function() {
+    var th = document.getElementById('teacherHubSection');
+    var landing = document.getElementById('landingContent');
+    var hero = document.getElementById('heroSection');
+    var rating = document.querySelector('section.py-12.bg-gray-50');
+    var footer = document.querySelector('footer');
+
+    if (th) th.classList.add('hidden');
+    if (rating) rating.classList.remove('hidden');
+    if (footer) footer.classList.remove('hidden');
+
+    // Restore correct view based on auth state
+    if (window.currentUser) {
+      var dash = document.getElementById('dashboardSection');
+      if (dash) dash.classList.remove('hidden');
+    } else {
+      if (landing) landing.classList.remove('hidden');
+      if (hero) hero.classList.remove('hidden');
+    }
+    window.scrollTo(0, 0);
+  };
+
+  /* ── Mode switcher ── */
+  window.setThMode = function(m) {
+    var tBtn = document.getElementById('th-mode-teacher');
+    var sBtn = document.getElementById('th-mode-student');
+    if (!tBtn || !sBtn) return;
+    if (m === 'teacher') {
+      tBtn.className = 'flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition';
+      sBtn.className = 'flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition';
+    } else {
+      sBtn.className = 'flex-1 py-2.5 rounded-xl bg-white shadow text-[#6C5CE7] transition';
+      tBtn.className = 'flex-1 py-2.5 rounded-xl text-gray-500 hover:text-gray-700 transition';
+    }
+  };
+
+  /* ── Render section ── */
+  function renderThSection(section) {
+    var main = document.getElementById('th-main');
+    if (!main) return;
+    main.className = 'flex-1 p-6 lg:p-10 th-fade';
+    void main.offsetWidth;
+
+    // Update nav active state
+    document.querySelectorAll('.th-nav-btn').forEach(function(btn) {
+      if (btn.getAttribute('data-th') === section) {
+        btn.className = 'th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl th-nav-active transition text-left';
+      } else {
+        btn.className = 'th-nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700 text-left';
+      }
+    });
+
+    switch(section) {
+      case 'dashboard':  main.innerHTML = thDashboardHTML(); break;
+      case 'classes':    main.innerHTML = thClassesHTML(); break;
+      case 'exams':      main.innerHTML = thExamsHTML(); break;
+      case 'analytics':  main.innerHTML = thAnalyticsHTML(); break;
+      case 'materials':  main.innerHTML = thMaterialsHTML(); break;
+      default:           main.innerHTML = thDashboardHTML();
+    }
+  }
+
+  function thToast(msg) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    setTimeout(function(){ t.classList.add('hidden'); }, 2500);
+  }
+  window.thToast = thToast;
+
+  /* ══ SECTION TEMPLATES ══ */
+
+  function thDashboardHTML() {
+    var userName = 'Tanár';
+    if (window.currentUser) {
+      var meta = window.currentUser.user_metadata;
+      userName = (meta && meta.full_name) ? meta.full_name : (window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Tanár');
+    }
+    return '<div class="max-w-7xl mx-auto">'
+      + '<div class="mb-8">'
+      + '<h1 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Jó napot, ' + userName + '! 👋</h1>'
+      + '<p class="text-gray-500">3 aktív osztály &bull; 2 javításra váró beadandó</p>'
+      + '</div>'
+      + '<div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10">'
+      + thStatCard('fa-users','#F3F0FF','text-[#6C5CE7]','Osztályok','3')
+      + thStatCard('fa-user-graduate','#F3F0FF','text-[#6C5CE7]','Diákok','78')
+      + thStatCard('fa-file-lines','#F3F0FF','text-[#6C5CE7]','Feladatsor','14')
+      + thStatCard('fa-chart-line','#ecfdf5','text-emerald-600','Aktivitás','<span class="text-emerald-600">94%</span>')
+      + '</div>'
+      + '<div class="grid lg:grid-cols-3 gap-6">'
+      + '<div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">'
+      + '<h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-[#6C5CE7]"></i> Gyors műveletek</h3>'
+      + '<div class="space-y-3">'
+      + thQuickBtn('fa-file-circle-plus','Új vizsga létrehozása',"openTeacherHub('exams')")
+      + thQuickBtn('fa-users','Osztályok kezelése',"openTeacherHub('classes')")
+      + thQuickBtn('fa-chart-bar','Statisztikák',"openTeacherHub('analytics')")
+      + '<button onclick="closeTeacherHub()" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left"><div class="w-9 h-9 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-house text-gray-600 text-sm"></i></div><span class="text-sm font-medium text-gray-600">Vissza a főoldalra</span></button>'
+      + '</div></div>'
+      + '<div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">'
+      + '<h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-[#6C5CE7]"></i> Legutóbbi tevékenység</h3>'
+      + '<div class="space-y-4">'
+      + thActivity('fa-file-circle-check','text-emerald-600 bg-emerald-50','Matematika ZH – 23 beadott megoldás','2 órája')
+      + thActivity('fa-user-plus','text-blue-600 bg-blue-50','Új diák csatlakozott: 9.B osztály','5 órája')
+      + thActivity('fa-wand-magic-sparkles','text-[#6C5CE7] bg-[#F3F0FF]','AI feladatsor generálva – Fizika','Tegnap')
+      + thActivity('fa-shield-halved','text-amber-600 bg-amber-50','Plágium riasztás – 1 beadandó','Tegnap')
+      + '</div></div>'
+      + '</div></div>';
+  }
+
+  function thStatCard(icon, bg, color, label, val) {
+    return '<div class="th-stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">'
+      + '<div class="flex items-center gap-3 mb-3">'
+      + '<div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:' + bg + '">'
+      + '<i class="fa-solid ' + icon + ' ' + color + '"></i></div>'
+      + '<span class="text-sm text-gray-500">' + label + '</span></div>'
+      + '<div class="text-4xl font-extrabold text-gray-900">' + val + '</div></div>';
+  }
+
+  function thQuickBtn(icon, label, fn) {
+    return '<button onclick="' + fn + '" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">'
+      + '<div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0">'
+      + '<i class="fa-solid ' + icon + ' text-white text-sm"></i></div>'
+      + '<span class="text-sm font-medium text-gray-700">' + label + '</span></button>';
+  }
+
+  function thActivity(icon, color, text, time) {
+    return '<div class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition">'
+      + '<div class="w-10 h-10 ' + color + ' rounded-xl flex items-center justify-center flex-shrink-0">'
+      + '<i class="fa-solid ' + icon + '"></i></div>'
+      + '<div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-900 truncate">' + text + '</p>'
+      + '<p class="text-xs text-gray-400">' + time + '</p></div></div>';
+  }
+
+  function thClassesHTML() {
+    var classes = [
+      {name:'9.A Osztály', students:28, subject:'Matematika', active:true},
+      {name:'10.B Osztály', students:25, subject:'Fizika', active:true},
+      {name:'11.C Osztály', students:25, subject:'Kémia', active:false},
+    ];
+    var cards = classes.map(function(c) {
+      return '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">'
+        + '<div class="flex items-start justify-between mb-4">'
+        + '<div class="w-12 h-12 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white text-xl font-bold">' + c.name.charAt(0) + '</div>'
+        + '<span class="px-2 py-1 rounded-full text-xs font-semibold ' + (c.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500') + '">' + (c.active ? 'Aktív' : 'Archív') + '</span>'
+        + '</div><h3 class="font-bold text-gray-900 text-lg mb-1">' + c.name + '</h3>'
+        + '<p class="text-sm text-gray-500 mb-4">' + c.subject + '</p>'
+        + '<div class="flex items-center justify-between text-sm">'
+        + '<span class="text-gray-600"><i class="fa-solid fa-users text-[#6C5CE7] mr-1"></i>' + c.students + ' diák</span>'
+        + '<button onclick="thToast(\'Osztály megnyitva\')" class="text-[#6C5CE7] font-semibold hover:underline">Megnyitás →</button>'
+        + '</div></div>';
+    }).join('');
+    return '<div class="max-w-7xl mx-auto">'
+      + '<div class="flex items-center justify-between mb-8">'
+      + '<div><h1 class="text-3xl font-bold text-gray-900 mb-1">Osztályaim</h1><p class="text-gray-500">Kezeld osztályaidat és diákjaidat</p></div>'
+      + '<button onclick="thToast(\'Új osztály létrehozva!\')" class="px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2" style="background:linear-gradient(135deg,#6C5CE7,#5A4BD1)"><i class="fa-solid fa-plus"></i> Új osztály</button>'
+      + '</div><div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">' + cards
+      + '<div onclick="thToast(\'Új osztály létrehozva!\')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[180px]">'
+      + '<div class="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-plus text-gray-500 text-xl"></i></div>'
+      + '<p class="text-sm font-medium text-gray-500">Új osztály hozzáadása</p></div>'
+      + '</div></div>';
+  }
+
+  function thExamsHTML() {
+    var exams = [
+      {title:'Matematika ZH – Deriválás', cls:'9.A', date:'2026-07-10', status:'Aktív', sub:23},
+      {title:'Fizika Dolgozat – Optika', cls:'10.B', date:'2026-07-08', status:'Lezárt', sub:25},
+      {title:'Kémia Teszt – Szerves vegyületek', cls:'11.C', date:'2026-07-15', status:'Tervezett', sub:0},
+    ];
+    var rows = exams.map(function(e) {
+      var badge = e.status === 'Aktív' ? 'bg-emerald-100 text-emerald-700' : e.status === 'Lezárt' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700';
+      return '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row md:items-center gap-4 hover:shadow-md transition">'
+        + '<div class="w-12 h-12 bg-[#F3F0FF] rounded-xl flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-file-lines text-[#6C5CE7] text-xl"></i></div>'
+        + '<div class="flex-1 min-w-0"><h4 class="font-bold text-gray-900">' + e.title + '</h4><p class="text-sm text-gray-500">' + e.cls + ' &bull; ' + e.date + '</p></div>'
+        + '<div class="flex items-center gap-4 flex-wrap">'
+        + '<span class="text-sm text-gray-500"><i class="fa-solid fa-inbox text-[#6C5CE7] mr-1"></i>' + e.sub + ' beadás</span>'
+        + '<span class="px-3 py-1 rounded-full text-xs font-semibold ' + badge + '">' + e.status + '</span>'
+        + '<button onclick="thToast(\'Vizsga megnyitva\')" class="text-[#6C5CE7] font-semibold text-sm hover:underline">Megnyitás →</button>'
+        + '</div></div>';
+    }).join('');
+    return '<div class="max-w-7xl mx-auto">'
+      + '<div class="flex items-center justify-between mb-8">'
+      + '<div><h1 class="text-3xl font-bold text-gray-900 mb-1">Online Vizsgák</h1><p class="text-gray-500">Hozz létre és kezelj vizsgákat AI segítségével</p></div>'
+      + '<button onclick="thToast(\'Új vizsga létrehozva!\')" class="px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2" style="background:linear-gradient(135deg,#6C5CE7,#5A4BD1)"><i class="fa-solid fa-file-circle-plus"></i> Új vizsga</button>'
+      + '</div>'
+      + '<div class="bg-gradient-to-br from-[#6C5CE7] to-[#5A4BD1] rounded-2xl p-6 mb-8 text-white">'
+      + '<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">'
+      + '<div><h3 class="text-xl font-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Feladatsor Generátor</h3><p class="text-purple-100 text-sm">Add meg a témát és az AI automatikusan generál feladatokat megoldással</p></div>'
+      + '<button onclick="thToast(\'AI generálás elindítva...\')" class="bg-white text-[#6C5CE7] font-bold px-6 py-3 rounded-xl hover:bg-gray-100 transition flex-shrink-0">Generálás indítása</button>'
+      + '</div></div>'
+      + '<div class="space-y-4">' + rows + '</div></div>';
+  }
+
+  function thAnalyticsHTML() {
+    var stats = [
+      {label:'Átlagos teljesítmény', val:'76%', icon:'fa-star', color:'text-amber-600', bg:'#fffbeb'},
+      {label:'Beadott feladatok', val:'142', icon:'fa-inbox', color:'text-blue-600', bg:'#eff6ff'},
+      {label:'Aktív diákok', val:'71', icon:'fa-user-check', color:'text-emerald-600', bg:'#ecfdf5'},
+      {label:'Plágium riasztás', val:'3', icon:'fa-shield-halved', color:'text-red-600', bg:'#fef2f2'},
+    ];
+    var statCards = stats.map(function(s) {
+      return '<div class="th-stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">'
+        + '<div class="flex items-center gap-3 mb-3">'
+        + '<div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:' + s.bg + '">'
+        + '<i class="fa-solid ' + s.icon + ' ' + s.color + '"></i></div>'
+        + '<span class="text-sm text-gray-500">' + s.label + '</span></div>'
+        + '<div class="text-4xl font-extrabold text-gray-900">' + s.val + '</div></div>';
+    }).join('');
+    var bars = [
+      {name:'9.A – Matematika', pct:82},
+      {name:'10.B – Fizika', pct:74},
+      {name:'11.C – Kémia', pct:68},
+    ].map(function(c) {
+      return '<div><div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">' + c.name + '</span><span class="font-bold text-[#6C5CE7]">' + c.pct + '%</span></div>'
+        + '<div class="w-full bg-gray-100 rounded-full h-3"><div class="h-3 rounded-full" style="width:' + c.pct + '%;background:linear-gradient(90deg,#6C5CE7,#A29BFE)"></div></div></div>';
+    }).join('');
+    return '<div class="max-w-7xl mx-auto">'
+      + '<div class="mb-8"><h1 class="text-3xl font-bold text-gray-900 mb-1">Analitika</h1><p class="text-gray-500">Diákjaid teljesítményének áttekintése</p></div>'
+      + '<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">' + statCards + '</div>'
+      + '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">'
+      + '<h3 class="font-bold text-gray-900 mb-6 flex items-center gap-2"><i class="fa-solid fa-chart-bar text-[#6C5CE7]"></i> Osztályok teljesítménye</h3>'
+      + '<div class="space-y-5">' + bars + '</div></div></div>';
+  }
+
+  function thMaterialsHTML() {
+    var files = [
+      {name:'Deriválás – összefoglaló.pdf', cls:'9.A', size:'2.4 MB', icon:'fa-file-pdf', color:'text-red-500', bg:'#fef2f2'},
+      {name:'Optika – feladatgyűjtemény.docx', cls:'10.B', size:'1.1 MB', icon:'fa-file-word', color:'text-blue-500', bg:'#eff6ff'},
+      {name:'Szerves kémia – prezentáció.pptx', cls:'11.C', size:'5.8 MB', icon:'fa-file-powerpoint', color:'text-orange-500', bg:'#fff7ed'},
+      {name:'Matematika – képletgyűjtemény.pdf', cls:'Összes', size:'0.8 MB', icon:'fa-file-pdf', color:'text-red-500', bg:'#fef2f2'},
+    ];
+    var fileCards = files.map(function(f) {
+      return '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:shadow-md transition">'
+        + '<div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background:' + f.bg + '">'
+        + '<i class="fa-solid ' + f.icon + ' ' + f.color + ' text-xl"></i></div>'
+        + '<div class="flex-1 min-w-0"><p class="font-medium text-gray-900 text-sm truncate">' + f.name + '</p><p class="text-xs text-gray-400">' + f.cls + ' &bull; ' + f.size + '</p></div>'
+        + '<button onclick="thToast(\'Letöltés elindítva\')" class="text-[#6C5CE7] hover:text-[#5A4BD1] transition"><i class="fa-solid fa-download"></i></button>'
+        + '</div>';
+    }).join('');
+    return '<div class="max-w-7xl mx-auto">'
+      + '<div class="flex items-center justify-between mb-8">'
+      + '<div><h1 class="text-3xl font-bold text-gray-900 mb-1">Tananyagok</h1><p class="text-gray-500">Tölts fel és kezelj tananyagokat osztályaidhoz</p></div>'
+      + '<button onclick="thToast(\'Feltöltés elindítva!\')" class="px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2" style="background:linear-gradient(135deg,#6C5CE7,#5A4BD1)"><i class="fa-solid fa-cloud-arrow-up"></i> Feltöltés</button>'
+      + '</div><div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">' + fileCards
+      + '<div onclick="thToast(\'Feltöltés elindítva!\')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[88px]">'
+      + '<i class="fa-solid fa-cloud-arrow-up text-gray-400 text-2xl mb-2"></i><p class="text-sm font-medium text-gray-500">Új fájl feltöltése</p></div>'
+      + '</div></div>';
+  }
+
+})();
 </script>
 
   </body>
