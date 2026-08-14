@@ -89,7 +89,7 @@ async function getSupabaseUser(req) {
   } catch { return null; }
 }
 
-async function loadUserNotesContext(user, inlineNotes = "") {
+async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = null) {
   const parts = [];
   const inline = cleanText(inlineNotes, 30000);
   if (inline) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}`);
@@ -97,19 +97,64 @@ async function loadUserNotesContext(user, inlineNotes = "") {
   const supabase = getSupabaseAdmin();
   if (supabase && user?.id) {
     try {
-      const { data } = await supabase
+      const collected = [];
+
+      // Preferred note first (from Chatbe button) — check both tables
+      if (preferredNoteId) {
+        const id = preferredNoteId;
+        const tries = [
+          supabase.from("jegyzetek").select("id, cim, original_name, text_content, processed").eq("user_id", user.id).eq("id", id).maybeSingle(),
+          supabase.from("uploaded_notes").select("id, title, original_name, text_content").eq("uploader_identity_id", user.id).eq("id", id).maybeSingle(),
+        ];
+        for (const p of tries) {
+          const { data } = await p;
+          if (data) {
+            collected.push(data);
+            break;
+          }
+        }
+      }
+
+      // Recent processed notes from jegyzetek
+      const { data: jegyzetek } = await supabase
         .from("jegyzetek")
-        .select("cim, original_name, text_content")
+        .select("id, cim, original_name, text_content, processed")
         .eq("user_id", user.id)
-        .eq("processed", true)
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      if (Array.isArray(jegyzetek)) {
+        for (const note of jegyzetek) {
+          if (collected.some((n) => String(n.id) === String(note.id))) continue;
+          // Prefer processed, but also include any with usable text_content
+          if (note.processed === false && !note.text_content) continue;
+          collected.push(note);
+        }
+      }
+
+      // Fallback table
+      const { data: uploaded } = await supabase
+        .from("uploaded_notes")
+        .select("id, title, original_name, text_content")
+        .eq("uploader_identity_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5);
 
-      if (Array.isArray(data)) {
-        for (const note of data) {
-          const title = note.cim || note.original_name || "Jegyzet";
-          const text = cleanText(note.text_content, 12000);
-          if (text.length > 80) parts.push(`=== JEGYZET: ${title} ===\n${text}`);
+      if (Array.isArray(uploaded)) {
+        for (const note of uploaded) {
+          if (collected.some((n) => String(n.id) === String(note.id))) continue;
+          collected.push(note);
+        }
+      }
+
+      let added = 0;
+      for (const note of collected) {
+        if (added >= 5) break;
+        const title = note.cim || note.title || note.original_name || "Jegyzet";
+        const text = cleanText(note.text_content, 12000);
+        if (text.length > 80) {
+          parts.push(`=== JEGYZET: ${title} ===\n${text}`);
+          added += 1;
         }
       }
     } catch (e) { console.error("Notes error:", e); }
@@ -190,7 +235,7 @@ export default async (req) => {
     }
 
     const lang = await detectLanguage(message);
-    const notesContext = await loadUserNotesContext(user, body.notes || "");
+    const notesContext = await loadUserNotesContext(user, body.notes || "", body.noteId || body.note_id || null);
     const webResult = await webSearch(message, lang);
     const webContext = webResult
       ? `=== SOURCE: ${webResult.source} ===\n${webResult.summary}\nURL: ${webResult.url}`
