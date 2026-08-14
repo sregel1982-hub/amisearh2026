@@ -11,16 +11,17 @@
   },
   "dependencies": {
     "@google/genai": "^2.8.0",
+    "@neondatabase/serverless": "^1.0.1",
     "@supabase/supabase-js": "^2.107.0",
-    "mathjs": "^12.4.1",
-    "mammoth": "^1.12.0",
-    "pdf-parse": "^2.4.5",
+    "dompurify": "^3.4.13",
+    "drizzle-orm": "^0.44.7",
     "lucide-react": "^1.14.0",
+    "mammoth": "^1.12.0",
+    "mathjs": "^12.4.1",
+    "pdf-parse": "^2.4.5",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.14.2",
-    "@neondatabase/serverless": "^1.0.1",
-    "drizzle-orm": "^0.44.7"
+    "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react-swc": "^4.3.0",

@@ -241,6 +241,21 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="/vendor/dompurify.min.js"></script>
+<script>
+  window.safeMarkdown = function (value) {
+    var source = String(value == null ? '' : value);
+    var html = (typeof marked !== 'undefined') ? marked.parse(source) : escapeHtml(source).replace(/\\n/g, '<br>');
+    if (window.DOMPurify) {
+      return DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true },
+        FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
+        FORBID_ATTR: ['style', 'onerror', 'onclick', 'onload', 'onmouseover']
+      });
+    }
+    return escapeHtml(source).replace(/\\n/g, '<br>');
+  };
+</script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -2368,7 +2383,11 @@
   };
 
   /* ──────────────────────────────────────────────────────────────
-     LemonSqueezy checkout — lásd a </body> előtti <script> blokkban
+     LemonSqueezy checkout — lásd a 
+<!-- Live Teacher Hub integration: runs after the legacy mock renderer -->
+
+
+</body> előtti <script> blokkban
      ────────────────────────────────────────────────────────────── */
 
 
@@ -2426,7 +2445,7 @@
         aiResults.innerHTML = '';
         var aiText = await window.readTextStream(response, function(text) {
           aiText = text;
-          aiResults.innerHTML = typeof marked !== 'undefined' ? marked.parse(aiText) : escapeHtml(aiText);
+          aiResults.innerHTML = window.safeMarkdown ? window.safeMarkdown(aiText) : escapeHtml(aiText);
         });
         if (!aiText) {
           aiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
@@ -2885,7 +2904,7 @@
       if (!resp.ok) throw new Error(data.error || data.message || resp.statusText || 'Summary failed');
       const summary = data.summary || '';
       if (summaryBox) {
-        const rendered = (typeof marked !== 'undefined') ? marked.parse(summary) : escapeHtml(summary).replace(/\n/g, '<br>');
+        const rendered = window.safeMarkdown ? window.safeMarkdown(summary) : escapeHtml(summary).replace(/\n/g, '<br>');
         summaryBox.innerHTML = '<div class="flex items-center justify-between gap-2 mb-2"><strong class="text-gray-900">' + escapeHtml(data.title || (lang === 'hu' ? 'Összefoglaló' : 'Summary')) + '</strong><button onclick="window.copySummaryToChat(' + window.noteIdArg(noteId) + ')" class="text-xs px-2 py-1 bg-indigo-50 text-[#6C5CE7] rounded-lg hover:bg-indigo-100"><i class="fa-solid fa-comments mr-1"></i>' + (lang === 'hu' ? 'Chatbe' : 'To chat') + '</button></div>' + rendered;
         summaryBox.dataset.summary = summary;
       }
@@ -3002,7 +3021,7 @@
       const target = document.getElementById('practiceContent');
       full = await window.readTextStream(resp, (text) => {
         full = text;
-        if (target) target.innerHTML = typeof marked !== 'undefined' ? marked.parse(full) : escapeHtml(full);
+        if (target) target.innerHTML = window.safeMarkdown ? window.safeMarkdown(full) : escapeHtml(full);
       });
       if (window.renderMathInElement && target) {
         renderMathInElement(target, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false });
@@ -3163,7 +3182,7 @@
 
       fullText = await window.readTextStream(response, function(text) {
         fullText = text;
-        target.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullText) : escapeHtml(fullText);
+        target.innerHTML = window.safeMarkdown ? window.safeMarkdown(fullText) : escapeHtml(fullText);
         chatArea.scrollTop = chatArea.scrollHeight;
       });
 
@@ -3304,7 +3323,7 @@
         heroAiResults.innerHTML = '';
         var aiText = await window.readTextStream(response, function(text) {
           aiText = text;
-          heroAiResults.innerHTML = typeof marked !== 'undefined' ? marked.parse(aiText) : escapeHtml(aiText);
+          heroAiResults.innerHTML = window.safeMarkdown ? window.safeMarkdown(aiText) : escapeHtml(aiText);
         });
         if (!aiText) {
           heroAiResults.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.') + '</div>';
@@ -3338,10 +3357,15 @@
     try {
       const res = await fetch('/.netlify/functions/site-rating', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ rating }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        resultEl.innerHTML = window.currentLang === 'hu' ? 'Az értékeléshez jelentkezz be.' : 'Please sign in to rate.';
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || 'Rating failed');
       // 5-csillag egyszeri bónusz (50 pont) — user-id-keyed + atomic
       if (rating === 5 && window.currentUser) {
         const flagKey = 'fiveStarBonusGiven_' + window.currentUser.id;
@@ -3522,7 +3546,7 @@
       let full = '';
       full = await window.readTextStream(resp, function(text) {
         full = text;
-        if (target) target.innerHTML = typeof marked !== 'undefined' ? marked.parse(full) : escapeHtml(full);
+        if (target) target.innerHTML = window.safeMarkdown ? window.safeMarkdown(full) : escapeHtml(full);
       });
 
       if (window.renderMathInElement && target) {
@@ -3582,7 +3606,7 @@
       let full = '';
       full = await window.readTextStream(resp, function(text) {
         full = text;
-        if (evalOut) evalOut.innerHTML = '<div class="prose prose-sm max-w-none">' + (typeof marked !== 'undefined' ? marked.parse(full) : escapeHtml(full)) + '</div>';
+        if (evalOut) evalOut.innerHTML = '<div class="prose prose-sm max-w-none">' + (window.safeMarkdown ? window.safeMarkdown(full) : escapeHtml(full)) + '</div>';
       });
     } catch (e) {
       if (evalOut) evalOut.innerHTML = '<div class="text-red-500 text-sm">' + (lang === 'hu' ? 'Hiba: ' : 'Error: ') + escapeHtml(e?.message || String(e)) + '</div>';
@@ -4172,5 +4196,96 @@
 })();
 </script>
 
-  </body>
+  <script id="amisearch-live-teacher-hub">
+(function () {
+  var classesCache = null;
+
+  function esc(value) {
+    var div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function headers(extra) {
+    return window.getAuthHeaders ? window.getAuthHeaders(extra || {}) : Promise.resolve(extra || {});
+  }
+  function toast(message) {
+    if (window.thToast) window.thToast(message);
+    else if (window.showToast) window.showToast(message);
+  }
+  async function loadClasses(force) {
+    if (classesCache && !force) return classesCache;
+    var response = await fetch('/.netlify/functions/classes', { headers: await headers() });
+    if (!response.ok) throw new Error('classes:' + response.status);
+    var data = await response.json();
+    classesCache = Array.isArray(data) ? data : [];
+    return classesCache;
+  }
+  async function loadNotes() {
+    var user = window.currentUser;
+    if (!user || !user.id) return [];
+    var response = await fetch('/.netlify/functions/get-my-notes', { headers: await headers() });
+    if (!response.ok) return [];
+    var data = await response.json();
+    return Array.isArray(data.notes) ? data.notes : [];
+  }
+  function pageShell(title, subtitle, action) {
+    return '<div class="max-w-7xl mx-auto"><div class="flex items-center justify-between mb-8 gap-4"><div><h1 class="text-3xl font-bold text-gray-900 mb-1">' + title + '</h1><p class="text-gray-500">' + subtitle + '</p></div>' + (action || '') + '</div>';
+  }
+  function button(label, onclick, icon) {
+    return '<button onclick="' + onclick + '" class="px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2" style="background:linear-gradient(135deg,#6C5CE7,#5A4BD1)"><i class="fa-solid ' + icon + '"></i>' + label + '</button>';
+  }
+  function stat(icon, label, value, color) {
+    return '<div class="th-stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center"><i class="fa-solid ' + icon + ' text-[#6C5CE7]"></i></div><span class="text-sm text-gray-500">' + label + '</span></div><div class="text-4xl font-extrabold ' + (color || 'text-gray-900') + '">' + value + '</div></div>';
+  }
+  async function renderDashboardLive(main) {
+    var profile = window.userProfile || {};
+    var classes = await loadClasses();
+    var total = classes.reduce(function (sum, c) { return sum + (Number(c.students) || 0); }, 0);
+    var name = profile.fullName || profile.username || (window.currentUser && window.currentUser.email ? window.currentUser.email.split('@')[0] : 'Tanár');
+    main.innerHTML = pageShell('Jó napot, ' + esc(name) + '!', classes.length + ' osztály • ' + total + ' diák összesen', '') + '<div class="grid grid-cols-2 md:grid-cols-3 gap-5 mb-10">' + stat('fa-users','Osztályok',classes.length) + stat('fa-user-graduate','Diákok',total) + stat('fa-book-open','Jegyzeteim','…') + '</div><div class="grid lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-6"><h3 class="font-bold text-gray-900 mb-4">Gyors műveletek</h3><div class="space-y-3"><button onclick="openTeacherHub(\'classes\')" class="w-full p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl text-left text-sm font-medium">Osztályok kezelése</button><button onclick="openTeacherHub(\'materials\')" class="w-full p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl text-left text-sm font-medium">Tananyagaim</button></div></div><div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6"><h3 class="font-bold text-gray-900 mb-4">Osztályaim</h3>' + (classes.length ? classes.slice(0, 6).map(function (c) { return '<div class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50"><div class="w-10 h-10 bg-[#F3F0FF] text-[#6C5CE7] font-bold rounded-xl flex items-center justify-center">' + esc((c.name || '?').charAt(0)) + '</div><div><p class="text-sm font-medium text-gray-900">' + esc(c.name) + '</p><p class="text-xs text-gray-400">' + esc(c.subject) + ' • ' + (c.students || 0) + ' diák</p></div></div>'; }).join('') : '<p class="text-gray-400 text-sm">Még nincs osztályod.</p>') + '</div></div></div>';
+  }
+  async function renderClassesLive(main) {
+    var classes = await loadClasses();
+    var cards = classes.map(function (c) { return '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"><div class="flex items-start justify-between mb-4"><div class="w-12 h-12 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white text-xl font-bold">' + esc((c.name || '?').charAt(0)) + '</div><button onclick="toggleLiveClass(\'' + c.id + '\',' + (!!c.active) + ')" class="px-2 py-1 rounded-full text-xs font-semibold ' + (c.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500') + '">' + (c.active ? 'Aktív' : 'Archív') + '</button></div><h3 class="font-bold text-gray-900 text-lg mb-1">' + esc(c.name) + '</h3><p class="text-sm text-gray-500 mb-4">' + esc(c.subject) + '</p><div class="flex items-center justify-between text-sm"><span class="text-gray-600"><i class="fa-solid fa-users text-[#6C5CE7] mr-1"></i>' + (c.students || 0) + ' diák</span><button onclick="deleteLiveClass(\'' + c.id + '\')" class="text-red-500 font-semibold text-xs">Törlés</button></div></div>'; }).join('');
+    main.innerHTML = pageShell('Osztályaim','Kezeld a saját, felhőben tárolt osztályaidat',button('Új osztály','createLiveClass()','fa-plus')) + '<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">' + cards + '<button onclick="createLiveClass()" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 min-h-[180px] text-gray-500 hover:border-[#6C5CE7]">+ Új osztály</button></div><p class="text-xs text-emerald-600 mt-6"><i class="fa-solid fa-cloud mr-1"></i>Az adatok Supabase-ben tárolódnak, így minden eszközről elérhetők.</p></div>';
+  }
+  async function renderMaterialsLive(main) {
+    var notes = await loadNotes();
+    var rows = notes.map(function (n) { return '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4"><div class="w-11 h-11 rounded-xl bg-[#F3F0FF] text-[#6C5CE7] flex items-center justify-center"><i class="fa-solid fa-file-lines"></i></div><div class="min-w-0"><p class="font-semibold text-gray-900 truncate">' + esc(n.title || n.file_name || 'Névtelen jegyzet') + '</p><p class="text-xs text-gray-500">' + esc(n.subject || 'Általános') + ' • ' + (n.created_at ? new Date(n.created_at).toLocaleDateString('hu-HU') : '') + '</p></div></div>'; }).join('');
+    main.innerHTML = pageShell('Tananyagok','A fiókodhoz tartozó feltöltött jegyzetek', '') + '<div class="space-y-3">' + (rows || '<div class="bg-white rounded-2xl p-8 text-center text-gray-400">Még nincs feltöltött tananyag.</div>') + '</div></div>';
+  }
+  window.createLiveClass = async function () {
+    var name = prompt('Osztály neve:'); if (!name) return;
+    var subject = prompt('Tantárgy:'); if (!subject) return;
+    var students = prompt('Diáklétszám:', '0');
+    var response = await fetch('/.netlify/functions/classes', { method: 'POST', headers: await headers({'Content-Type':'application/json'}), body: JSON.stringify({name:name, subject:subject, students:students}) });
+    if (!response.ok) { toast('Az osztály létrehozása nem sikerült.'); return; }
+    classesCache = null; toast('Osztály létrehozva.'); openTeacherHub('classes');
+  };
+  window.deleteLiveClass = async function (id) {
+    if (!confirm('Biztosan törlöd ezt az osztályt?')) return;
+    var response = await fetch('/.netlify/functions/classes?id=' + encodeURIComponent(id), {method:'DELETE', headers:await headers()});
+    if (!response.ok) { toast('A törlés nem sikerült.'); return; }
+    classesCache = null; toast('Osztály törölve.'); openTeacherHub('classes');
+  };
+  window.toggleLiveClass = async function (id, active) {
+    var response = await fetch('/.netlify/functions/classes?id=' + encodeURIComponent(id), {method:'PATCH', headers:await headers({'Content-Type':'application/json'}), body:JSON.stringify({active:!active})});
+    if (!response.ok) { toast('Az állapotváltás nem sikerült.'); return; }
+    classesCache = null; openTeacherHub('classes');
+  };
+  var legacyOpen = window.openTeacherHub;
+  window.openTeacherHub = function (section) {
+    section = section || 'dashboard';
+    if (!window.currentUser) { toast('A Teacher Hub használatához jelentkezz be.'); return; }
+    if (window.userProfile && window.userProfile.status !== 'teacher') { toast('A Teacher Hub csak tanári profilból érhető el.'); return; }
+    legacyOpen(section);
+    var main = document.getElementById('th-main');
+    if (!main) return;
+    main.innerHTML = '<div class="py-12 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><p class="mt-3">Adatok betöltése...</p></div>';
+    var task = section === 'dashboard' ? renderDashboardLive(main) : section === 'classes' ? renderClassesLive(main) : section === 'materials' ? renderMaterialsLive(main) : Promise.resolve();
+    task.catch(function (error) { console.error(error); main.innerHTML = '<div class="bg-white rounded-2xl p-8 text-center"><p class="text-red-500 font-semibold">Az adatok betöltése nem sikerült.</p><button onclick="openTeacherHub(\'' + section + '\')" class="mt-4 text-[#6C5CE7] underline">Újrapróbálás</button></div>'; });
+  };
+})();
+</script>
+</body>
 </html>
