@@ -58,19 +58,41 @@ export default async function handler(req) {
       return jsonError("Supabase server configuration missing", 500, "supabase_not_configured");
     }
 
-    const { data, error } = await supabase
-      .from("jegyzetek")
-      .select("text_content, cim, original_name")
-      .eq("id", noteId)
-      .eq("user_id", user.id)
-      .single();
+    // Notes can live in either `jegyzetek` (primary) or `uploaded_notes` (fallback schema).
+    // List endpoint merges both; summarize must do the same lookup.
+    async function findNote() {
+      const idVariants = [noteId];
+      const asNum = Number(noteId);
+      if (Number.isFinite(asNum) && String(asNum) === String(noteId)) idVariants.push(asNum);
 
-    if (error || !data) {
+      for (const id of idVariants) {
+        const a = await supabase
+          .from("jegyzetek")
+          .select("id, text_content, cim, title, original_name, file_path, file_name, user_id")
+          .eq("id", id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!a.error && a.data) return { row: a.data, table: "jegyzetek" };
+
+        const b = await supabase
+          .from("uploaded_notes")
+          .select("id, text_content, title, original_name, file_name, uploader_identity_id")
+          .eq("id", id)
+          .eq("uploader_identity_id", user.id)
+          .maybeSingle();
+        if (!b.error && b.data) return { row: b.data, table: "uploaded_notes" };
+      }
+      return null;
+    }
+
+    const found = await findNote();
+    if (!found) {
       return jsonError("Note not found", 404, "note_not_found");
     }
 
+    const data = found.row;
     const content = cleanText(data.text_content, 22000);
-    const title = data.cim || data.original_name || "Jegyzet";
+    const title = data.cim || data.title || data.original_name || data.file_name || data.file_path || "Jegyzet";
 
     if (!content) {
       return jsonError("A jegyzetnek nincs kinyert szövege. Először feldolgozás vagy újraindexelés szükséges.", 400, "empty_content");
