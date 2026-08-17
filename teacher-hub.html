@@ -73,7 +73,7 @@
 </head>
 <body class="bg-gray-50 antialiased min-h-screen">
 
-<!-- ── Auth / role gate — shown until we've confirmed a logged-in teacher ── -->
+<!-- ── Auth / role gate ── -->
 <div id="authGate">
   <div class="w-14 h-14 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">
     <i class="fa-solid fa-graduation-cap"></i>
@@ -118,7 +118,6 @@
         <span>Vissza a főoldalra</span>
       </a>
 
-      <!-- Real user card, filled in by loadTeacherProfile() -->
       <div class="rounded-2xl bg-white border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
         <div id="sidebarAvatar" class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white font-bold text-lg">?</div>
         <div class="min-w-0">
@@ -178,10 +177,7 @@
 
 <script type="module">
 /* ────────────────────────────────────────────────────────────────
-   1) SUPABASE AUTH + ROLE GUARD
-   Uses the same project the rest of AMISEARCH uses. This page is
-   only usable by someone who is (a) logged in and (b) has
-   profile.status === 'teacher' in /.netlify/functions/user-profile.
+   SUPABASE AUTH + ROLE GUARD
    ──────────────────────────────────────────────────────────────── */
 const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
 const supabase = createClient(
@@ -214,49 +210,48 @@ async function guardAndInit() {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
-    // Nincs bejelentkezve → vissza a főoldalra, ahol be tud lépni
-    setGateMsg('Bejelentkezés szükséges. Átirányítás...');
-    setTimeout(() => { window.location.href = 'index.html'; }, 900);
+    setGateMsg('Bejelentkezés szükséges. <a href="index.html" class="text-[#6C5CE7] underline">Belépés</a>');
     return;
   }
 
-  setGateMsg('<i class="fa-solid fa-spinner fa-spin"></i> Profil ellenőrzése...');
+  setGateMsg('<i class="fa-solid fa-spinner fa-spin"></i> Profil betöltése...');
 
-  let profile = null;
   try {
     const res = await fetch('/.netlify/functions/user-profile', { headers: await getAuthHeaders() });
-    if (res.ok) {
-      const data = await res.json();
-      profile = data.profile || null;
+    
+    if (!res.ok) {
+      throw new Error(`Profile fetch failed: ${res.status}`);
     }
+    
+    const data = await res.json();
+    const profile = data.profile;
+
+    if (!profile) {
+      setGateMsg('Profil nem található. <a href="index.html" class="text-[#6C5CE7] underline">Vissza</a>');
+      return;
+    }
+
+    if (profile.status !== 'teacher') {
+      setGateMsg('⚠️ Ez a terület csak tanároknak érhető el.<br><a href="index.html" class="text-[#6C5CE7] underline mt-2 inline-block">Vissza a főoldalra</a>');
+      setTimeout(() => { window.location.href = 'index.html'; }, 3000);
+      return;
+    }
+
+    window.teacherProfile = profile;
+    document.getElementById('authGate').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+
+    const initial = (profile.username || profile.fullName || 'T').charAt(0).toUpperCase();
+    document.getElementById('sidebarAvatar').textContent = initial;
+    document.getElementById('sidebarName').textContent = profile.fullName || profile.username || 'Tanár';
+    document.getElementById('sidebarPlan').textContent = String(profile.plan || 'Free').toLowerCase() === 'pro' ? 'Pro' : 'Free';
+
+    window.showSection('dashboard');
+    
   } catch (e) {
-    console.error('Profile fetch failed:', e);
+    console.error('Guard error:', e);
+    setGateMsg(`Hiba történt: ${e.message}. <a href="index.html" class="text-[#6C5CE7] underline">Vissza</a>`);
   }
-
-  if (!profile) {
-    setGateMsg('Nem sikerült betölteni a profilt. <a href="index.html" class="text-[#6C5CE7] underline">Vissza a főoldalra</a>');
-    return;
-  }
-
-  if (profile.status !== 'teacher') {
-    // Diák próbálja megnyitni → vissza a diák dashboardra
-    setGateMsg('Ez a terület csak tanároknak érhető el. Átirányítás a főoldalra...');
-    setTimeout(() => { window.location.href = 'index.html'; }, 1200);
-    return;
-  }
-
-  // ✅ Belépett és tanár — beengedjük
-  window.teacherProfile = profile;
-  document.getElementById('authGate').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-
-  const initial = (profile.username || profile.fullName || 'T').charAt(0).toUpperCase();
-  const isPro = String(profile.plan || '').toLowerCase() === 'pro';
-  document.getElementById('sidebarAvatar').textContent = initial;
-  document.getElementById('sidebarName').textContent = profile.fullName || profile.username || 'Tanár';
-  document.getElementById('sidebarPlan').textContent = isPro ? 'Pro' : 'Free';
-
-  window.showSection('dashboard');
 }
 
 guardAndInit();
@@ -287,14 +282,9 @@ function escapeHtml(text) {
 }
 
 /* ────────────────────────────────────────────────────────────────
-   2) CLASSES — real backend (/.netlify/functions/classes), with a
-   localStorage fallback ONLY while that function/table isn't live
-   yet. Once you've run the SQL migration and deployed classes.js,
-   every call below hits the real API and the fallback is never used.
-   window.classesBackendLive tells the UI which mode is active so it
-   can show a small notice instead of silently diverging.
+   CLASSES - real backend with localStorage fallback
    ──────────────────────────────────────────────────────────────── */
-window.classesBackendLive = null; // null = unknown yet, true/false once probed
+window.classesBackendLive = null;
 
 function classesStorageKey() {
   const uid = (window.teacherProfile && window.teacherProfile.id) || 'anon';
@@ -308,7 +298,6 @@ function saveClassesLocal(list) {
   localStorage.setItem(classesStorageKey(), JSON.stringify(list));
 }
 
-// Normalizes API rows (snake_case) and local rows (camelCase) to one shape.
 function normalizeClass(row) {
   return {
     id: row.id,
@@ -327,7 +316,6 @@ async function loadClasses() {
       const data = await resp.json();
       return Array.isArray(data) ? data.map(normalizeClass) : [];
     }
-    // 404/500 → function not deployed yet or DB not migrated → fallback
     window.classesBackendLive = false;
   } catch (e) {
     window.classesBackendLive = false;
@@ -362,7 +350,6 @@ window.submitNewClass = async function() {
     }
   }
 
-  // Fallback: local only
   const list = loadClassesLocal();
   list.push({ id: 'c' + Date.now(), name, subject, students, active: true, createdAt: new Date().toISOString() });
   saveClassesLocal(list);
@@ -419,7 +406,7 @@ window.toggleClassActive = async function(id, currentActive) {
 };
 
 /* ────────────────────────────────────────────────────────────────
-   3) SECTION ROUTER
+   SECTION ROUTER
    ──────────────────────────────────────────────────────────────── */
 function showSection(section) {
   currentSection = section;
@@ -443,7 +430,6 @@ function showSection(section) {
 }
 window.showSection = showSection;
 
-/* ── Dashboard ── */
 async function renderDashboard() {
   const profile = window.teacherProfile || {};
   const classes = await loadClasses();
@@ -525,7 +511,6 @@ async function renderDashboard() {
   `;
 }
 
-/* ── Classes (real backend CRUD, with local fallback) ── */
 async function renderClasses() {
   const main = document.getElementById('main-content');
   main.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-10 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Osztályok betöltése...</span></div>';
@@ -567,13 +552,12 @@ async function renderClasses() {
         <i class="fa-solid ${window.classesBackendLive ? 'fa-cloud-check' : 'fa-circle-info'} mr-1"></i>
         ${window.classesBackendLive
           ? 'Az osztályaid a fiókodhoz vannak mentve, minden eszközön elérhetők.'
-          : 'A háttér-adatbázis (classes.js / classes tábla) még nincs élesítve, így az osztályok egyelőre csak ezen a böngészőn tárolódnak.'}
+          : 'A háttér-adatbázis még nincs élesítve, így az osztályok egyelőre csak ezen a böngészőn tárolódnak.'}
       </p>
     </div>
   `;
 }
 
-/* ── Exams: links to the real AI exam simulator already on index.html ── */
 function renderExams() {
   document.getElementById('main-content').innerHTML = `
     <div class="max-w-7xl mx-auto">
@@ -594,12 +578,11 @@ function renderExams() {
           </a>
         </div>
       </div>
-      <p class="text-sm text-gray-400"><i class="fa-solid fa-circle-info mr-1"></i>A generált feladatsorok és kiértékelések jelenleg munkamenetenként jönnek létre. Ha szeretnéd, hogy a diákok beadott vizsgái és eredményei itt, osztályonként listázva jelenjenek meg, ahhoz egy vizsga-eredmény tábla bekötése szükséges a backendben.</p>
+      <p class="text-sm text-gray-400"><i class="fa-solid fa-circle-info mr-1"></i>A generált feladatsorok és kiértékelések jelenleg munkamenetenként jönnek létre.</p>
     </div>
   `;
 }
 
-/* ── Analytics: derived from real data we actually have ── */
 async function renderAnalytics() {
   const main = document.getElementById('main-content');
   main.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-10 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Adatok betöltése...</span></div>';
@@ -648,12 +631,10 @@ async function renderAnalytics() {
           <p class="text-sm">Hozz létre osztályokat, hogy itt megjelenjen az analitika.</p>
         </div>
       `}
-      <p class="text-xs text-gray-400 mt-6"><i class="fa-solid fa-circle-info mr-1"></i>Teljesítmény- és plágium-analitikához (pl. beadott dolgozatok pontszáma) egy vizsgaeredmény-tábla bekötése szükséges a backendben — ez az adat még nem létezik.</p>
     </div>
   `;
 }
 
-/* ── Materials: REAL data from /.netlify/functions/notes ── */
 async function renderMaterials() {
   const main = document.getElementById('main-content');
   main.innerHTML = `
