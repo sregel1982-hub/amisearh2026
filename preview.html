@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<!-- skill:chrome -->
+<style>
+/* Credit line — bottom-right */
+.design-ui-credit {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font: 11px/1 system-ui, sans-serif;
+  color: rgba(128,128,128,0.5);
+  pointer-events: none;
+  z-index: 2147483647;
+  transition: opacity 0.4s ease;
+  user-select: none;
+  letter-spacing: 0.02em;
+}
+
+/* Hide chrome on touch devices */
+@media (hover: none) {
+  .design-ui-credit { display: none; }
+}
+
+/* Print fixes */
+@media print {
+  * {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .design-ui-credit { display: none !important; }
+}
+
+</style>
+<script>
+(function () {
+    // Design-ui pages are single compositions, so the whole body is editable.
+    function markEditable() {
+        document.body.classList.add('artifact-editable');
+    }
+
+    // Credit badge with idle-fade. Hover devices only.
+    function initChromeUI() {
+        if (!matchMedia('(hover: hover)').matches) return;
+
+        var credit = document.createElement('div');
+        credit.className = 'design-ui-credit';
+        credit.setAttribute('aria-hidden', 'true');
+        credit.innerHTML = '\u{1F49C} by ClickUp Brain';
+        document.body.appendChild(credit);
+
+        var timer = null;
+        var fade = function (out) { credit.style.opacity = out ? '0' : ''; };
+        fade(true);
+        var show = function () {
+            fade(false);
+            clearTimeout(timer);
+            timer = setTimeout(function () { fade(true); }, 3000);
+        };
+        document.addEventListener('mousemove', show);
+        show();
+    }
+
+    function init() {
+        markEditable();
+        initChromeUI();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+
+</script>
+<!-- /skill:chrome -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AMISEARCH | Teacher Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: oklch(67% .16 163); --green-dark: oklch(56% .15 163); --green-soft: oklch(96% .035 163);
+      --purple: oklch(64% .16 294); --purple-soft: oklch(96% .035 294);
+      --ink: oklch(21% .025 250); --muted: oklch(58% .025 250); --line: oklch(91% .015 250);
+      --canvas: oklch(98% .009 250); --surface: oklch(100% .003 250); --danger: oklch(54% .18 25);
+      --radius: 15px; --ease: cubic-bezier(.16,1,.3,1); --shadow: 0 8px 24px oklch(25% .03 250 / .06);
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; color:var(--ink); background:var(--canvas); font-family:"DM Sans",system-ui,sans-serif; font-size:15px; line-height:1.5; }
+    button,input { font:inherit; } button { cursor:pointer; } button:disabled { cursor:wait; opacity:.55; }
+    a { color:inherit; text-decoration:none; } :focus-visible { outline:3px solid oklch(74% .16 294); outline-offset:3px; }
+    h1,h2,h3,p { margin:0; } h1,h2,h3 { font-family:"Space Grotesk",sans-serif; text-wrap:balance; }
+    .hidden { display:none !important; } .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+    .topbar { height:74px; display:flex; align-items:center; justify-content:space-between; padding:0 clamp(18px,6vw,92px); background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; }
+    .top-brand { display:flex; align-items:center; gap:10px; font-family:"Space Grotesk",sans-serif; font-size:21px; font-weight:700; letter-spacing:-.04em; color:var(--green); }
+    .top-mark,.side-mark { display:grid; place-items:center; color:oklch(98% .01 163); background:var(--green); border-radius:11px; font-weight:700; box-shadow:0 6px 14px oklch(67% .16 163 / .24); }
+    .top-mark { width:34px; height:34px; font-size:18px; } .top-nav { display:flex; align-items:center; gap:27px; }
+    .top-nav a { color:var(--green-dark); font-weight:600; font-size:14px; } .top-nav a:hover { color:var(--purple); }
+    .language { border:0; background:oklch(96% .01 250); color:var(--ink); border-radius:8px; padding:8px 13px; font-weight:600; font-size:13px; }
+    .top-user { display:flex; align-items:center; gap:10px; } .top-user-copy { text-align:right; font-size:12px; line-height:1.2; } .top-user-copy b { display:block; } .top-user-copy span { color:var(--purple); font-weight:700; } .top-avatar { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; color:oklch(98% .01 294); background:oklch(63% .22 274); font-weight:700; }
+    .app { display:grid; grid-template-columns:218px minmax(0,1fr); min-height:calc(100vh - 74px); }
+    .sidebar { background:var(--surface); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:calc(100vh - 74px); position:sticky; top:74px; height:calc(100vh - 74px); }
+    .side-brand { padding:23px 20px 18px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line); }
+    .side-mark { width:37px; height:37px; font-size:18px; } .side-brand-name { font-family:"Space Grotesk",sans-serif; color:var(--green-dark); font-weight:700; font-size:19px; letter-spacing:-.04em; line-height:1; } .side-brand-sub { color:var(--green-dark); font-size:11px; font-weight:700; margin-top:5px; }
+    .nav-label { color:oklch(70% .02 250); font-size:11px; text-transform:uppercase; font-weight:700; padding:18px 22px 8px; letter-spacing:.08em; }
+    .nav { display:grid; gap:3px; padding:0 10px; } .nav button { border:0; background:transparent; color:var(--ink); text-align:left; display:flex; align-items:center; gap:12px; padding:11px 13px; border-radius:10px; font-weight:500; transition:transform .2s var(--ease),background .2s var(--ease),color .2s var(--ease); }
+    .nav button:hover { background:var(--purple-soft); color:var(--purple); transform:translateX(2px); } .nav button.active { background:var(--purple-soft); color:var(--purple); font-weight:700; }
+    .nav-icon { width:18px; text-align:center; font-size:16px; }
+    .side-footer { margin-top:auto; padding:16px 10px 17px; border-top:1px solid var(--line); } .role-switch { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:3px; border-radius:11px; background:var(--purple-soft); margin-bottom:12px; } .role-switch button { border:0; border-radius:8px; padding:8px 4px; background:transparent; color:var(--muted); font-weight:700; font-size:12px; } .role-switch button.active { background:var(--surface); color:var(--green-dark); box-shadow:0 2px 7px oklch(25% .03 250 / .08); }
+    .back { display:block; color:var(--green-dark); background:oklch(98% .012 163); padding:10px 12px; border-radius:10px; font-size:13px; font-weight:600; margin-bottom:12px; } .back:hover { background:var(--green-soft); }
+    .mini-profile { display:flex; align-items:center; gap:9px; border:1px solid var(--line); border-radius:11px; padding:9px; } .mini-avatar { width:29px; height:29px; border-radius:9px; display:grid; place-items:center; color:oklch(98% .01 163); background:var(--green); font-size:12px; font-weight:700; } .mini-copy { min-width:0; flex:1; } .mini-copy b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; } .mini-copy span { color:var(--purple); font-size:11px; } .logout { width:27px; height:27px; border:0; background:transparent; color:var(--muted); border-radius:7px; } .logout:hover { background:oklch(96% .025 25); color:var(--danger); }
+    .main { min-width:0; max-width:1325px; width:100%; margin:0 auto; padding:34px clamp(24px,8vw,120px) 60px; }
+    .page-head { margin-bottom:27px; } .page-head h1 { font-size:clamp(28px,3.1vw,39px); letter-spacing:-.06em; line-height:1.1; } .page-head p { color:var(--muted); margin-top:3px; }
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:32px; } .stat { background:var(--surface); border:1px solid var(--line); border-radius:15px; padding:20px 21px 19px; box-shadow:0 1px 2px oklch(25% .03 250 / .02); } .stat-head { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; } .stat-icon { width:33px; height:33px; border-radius:10px; display:grid; place-items:center; background:var(--purple-soft); color:var(--purple); font-weight:700; } .stat:nth-child(2) .stat-icon,.stat:nth-child(3) .stat-icon { background:var(--green-soft); color:var(--green-dark); } .stat-value { font-family:"Space Grotesk",sans-serif; font-size:30px; font-weight:700; letter-spacing:-.06em; line-height:1; margin-top:15px; font-variant-numeric:tabular-nums; } .stat:nth-child(4) .stat-value { color:var(--green-dark); }
+    .lower { display:grid; grid-template-columns:335px minmax(0,1fr); gap:18px; } .panel { background:var(--surface); border:1px solid var(--line); border-radius:15px; padding:20px 20px 18px; min-width:0; } .panel-title { display:flex; align-items:center; gap:7px; font-size:15px; letter-spacing:-.03em; margin-bottom:15px; } .panel-title .accent { color:var(--green-dark); }
+    .quick { display:grid; gap:8px; } .quick button { border:0; background:oklch(98% .006 250); border-radius:10px; padding:10px; display:flex; align-items:center; gap:11px; text-align:left; color:var(--ink); transition:transform .2s var(--ease),background .2s var(--ease); } .quick button:hover { transform:translateX(2px); background:var(--green-soft); } .quick-icon { width:31px; height:31px; border-radius:9px; background:var(--green); color:oklch(98% .01 163); display:grid; place-items:center; font-weight:700; flex:none; } .quick button:last-child .quick-icon { background:oklch(93% .015 250); color:var(--muted); } .quick span { font-size:13px; font-weight:500; }
+    .activity { display:grid; gap:0; } .activity-row { display:flex; align-items:center; gap:12px; padding:8px 8px; min-height:54px; } .activity-row + .activity-row { margin-top:3px; } .activity-icon { width:33px; height:33px; border-radius:10px; display:grid; place-items:center; flex:none; background:var(--green-soft); color:var(--green-dark); font-weight:700; } .activity-row:nth-child(2) .activity-icon { background:oklch(96% .025 230); color:oklch(55% .18 250); } .activity-row:nth-child(3) .activity-icon { background:var(--purple-soft); color:var(--purple); } .activity-row:nth-child(4) .activity-icon { background:oklch(97% .035 75); color:oklch(63% .15 75); } .activity-copy { min-width:0; } .activity-copy b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; } .activity-copy span { display:block; color:oklch(72% .02 250); font-size:11px; }
+    .subpage-head { display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:25px; } .subpage-head h1 { font-size:34px; letter-spacing:-.06em; } .subpage-head p { color:var(--muted); margin-top:5px; } .btn { min-height:41px; border:0; border-radius:10px; padding:0 15px; display:inline-flex; align-items:center; justify-content:center; gap:7px; font-weight:700; font-size:13px; transition:transform .2s var(--ease),background .2s var(--ease); } .btn:hover { transform:translateY(-1px); } .btn-primary { color:oklch(98% .01 163); background:var(--green-dark); } .btn-primary:hover { background:oklch(50% .15 163); } .btn-outline { background:var(--surface); border:1px solid var(--line); color:var(--green-dark); } .btn-outline:hover { background:var(--green-soft); }
+    .form-panel { margin-bottom:18px; } .form-grid { display:grid; grid-template-columns:1fr 1fr 125px auto; gap:9px; align-items:end; } .field label { display:block; color:var(--muted); font-size:11px; font-weight:700; margin-bottom:5px; } .input { width:100%; height:41px; border:1px solid var(--line); border-radius:9px; padding:0 11px; color:var(--ink); background:var(--surface); } .input:focus { border-color:var(--green); }
+    .class-grid,.material-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(245px,1fr)); gap:13px; } .class-card,.material-card { border:1px solid var(--line); border-radius:13px; padding:17px; background:var(--surface); } .class-top { display:flex; justify-content:space-between; gap:9px; } .class-card h3 { font-size:17px; } .class-sub { color:var(--muted); font-size:12px; margin-top:3px; } .pill { padding:4px 8px; border-radius:999px; font-size:10px; font-weight:700; height:max-content; } .pill.on { background:var(--green-soft); color:var(--green-dark); } .pill.off { background:oklch(96% .01 250); color:var(--muted); } .class-foot { border-top:1px solid var(--line); margin-top:17px; padding-top:12px; display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:12px; } .text-btn { border:0; background:transparent; color:var(--green-dark); font-weight:700; font-size:11px; padding:4px; } .text-btn:hover { text-decoration:underline; } .danger { color:var(--danger); }
+    .exam { background:var(--green); color:oklch(98% .01 163); border-radius:15px; padding:27px; display:flex; justify-content:space-between; align-items:center; gap:20px; } .exam h2 { font-size:24px; margin-bottom:6px; } .exam p { max-width:64ch; color:oklch(94% .035 163); font-size:13px; } .exam .btn { background:var(--surface); color:var(--green-dark); }
+    .analytics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; } .chart { height:260px; display:flex; gap:14px; align-items:end; padding:18px 0 0; } .bar-item { flex:1; height:225px; display:grid; grid-template-rows:20px 1fr 20px; justify-items:center; min-width:35px; } .bar-track { width:min(46px,100%); height:185px; background:var(--green-soft); border-radius:9px 9px 4px 4px; align-self:end; display:flex; align-items:end; overflow:hidden; } .bar-fill { width:100%; background:var(--green); min-height:4px; border-radius:9px 9px 4px 4px; transform-origin:bottom; animation:rise .55s var(--ease) both; } .bar-value { font-weight:700; color:var(--green-dark); font-size:12px; } .bar-label { color:var(--muted); font-size:10px; max-width:80px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; } @keyframes rise { from{transform:scaleY(0)} to{transform:scaleY(1)} }
+    .upload { margin-bottom:20px; } .upload-grid { display:grid; grid-template-columns:1fr 1fr 1.25fr auto; gap:9px; align-items:end; } .file-input { height:41px; border:1px dashed oklch(76% .1 163); border-radius:9px; padding:0 8px; display:flex; align-items:center; overflow:hidden; color:var(--muted); } .file-input input { width:100%; font-size:11px; } .material-card { display:flex; align-items:center; gap:11px; } .file-icon { width:35px; height:35px; border-radius:9px; display:grid; place-items:center; background:var(--green-soft); color:var(--green-dark); font-weight:700; flex:none; } .material-copy { min-width:0; flex:1; } .material-copy b,.material-copy span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .material-copy b { font-size:12px; } .material-copy span { color:var(--muted); font-size:11px; margin-top:2px; } .download { border:0; background:transparent; color:var(--green-dark); font-weight:700; }
+    .empty { border:1px dashed var(--line); border-radius:11px; padding:28px 16px; text-align:center; color:var(--muted); font-size:13px; grid-column:1/-1; } .empty b { color:var(--ink); display:block; margin-bottom:3px; } .notice { color:var(--green-dark); background:var(--green-soft); padding:11px 13px; border-radius:10px; font-size:12px; margin-bottom:17px; }
+    .auth-screen { min-height:100vh; display:grid; place-items:center; background:var(--canvas); padding:20px; } .auth-box { width:min(410px,100%); background:var(--surface); border:1px solid var(--line); border-radius:17px; padding:30px; box-shadow:var(--shadow); } .auth-box .top-brand { justify-content:center; margin-bottom:25px; } .auth-box h1 { text-align:center; font-size:27px; } .auth-box > p { text-align:center; color:var(--muted); margin:6px 0 22px; font-size:13px; } .tabs { display:grid; grid-template-columns:1fr 1fr; gap:4px; background:var(--purple-soft); padding:3px; border-radius:10px; margin-bottom:18px; } .tabs button { border:0; background:transparent; color:var(--muted); border-radius:7px; padding:8px; font-weight:700; font-size:12px; } .tabs button.active { background:var(--surface); color:var(--purple); } .auth-form { display:grid; gap:13px; } .auth-form .btn { width:100%; margin-top:2px; } .error { color:var(--danger); background:oklch(96% .025 25); padding:9px 11px; border-radius:9px; font-size:12px; }
+    .toast { position:fixed; right:20px; bottom:20px; background:var(--ink); color:oklch(98% .01 250); padding:11px 14px; border-radius:9px; font-size:12px; transform:translateY(15px); opacity:0; pointer-events:none; transition:transform .25s var(--ease),opacity .25s var(--ease); z-index:40; } .toast.show { transform:translateY(0); opacity:1; } .toast.error { background:var(--danger); }
+    @media(max-width:1050px){ .top-nav{gap:13px}.top-nav a:nth-child(-n+3){display:none}.main{padding-inline:32px}.lower{grid-template-columns:1fr}.sidebar{grid-row:1} }
+    @media(max-width:760px){ .topbar{height:62px;padding:0 15px}.top-nav,.top-user-copy,.language{display:none}.app{grid-template-columns:1fr}.sidebar{position:fixed;top:62px;left:0;z-index:18;width:230px;height:calc(100vh - 62px);transform:translateX(-105%);transition:transform .3s var(--ease);box-shadow:15px 0 35px oklch(25% .03 250 / .14)}.sidebar.open{transform:translateX(0)}.mobile-menu{display:grid !important}.main{padding:27px 16px 44px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:15px}.stat-value{font-size:26px}.stat-head{font-size:12px}.lower{gap:13px}.subpage-head{display:block}.subpage-head .btn{width:100%;margin-top:17px}.form-grid,.upload-grid{grid-template-columns:1fr}.form-grid .btn,.upload-grid .btn{width:100%}.analytics-grid{grid-template-columns:1fr}.exam{display:block;padding:21px}.exam .btn{width:100%;margin-top:17px}.chart{gap:7px}.bar-label{max-width:53px}.mobile-overlay{position:fixed;inset:62px 0 0;background:oklch(20% .025 250 / .34);z-index:17} }
+    @media(min-width:761px){.mobile-menu{display:none !important}}
+  </style>
+</head>
+<body>
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-box">
+      <div class="top-brand"><span class="top-mark">A</span> AMISEARCH</div>
+      <h1 id="authTitle">Üdv újra</h1><p id="authSubtitle">Lépj be a Teacher Hub felületére.</p>
+      <div class="tabs"><button id="loginTab" class="active" type="button">Belépés</button><button id="signupTab" type="button">Regisztráció</button></div>
+      <form id="authForm" class="auth-form">
+        <div class="field hidden" id="nameField"><label for="authName">Teljes név</label><input class="input" id="authName" placeholder="Sregel Lajos"></div>
+        <div class="field"><label for="authEmail">E-mail</label><input class="input" id="authEmail" type="email" required placeholder="tanar@example.com"></div>
+        <div class="field"><label for="authPassword">Jelszó</label><input class="input" id="authPassword" type="password" minlength="6" required placeholder="Legalább 6 karakter"></div>
+        <div id="authError" class="error hidden" role="alert"></div><button id="authSubmit" class="btn btn-primary" type="submit">Belépés</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <a class="top-brand" href="index.html"><span class="top-mark">A</span> AMISEARCH</a>
+      <nav class="top-nav" aria-label="Főoldal navigáció"><a href="index.html#features">Funkciók</a><a href="index.html#pricing">Árak</a><a href="index.html#ai-tutor">AI Tutor</a><a href="#dashboard">Teacher Hub</a><a href="index.html#about">Rólunk</a><a href="index.html#faq">FAQ</a></nav>
+      <div class="top-user"><button class="language" type="button">◉ HU</button><a href="#" id="logoutTop" style="color:var(--green-dark);font-weight:700;font-size:13px">Kilépés</a><div class="top-user-copy"><b id="topName">sregel1982</b><span id="topRole">Diák · Pro</span></div><div class="top-avatar" id="topAvatar">S</div><button class="mobile-menu btn btn-outline" id="menuBtn" type="button" aria-label="Menü">☰</button></div>
+    </header>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <a class="side-brand" href="#dashboard"><span class="side-mark">A</span><span><span class="side-brand-name">AMISEARCH</span><span class="side-brand-sub">Teacher Hub</span></span></a>
+        <div class="nav-label">Menü</div>
+        <nav class="nav"><button data-section="dashboard" class="active"><span class="nav-icon">▦</span>Irányítópult</button><button data-section="classes"><span class="nav-icon">♣</span>Osztályaim</button><button data-section="exams"><span class="nav-icon">▤</span>Online Vizsgák</button><button data-section="analytics"><span class="nav-icon">⌁</span>Analitika</button><button data-section="materials"><span class="nav-icon">▮</span>Tananyagok</button></nav>
+        <div class="side-footer"><div class="role-switch"><button class="active" type="button">▣ Tanár</button><button type="button" onclick="location.href='index.html'">♟ Diák</button></div><a class="back" href="index.html">← Vissza a főoldalra</a><div class="mini-profile"><div id="miniAvatar" class="mini-avatar">S</div><div class="mini-copy"><b id="miniName">Sregel Lajos</b><span id="miniPlan">Tanár · Pro</span></div><button class="logout" id="logoutSide" type="button" title="Kijelentkezés">↪</button></div></div>
+      </aside>
+      <div id="mobileOverlay" class="mobile-overlay hidden"></div>
+      <main id="main" class="main"></main>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script>
+    const SUPABASE_URL='https://rvgzvseejzbzmcqidnzc.supabase.co';
+    const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2Z3p2c2Vlampiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ';
+    const REST=SUPABASE_URL+'/rest/v1/'; const STORAGE=SUPABASE_URL+'/storage/v1/'; const SESSION_KEY='amisearch_teacher_session';
+    let session=loadSession(), profile=null, mode='login', toastTimer;
+    const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)]; const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); const initials=v=>(String(v||'T').trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'T').toUpperCase();
+    function loadSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}} function saveSession(v){session=v;if(v)localStorage.setItem(SESSION_KEY,JSON.stringify(v));else localStorage.removeItem(SESSION_KEY)}
+    function headers(extra={}){return{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+(session?.access_token||SUPABASE_ANON_KEY),...extra}} async function api(url,opt={}){const r=await fetch(url,{...opt,headers:headers(opt.headers||{})});const t=await r.text();let b=null;try{b=t?JSON.parse(t):null}catch{b=t}if(!r.ok)throw new Error(b?.message||b?.hint||b?.error_description||(typeof b==='string'?b:'HTTP '+r.status));return b}
+    function toast(msg,error=false){const x=$('#toast');x.textContent=msg;x.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>x.className='toast',3000)} function errorBox(msg=''){const x=$('#authError');x.textContent=msg;x.classList.toggle('hidden',!msg)}
+    async function signIn(email,password){return api(SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})})} async function signUp(email,password,name){return api(SUPABASE_URL+'/auth/v1/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{full_name:name,status:'teacher'}})})}
+    async function logout(){try{await api(SUPABASE_URL+'/auth/v1/logout',{method:'POST'})}catch{}saveSession(null);profile=null;location.reload()}
+    async function getProfile(){const rows=await api(REST+'profiles?select=*&id=eq.'+encodeURIComponent(session.user.id));return rows?.[0]||null}
+    async function start(){if(!session?.access_token)return showAuth();try{profile=await getProfile();if(!profile)throw new Error('A profilod nem található. Futtasd le a mellékelt SQL sémát a Supabase-ben.');const status=String(profile.status||profile.role||'').toLowerCase();if(!['teacher','tanár','admin'].includes(status))throw new Error('Ez a terület csak tanári profiloknak érhető el.');const name=profile.full_name||profile.fullName||profile.username||session.user.email;const plan=String(profile.plan||'Free').toLowerCase()==='pro'?'Pro':'Free';$('#authScreen').classList.add('hidden');$('#app').classList.remove('hidden');$('#topName').textContent=profile.username||session.user.email.split('@')[0];$('#topRole').textContent='Tanár · '+plan;$('#topAvatar').textContent=initials(name).slice(0,1);$('#miniName').textContent=name;$('#miniPlan').textContent='Tanár · '+plan;$('#miniAvatar').textContent=initials(name).slice(0,1);await go(location.hash.slice(1)||'dashboard')}catch(e){saveSession(null);showAuth(e.message)}}
+    function showAuth(msg=''){$('#authScreen').classList.remove('hidden');$('#app').classList.add('hidden');errorBox(msg)}
+    $('#loginTab').onclick=()=>setMode('login');$('#signupTab').onclick=()=>setMode('signup');function setMode(m){mode=m;const s=m==='signup';$('#loginTab').classList.toggle('active',!s);$('#signupTab').classList.toggle('active',s);$('#nameField').classList.toggle('hidden',!s);$('#authName').required=s;$('#authTitle').textContent=s?'Tanári fiók létrehozása':'Üdv újra';$('#authSubtitle').textContent=s?'Készíts tanári fiókot az éles Teacher Hubhoz.':'Lépj be a Teacher Hub felületére.';$('#authSubmit').textContent=s?'Regisztráció':'Belépés';errorBox()}
+    $('#authForm').onsubmit=async e=>{e.preventDefault();const b=$('#authSubmit');b.disabled=true;b.textContent='Feldolgozás…';errorBox();try{const d=mode==='signup'?await signUp($('#authEmail').value.trim(),$('#authPassword').value,$('#authName').value.trim()):await signIn($('#authEmail').value.trim(),$('#authPassword').value);if(mode==='signup'&&!d.access_token){errorBox('Ellenőrizd a postafiókod, majd lépj be a megerősített e-maillel.');return}saveSession(d);await start()}catch(x){errorBox(x.message)}finally{b.disabled=false;b.textContent=mode==='signup'?'Regisztráció':'Belépés'}};
+    $('#logoutTop').onclick=e=>{e.preventDefault();logout()};$('#logoutSide').onclick=logout;$('#menuBtn').onclick=()=>{$('#sidebar').classList.add('open');$('#mobileOverlay').classList.remove('hidden')};$('#mobileOverlay').onclick=()=>{$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')};$$('.nav button').forEach(b=>b.onclick=()=>{go(b.dataset.section);$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')});
+    async function classes(){return api(REST+'teacher_classes?select=id,name,subject,students,active,created_at&teacher_id=eq.'+encodeURIComponent(session.user.id)+'&order=created_at.desc')} async function notes(){return api(REST+'teacher_notes?select=id,title,subject,original_name,storage_path,created_at&owner_id=eq.'+encodeURIComponent(session.user.id)+'&order=created_at.desc')} async function optional(table){try{return await api(REST+table+'?select=*&teacher_id=eq.'+encodeURIComponent(session.user.id)+'&order=created_at.desc')}catch{return[]}}
+    async function updateClass(id,data){return api(REST+'teacher_classes?id=eq.'+encodeURIComponent(id)+'&teacher_id=eq.'+encodeURIComponent(session.user.id),{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)})} async function addClass(data){return api(REST+'teacher_classes',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({...data,teacher_id:session.user.id})})} async function deleteClass(id){return api(REST+'teacher_classes?id=eq.'+encodeURIComponent(id)+'&teacher_id=eq.'+encodeURIComponent(session.user.id),{method:'DELETE'})}
+    function stat(icon,label,value){return `<div class="stat"><div class="stat-head"><span class="stat-icon">${icon}</span>${esc(label)}</div><div class="stat-value">${esc(value)}</div></div>`} function wait(){ $('#main').innerHTML='<div class="empty"><b>Adatok betöltése…</b><span>Kapcsolódás a Supabase adatbázishoz.</span></div>'} function nav(){ $$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===location.hash.slice(1))) }
+    async function go(section){const allowed=['dashboard','classes','exams','analytics','materials'];section=allowed.includes(section)?section:'dashboard';location.hash=section;nav();wait();try{if(section==='dashboard')return dashboard();if(section==='classes')return classPage();if(section==='exams')return exams();if(section==='analytics')return analytics();return materials()}catch(e){$('#main').innerHTML=`<div class="empty"><b>Nem sikerült betölteni</b><span>${esc(e.message)}</span></div>`}} window.go=go;
+    const classRow=c=>`<div class="activity-row"><span class="activity-icon">♣</span><div class="activity-copy"><b>${esc(c.name)}</b><span>${esc(c.subject)} · ${Number(c.students)||0} diák</span></div></div>`;
+    async function dashboard(){const [cs,ex,acts]=await Promise.all([classes(),optional('teacher_exams'),optional('teacher_activity')]);const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const name=profile.full_name||profile.fullName||profile.username||'Tanár';const act=acts.slice(0,4);$('#main').innerHTML=`<div class="page-head"><h1>Jó napot, ${esc(name)}! 👋</h1><p>${cs.filter(c=>c.active).length} aktív osztály · ${ex.length} vizsga vár beadandó</p></div><div class="stats">${stat('♣','Osztályok',cs.length)}${stat('♟','Diákok',total)}${stat('▤','Feladatsor',ex.length)}${stat('⌁','Aktivitás',act.length?Math.min(100,Math.round(act.length*24))+'%':'0%')}</div><div class="lower"><section class="panel"><h2 class="panel-title"><span class="accent">ϟ</span>Gyors műveletek</h2><div class="quick"><button data-go="exams"><span class="quick-icon">▤</span><span>Új vizsga létrehozása</span></button><button data-go="classes"><span class="quick-icon">♣</span><span>Osztályok kezelése</span></button><button data-go="analytics"><span class="quick-icon">▤</span><span>Statisztikák</span></button><a class="quick" href="index.html" style="display:flex;align-items:center;gap:11px;background:oklch(98% .006 250);border-radius:10px;padding:10px"><span class="quick-icon">⌂</span><span>Vissza a főoldalra</span></a></div></section><section class="panel"><h2 class="panel-title"><span class="accent">⟲</span>Legutóbbi tevékenység</h2><div class="activity">${act.length?act.map((a,i)=>`<div class="activity-row"><span class="activity-icon">${i===0?'▤':i===1?'♟':i===2?'⌁':'!'}</span><div class="activity-copy"><b>${esc(a.title||a.message||a.name||'Tevékenység')}</b><span>${esc(a.time_label||'Most')}</span></div></div>`).join(''):cs.length?cs.slice(0,4).map(classRow).join(''):`<div class="empty"><b>Még nincs aktivitás</b><span>A mentett osztályok itt jelennek meg.</span></div>`}</div></section></div>`;bindGo()}
+    function bindGo(){$$('[data-go]').forEach(x=>x.onclick=e=>{e.preventDefault();go(x.dataset.go)})}
+    async function classPage(){const cs=await classes();$('#main').innerHTML=`<div class="subpage-head"><div><h1>Osztályaim</h1><p>Kezeld az osztályaidat és a hozzájuk tartozó létszámot.</p></div></div><section class="panel form-panel"><h2 class="panel-title"><span class="accent">+</span>Új osztály</h2><form id="classForm" class="form-grid"><div class="field"><label>Osztály neve</label><input class="input" id="cName" required placeholder="9.B osztály"></div><div class="field"><label>Tantárgy</label><input class="input" id="cSubject" required placeholder="Matematika"></div><div class="field"><label>Diáklétszám</label><input class="input" id="cStudents" type="number" min="0" value="0"></div><button class="btn btn-primary" type="submit">Létrehozás</button></form></section><section class="class-grid">${cs.length?cs.map(c=>`<article class="class-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="class-sub">${esc(c.subject)}</div></div><span class="pill ${c.active?'on':'off'}">${c.active?'Aktív':'Archivált'}</span></div><div class="class-foot"><span>♣ ${Number(c.students)||0} diák</span><span><button class="text-btn" data-toggle="${esc(c.id)}" data-active="${c.active}">${c.active?'Archiválás':'Aktiválás'}</button><button class="text-btn danger" data-delete="${esc(c.id)}">Törlés</button></span></div></article>`).join(''):`<div class="empty"><b>Még nincs osztályod</b><span>A fenti űrlappal hozz létre egyet.</span></div>`}</section>`;$('#classForm').onsubmit=async e=>{e.preventDefault();try{await addClass({name:$('#cName').value.trim(),subject:$('#cSubject').value.trim(),students:Number($('#cStudents').value)||0,active:true});toast('Osztály létrehozva');go('classes')}catch(x){toast(x.message,true)}};$$('[data-toggle]').forEach(b=>b.onclick=async()=>{try{await updateClass(b.dataset.toggle,{active:b.dataset.active!=='true'});go('classes')}catch(x){toast(x.message,true)}});$$('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Biztosan törlöd ezt az osztályt?'))return;try{await deleteClass(b.dataset.delete);toast('Osztály törölve');go('classes')}catch(x){toast(x.message,true)}})}
+    function exams(){$('#main').innerHTML=`<div class="subpage-head"><div><h1>Online Vizsgák</h1><p>Az AI vizsgaszimulátor továbbra is a főoldalon érhető el.</p></div></div><section class="exam"><div><h2>AI vizsgaszimulátor</h2><p>Adj meg témát, nehézséget és időtartamot, az AI elkészíti az időzített feladatsort.</p></div><a class="btn" href="index.html#exam-simulator">Megnyitás →</a></section>`}
+    async function analytics(){const cs=await classes();const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const max=Math.max(...cs.map(c=>Number(c.students)||0),1);const avg=cs.length?Math.round(total/cs.length):0;$('#main').innerHTML=`<div class="subpage-head"><div><h1>Analitika</h1><p>Valós osztályadatok, demo számok nélkül.</p></div></div><div class="analytics-grid">${stat('♣','Összes diák',total)}${stat('▤','Osztályok',cs.length)}${stat('⌁','Átlag osztálylétszám',avg)}</div><section class="panel"><h2 class="panel-title"><span class="accent">⌁</span>Osztályonkénti létszám</h2>${cs.length?`<div class="chart">${cs.map(c=>`<div class="bar-item"><span class="bar-value">${Number(c.students)||0}</span><div class="bar-track"><div class="bar-fill" style="height:${Math.max(3,Math.round((Number(c.students)||0)/max*100))}%"></div></div><span class="bar-label" title="${esc(c.name)}">${esc(c.name)}</span></div>`).join('')}</div>`:`<div class="empty"><b>Nincs adat</b><span>Hozz létre osztályokat, hogy megjelenjen az analitika.</span></div>`}</section>`}
+    async function upload(file,title,subject){const path=session.user.id+'/'+crypto.randomUUID()+'-'+file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-');await api(STORAGE+'object/teacher-notes/'+path,{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream','x-upsert':'false'},body:file});return api(REST+'teacher_notes',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({owner_id:session.user.id,title:title||file.name,subject:subject||'',original_name:file.name,storage_path:path})})} async function download(n){const r=await api(STORAGE+'object/sign/teacher-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paths:[n.storage_path],expiresIn:3600})});const u=Array.isArray(r)?r[0]?.signedURL:r?.signedURL;if(u)window.open(u.startsWith('http')?u:STORAGE.replace('/storage/v1/','')+u,'_blank','noopener')}
+    async function materials(){const ns=await notes();$('#main').innerHTML=`<div class="subpage-head"><div><h1>Tananyagok</h1><p>A saját fiókodba feltöltött jegyzeteid.</p></div></div><div class="notice">A fájlok a Supabase Storage privát <b>teacher-notes</b> bucketjébe kerülnek.</div><section class="panel upload"><h2 class="panel-title"><span class="accent">↑</span>Tananyag feltöltése</h2><form id="uploadForm" class="upload-grid"><div class="field"><label>Cím</label><input class="input" id="nTitle" placeholder="Algebra alapok"></div><div class="field"><label>Tantárgy</label><input class="input" id="nSubject" placeholder="Matematika"></div><div class="field"><label>Fájl, max. 15 MB</label><div class="file-input"><input id="nFile" type="file" accept=".pdf,.docx,.pptx,.txt,.md" required></div></div><button class="btn btn-primary" type="submit">Feltöltés</button></form><div class="material-grid">${ns.length?ns.map(n=>`<article class="material-card"><span class="file-icon">▤</span><div class="material-copy"><b>${esc(n.title||n.original_name)}</b><span>${esc(n.subject||'Nincs tantárgy')}</span></div><button class="download" data-download="${esc(n.id)}">↓</button></article>`).join(''):`<div class="empty"><b>Még nincs feltöltött tananyagod</b><span>Az első fájl feltöltése után itt lesz mindenhol elérhető.</span></div>`}</div></section>`;$('#uploadForm').onsubmit=async e=>{e.preventDefault();const f=$('#nFile').files[0];if(!f)return;if(f.size>15*1024*1024)return toast('A fájl legfeljebb 15 MB lehet.',true);try{await upload(f,$('#nTitle').value.trim(),$('#nSubject').value.trim());toast('Tananyag feltöltve');go('materials')}catch(x){toast(x.message,true)}};$$('[data-download]').forEach(b=>b.onclick=async()=>{try{await download(ns.find(n=>n.id===b.dataset.download))}catch(x){toast(x.message,true)}})}
+    start();
+  </script>
+</body>
+</html>

@@ -1,711 +1,126 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="hu">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AMISEARCH – Teacher Hub</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Poppins', 'system-ui', 'sans-serif'] },
-          colors: {
-            amisearch: { DEFAULT: '#6C5CE7', light: '#A29BFE', soft: '#F3F0FF', dark: '#5A4BD1' }
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    * { font-family: 'Poppins', system-ui, sans-serif; box-sizing: border-box; }
-    body { scroll-behavior: smooth; overflow-x: hidden; }
-    .card { border-radius: 1.25rem; }
-    .logo { letter-spacing: -0.04em; }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #6C5CE7 0%, #5A4BD1 100%);
-      transition: all 0.3s ease;
-    }
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px -5px rgba(108, 92, 231, 0.4);
-    }
-    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
-
-    .gradient-text {
-      background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .nav-link-active {
-      background: #F3F0FF;
-      color: #6C5CE7;
-      font-weight: 600;
-    }
-
-    .scroller-thin::-webkit-scrollbar { width: 4px; }
-    .scroller-thin::-webkit-scrollbar-track { background: transparent; }
-    .scroller-thin::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .fade-in { animation: fadeIn 0.3s ease; }
-
-    .stat-card { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px -8px rgba(108, 92, 231, 0.18); }
-
-    .modal { display: none; }
-    .modal.active { display: flex; }
-
-    #authGate {
-      position: fixed; inset: 0; z-index: 100; background: #F9FAFB;
-      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1rem;
-    }
-  </style>
-</head>
-<body class="bg-gray-50 antialiased min-h-screen">
-
-<!-- ── Auth / role gate ── -->
-<div id="authGate">
-  <div class="w-14 h-14 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">
-    <i class="fa-solid fa-graduation-cap"></i>
-  </div>
-  <p id="authGateMsg" class="text-gray-500 text-sm flex items-center gap-2">
-    <i class="fa-solid fa-spinner fa-spin"></i> Ellenőrzés folyamatban...
-  </p>
-</div>
-
-<div id="app" class="min-h-screen hidden">
-  <div class="flex">
-
-  <!-- SIDEBAR -->
-  <aside id="sidebar" class="fixed lg:sticky top-0 left-0 z-40 w-[268px] h-screen bg-white border-r border-gray-200 flex flex-col transition-transform -translate-x-full lg:translate-x-0 shadow-sm">
-
-    <div class="px-6 pt-6 pb-5 border-b border-gray-100">
-      <a href="index.html" class="flex items-center gap-3 group" title="Vissza a főoldalra">
-        <div class="w-11 h-11 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-2xl flex items-center justify-center text-white text-xl shadow">
-          <i class="fa-solid fa-graduation-cap"></i>
-        </div>
-        <div>
-          <div class="font-bold text-2xl text-gray-900 logo group-hover:text-[#6C5CE7] transition">AMISEARCH</div>
-          <div class="text-xs text-[#6C5CE7] font-semibold">Teacher Hub</div>
-        </div>
-      </a>
-    </div>
-
-    <nav class="px-3 pt-5 flex-1 overflow-y-auto scroller-thin">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Menü</p>
-      <ul class="space-y-1">
-        <li><a href="#" onclick="showSection('dashboard'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition" data-section="dashboard"><i class="fa-solid fa-border-all w-5 text-center"></i><span>Irányítópult</span></a></li>
-        <li><a href="#" onclick="showSection('classes'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="classes"><i class="fa-solid fa-users w-5 text-center"></i><span>Osztályaim</span></a></li>
-        <li><a href="#" onclick="showSection('exams'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="exams"><i class="fa-solid fa-file-lines w-5 text-center"></i><span>Online Vizsgák</span></a></li>
-        <li><a href="#" onclick="showSection('analytics'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="analytics"><i class="fa-solid fa-chart-line w-5 text-center"></i><span>Analitika</span></a></li>
-        <li><a href="#" onclick="showSection('materials'); return false;" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700" data-section="materials"><i class="fa-solid fa-book-open w-5 text-center"></i><span>Tananyagok</span></a></li>
-      </ul>
-    </nav>
-
-    <div class="px-4 pb-6 mt-auto border-t border-gray-100 pt-5 space-y-4">
-      <a href="index.html" class="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-50 hover:bg-[#F3F0FF] text-gray-600 hover:text-[#6C5CE7] transition text-sm font-medium">
-        <i class="fa-solid fa-arrow-left"></i>
-        <span>Vissza a főoldalra</span>
-      </a>
-
-      <div class="rounded-2xl bg-white border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
-        <div id="sidebarAvatar" class="w-10 h-10 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white font-bold text-lg">?</div>
-        <div class="min-w-0">
-          <div id="sidebarName" class="font-semibold text-gray-900 text-sm truncate">…</div>
-          <div class="text-xs text-[#6C5CE7]">Tanár &bull; <span id="sidebarPlan">…</span></div>
-        </div>
-        <button onclick="handleLogout()" title="Kijelentkezés" class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- MAIN CONTENT -->
-  <div class="flex-1 flex flex-col min-w-0">
-    <header class="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
-      <button onclick="toggleSidebar()" class="p-2 rounded-xl hover:bg-gray-100 text-xl text-gray-700"><i class="fa-solid fa-bars"></i></button>
-      <a href="index.html" class="flex items-center gap-2 font-bold text-xl gradient-text"><i class="fa-solid fa-graduation-cap text-[#6C5CE7]"></i> AMISEARCH</a>
-      <a href="index.html" class="text-sm text-[#6C5CE7] font-medium hover:underline"><i class="fa-solid fa-arrow-left mr-1"></i>Főoldal</a>
-    </header>
-
-    <main id="main-content" class="flex-1 p-6 lg:p-10 fade-in"></main>
-  </div>
-  </div>
-</div>
-
-<div id="sidebar-overlay" class="hidden fixed inset-0 bg-black/40 z-30 lg:hidden" onclick="toggleSidebar()"></div>
-<div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3 rounded-2xl shadow-2xl hidden z-50 text-sm font-medium">Kész</div>
-
-<!-- New class modal -->
-<div id="newClassModal" class="modal fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="text-xl font-bold text-gray-900">Új osztály</h3>
-      <button onclick="closeModal('newClassModal')" class="w-9 h-9 hover:bg-gray-100 rounded-lg flex items-center justify-center"><i class="fa-solid fa-xmark text-gray-500"></i></button>
-    </div>
-    <form onsubmit="event.preventDefault(); submitNewClass();" class="space-y-3">
-      <div>
-        <label class="block text-sm font-semibold text-gray-700 mb-1">Osztály neve</label>
-        <input id="newClassName" required class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none" placeholder="Pl: 9.A Osztály">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-700 mb-1">Tantárgy</label>
-        <input id="newClassSubject" required class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none" placeholder="Pl: Matematika">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-700 mb-1">Diáklétszám</label>
-        <input id="newClassStudents" type="number" min="0" value="0" class="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#6C5CE7] outline-none">
-      </div>
-      <div class="flex gap-2 pt-2">
-        <button type="button" onclick="closeModal('newClassModal')" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg">Mégse</button>
-        <button type="submit" class="flex-1 py-2.5 btn-primary text-white font-semibold rounded-lg">Létrehozás</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script type="module">
-/* ────────────────────────────────────────────────────────────────
-   SUPABASE AUTH + ROLE GUARD
-   ──────────────────────────────────────────────────────────────── */
-const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-const supabase = createClient(
-  'https://rvgzvseejzbzmcqidnzc.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ'
-);
-window.supabaseClient = supabase;
-window.teacherProfile = null;
-
-function setGateMsg(html) {
-  const el = document.getElementById('authGateMsg');
-  if (el) el.innerHTML = html;
+<!-- skill:chrome -->
+<style>
+/* Credit line — bottom-right */
+.design-ui-credit {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font: 11px/1 system-ui, sans-serif;
+  color: rgba(128,128,128,0.5);
+  pointer-events: none;
+  z-index: 2147483647;
+  transition: opacity 0.4s ease;
+  user-select: none;
+  letter-spacing: 0.02em;
 }
 
-async function getAuthHeaders(extra) {
-  const headers = extra ? Object.assign({}, extra) : {};
-  const { data } = await supabase.auth.getSession();
-  const token = data.session ? data.session.access_token : null;
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  return headers;
+/* Hide chrome on touch devices */
+@media (hover: none) {
+  .design-ui-credit { display: none; }
 }
-window.getAuthHeaders = getAuthHeaders;
 
-window.handleLogout = async function() {
-  try { await supabase.auth.signOut(); } catch (e) {}
-  window.location.href = 'index.html';
-};
-
-async function guardAndInit() {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    setGateMsg('Bejelentkezés szükséges. <a href="index.html" class="text-[#6C5CE7] underline">Belépés</a>');
-    return;
+/* Print fixes */
+@media print {
+  * {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
   }
-
-  setGateMsg('<i class="fa-solid fa-spinner fa-spin"></i> Profil betöltése...');
-
-  try {
-    const res = await fetch('/.netlify/functions/user-profile', { headers: await getAuthHeaders() });
-    
-    if (!res.ok) {
-      throw new Error(`Profile fetch failed: ${res.status}`);
-    }
-    
-    const data = await res.json();
-    const profile = data.profile;
-
-    if (!profile) {
-      setGateMsg('Profil nem található. <a href="index.html" class="text-[#6C5CE7] underline">Vissza</a>');
-      return;
-    }
-
-    if (profile.status !== 'teacher') {
-      setGateMsg('⚠️ Ez a terület csak tanároknak érhető el.<br><a href="index.html" class="text-[#6C5CE7] underline mt-2 inline-block">Vissza a főoldalra</a>');
-      setTimeout(() => { window.location.href = 'index.html'; }, 3000);
-      return;
-    }
-
-    window.teacherProfile = profile;
-    document.getElementById('authGate').classList.add('hidden');
-    document.getElementById('app').classList.remove('hidden');
-
-    const initial = (profile.username || profile.fullName || 'T').charAt(0).toUpperCase();
-    document.getElementById('sidebarAvatar').textContent = initial;
-    document.getElementById('sidebarName').textContent = profile.fullName || profile.username || 'Tanár';
-    document.getElementById('sidebarPlan').textContent = String(profile.plan || 'Free').toLowerCase() === 'pro' ? 'Pro' : 'Free';
-
-    window.showSection('dashboard');
-    
-  } catch (e) {
-    console.error('Guard error:', e);
-    setGateMsg(`Hiba történt: ${e.message}. <a href="index.html" class="text-[#6C5CE7] underline">Vissza</a>`);
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
+  .design-ui-credit { display: none !important; }
 }
 
-guardAndInit();
-</script>
-
+</style>
 <script>
-let currentSection = 'dashboard';
-
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('-translate-x-full');
-  document.getElementById('sidebar-overlay').classList.toggle('hidden');
-}
-
-function openModal(id) { document.getElementById(id).classList.add('active'); document.body.style.overflow = 'hidden'; }
-function closeModal(id) { document.getElementById(id).classList.remove('active'); document.body.style.overflow = ''; }
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  setTimeout(() => t.classList.add('hidden'), 2500);
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text == null ? '' : String(text);
-  return div.innerHTML;
-}
-
-/* ────────────────────────────────────────────────────────────────
-   CLASSES - real backend with localStorage fallback
-   ──────────────────────────────────────────────────────────────── */
-window.classesBackendLive = null;
-
-function classesStorageKey() {
-  const uid = (window.teacherProfile && window.teacherProfile.id) || 'anon';
-  return 'amisearch_teacher_classes_' + uid;
-}
-function loadClassesLocal() {
-  try { return JSON.parse(localStorage.getItem(classesStorageKey()) || '[]'); }
-  catch (e) { return []; }
-}
-function saveClassesLocal(list) {
-  localStorage.setItem(classesStorageKey(), JSON.stringify(list));
-}
-
-function normalizeClass(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    subject: row.subject,
-    students: Number(row.students) || 0,
-    active: row.active !== false,
-  };
-}
-
-async function loadClasses() {
-  try {
-    const resp = await fetch('/.netlify/functions/classes', { headers: await window.getAuthHeaders() });
-    if (resp.ok) {
-      window.classesBackendLive = true;
-      const data = await resp.json();
-      return Array.isArray(data) ? data.map(normalizeClass) : [];
+(function () {
+    // Design-ui pages are single compositions, so the whole body is editable.
+    function markEditable() {
+        document.body.classList.add('artifact-editable');
     }
-    window.classesBackendLive = false;
-  } catch (e) {
-    window.classesBackendLive = false;
-  }
-  return loadClassesLocal().map(normalizeClass);
-}
 
-window.submitNewClass = async function() {
-  const name = document.getElementById('newClassName').value.trim();
-  const subject = document.getElementById('newClassSubject').value.trim();
-  const students = parseInt(document.getElementById('newClassStudents').value || '0', 10) || 0;
-  if (!name || !subject) return;
+    // Credit badge with idle-fade. Hover devices only.
+    function initChromeUI() {
+        if (!matchMedia('(hover: hover)').matches) return;
 
-  if (window.classesBackendLive !== false) {
-    try {
-      const resp = await fetch('/.netlify/functions/classes', {
-        method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ name, subject, students }),
-      });
-      if (resp.ok) {
-        window.classesBackendLive = true;
-        closeModal('newClassModal');
-        resetNewClassForm();
-        showToast('Osztály létrehozva!');
-        showSection('classes');
-        return;
-      }
-      window.classesBackendLive = false;
-    } catch (e) {
-      window.classesBackendLive = false;
+        var credit = document.createElement('div');
+        credit.className = 'design-ui-credit';
+        credit.setAttribute('aria-hidden', 'true');
+        credit.innerHTML = '\u{1F49C} by ClickUp Brain';
+        document.body.appendChild(credit);
+
+        var timer = null;
+        var fade = function (out) { credit.style.opacity = out ? '0' : ''; };
+        fade(true);
+        var show = function () {
+            fade(false);
+            clearTimeout(timer);
+            timer = setTimeout(function () { fade(true); }, 3000);
+        };
+        document.addEventListener('mousemove', show);
+        show();
     }
-  }
 
-  const list = loadClassesLocal();
-  list.push({ id: 'c' + Date.now(), name, subject, students, active: true, createdAt: new Date().toISOString() });
-  saveClassesLocal(list);
-  closeModal('newClassModal');
-  resetNewClassForm();
-  showToast('Osztály létrehozva (helyben tárolva)');
-  showSection('classes');
-};
-
-function resetNewClassForm() {
-  document.getElementById('newClassName').value = '';
-  document.getElementById('newClassSubject').value = '';
-  document.getElementById('newClassStudents').value = '0';
-}
-
-window.deleteClass = async function(id) {
-  if (!confirm('Biztosan törlöd ezt az osztályt?')) return;
-
-  if (window.classesBackendLive !== false) {
-    try {
-      const resp = await fetch('/.netlify/functions/classes?id=' + encodeURIComponent(id), {
-        method: 'DELETE',
-        headers: await window.getAuthHeaders(),
-      });
-      if (resp.ok) { window.classesBackendLive = true; showSection('classes'); return; }
-      window.classesBackendLive = false;
-    } catch (e) {
-      window.classesBackendLive = false;
+    function init() {
+        markEditable();
+        initChromeUI();
     }
-  }
 
-  saveClassesLocal(loadClassesLocal().filter(c => c.id !== id));
-  showSection('classes');
-};
-
-window.toggleClassActive = async function(id, currentActive) {
-  if (window.classesBackendLive !== false) {
-    try {
-      const resp = await fetch('/.netlify/functions/classes?id=' + encodeURIComponent(id), {
-        method: 'PATCH',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ active: !currentActive }),
-      });
-      if (resp.ok) { window.classesBackendLive = true; showSection('classes'); return; }
-      window.classesBackendLive = false;
-    } catch (e) {
-      window.classesBackendLive = false;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
-  }
+})();
 
-  const list = loadClassesLocal().map(c => c.id === id ? Object.assign({}, c, { active: !c.active }) : c);
-  saveClassesLocal(list);
-  showSection('classes');
-};
-
-/* ────────────────────────────────────────────────────────────────
-   SECTION ROUTER
-   ──────────────────────────────────────────────────────────────── */
-function showSection(section) {
-  currentSection = section;
-  document.querySelectorAll('.nav-link').forEach(link => {
-    link.className = link.dataset.section === section
-      ? 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl nav-link-active transition'
-      : 'nav-link flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition text-gray-700';
-  });
-  const main = document.getElementById('main-content');
-  main.className = 'flex-1 p-6 lg:p-10 fade-in';
-  void main.offsetWidth;
-
-  switch (section) {
-    case 'dashboard': renderDashboard(); break;
-    case 'classes': renderClasses(); break;
-    case 'exams': renderExams(); break;
-    case 'analytics': renderAnalytics(); break;
-    case 'materials': renderMaterials(); break;
-    default: renderDashboard();
-  }
-}
-window.showSection = showSection;
-
-async function renderDashboard() {
-  const profile = window.teacherProfile || {};
-  const classes = await loadClasses();
-  const totalStudents = classes.reduce((sum, c) => sum + (Number(c.students) || 0), 0);
-  const name = profile.fullName || profile.username || 'Tanár';
-
-  document.getElementById('main-content').innerHTML = `
-    <div class="max-w-7xl mx-auto">
-      <div class="mb-8">
-        <h1 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-1">Jó napot, ${escapeHtml(name)}! 👋</h1>
-        <p class="text-gray-500">${classes.length} osztály &bull; ${totalStudents} diák összesen</p>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-5 mb-10">
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center"><i class="fa-solid fa-users text-[#6C5CE7]"></i></div>
-            <span class="text-sm text-gray-500">Osztályok</span>
-          </div>
-          <div class="text-4xl font-extrabold text-gray-900">${classes.length}</div>
-        </div>
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-[#F3F0FF] rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-graduate text-[#6C5CE7]"></i></div>
-            <span class="text-sm text-gray-500">Diákok</span>
-          </div>
-          <div class="text-4xl font-extrabold text-gray-900">${totalStudents}</div>
-        </div>
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-crown text-emerald-600"></i></div>
-            <span class="text-sm text-gray-500">Előfizetés</span>
-          </div>
-          <div class="text-2xl font-extrabold text-emerald-600">${String(profile.plan || 'Free').toLowerCase() === 'pro' ? 'Pro' : 'Free'}</div>
-        </div>
-      </div>
-
-      <div class="grid lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-[#6C5CE7]"></i> Gyors műveletek</h3>
-          <div class="space-y-3">
-            <button onclick="showSection('classes')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-users text-white text-sm"></i></div>
-              <span class="text-sm font-medium text-gray-700">Osztályok kezelése</span>
-            </button>
-            <button onclick="showSection('materials')" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-book-open text-white text-sm"></i></div>
-              <span class="text-sm font-medium text-gray-700">Feltöltött jegyzeteim</span>
-            </button>
-            <a href="index.html#exam-simulator" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#F3F0FF] rounded-xl transition text-left">
-              <div class="w-9 h-9 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-lg flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-file-circle-plus text-white text-sm"></i></div>
-              <span class="text-sm font-medium text-gray-700">AI vizsgaszimulátor megnyitása</span>
-            </a>
-          </div>
-        </div>
-
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-users text-[#6C5CE7]"></i> Osztályaim</h3>
-          ${classes.length ? `
-            <div class="space-y-3">
-              ${classes.slice(0, 5).map(c => `
-                <div class="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition">
-                  <div class="w-10 h-10 bg-[#F3F0FF] text-[#6C5CE7] font-bold rounded-xl flex items-center justify-center flex-shrink-0">${escapeHtml((c.name || '?').charAt(0))}</div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(c.name)}</p>
-                    <p class="text-xs text-gray-400">${escapeHtml(c.subject)} &bull; ${c.students || 0} diák</p>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          ` : `
-            <div class="text-center py-8 text-gray-400">
-              <i class="fa-solid fa-users text-3xl mb-3"></i>
-              <p class="text-sm">Még nincs osztályod. <button onclick="showSection('classes')" class="text-[#6C5CE7] font-semibold hover:underline">Hozz létre egyet</button></p>
-            </div>
-          `}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function renderClasses() {
-  const main = document.getElementById('main-content');
-  main.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-10 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Osztályok betöltése...</span></div>';
-  const classes = await loadClasses();
-  document.getElementById('main-content').innerHTML = `
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900 mb-1">Osztályaim</h1>
-          <p class="text-gray-500">Kezeld osztályaidat és diákjaidat</p>
-        </div>
-        <button onclick="openModal('newClassModal')" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
-          <i class="fa-solid fa-plus"></i> Új osztály
-        </button>
-      </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        ${classes.map(cls => `
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
-            <div class="flex items-start justify-between mb-4">
-              <div class="w-12 h-12 bg-gradient-to-br from-[#6C5CE7] to-[#A29BFE] rounded-xl flex items-center justify-center text-white text-xl font-bold">${escapeHtml((cls.name || '?').charAt(0))}</div>
-              <button onclick="toggleClassActive('${cls.id}', ${cls.active ? 'true' : 'false'})" class="px-2 py-1 rounded-full text-xs font-semibold ${cls.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}">
-                ${cls.active ? 'Aktív' : 'Archív'}
-              </button>
-            </div>
-            <h3 class="font-bold text-gray-900 text-lg mb-1">${escapeHtml(cls.name)}</h3>
-            <p class="text-sm text-gray-500 mb-4">${escapeHtml(cls.subject)}</p>
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-gray-600"><i class="fa-solid fa-users text-[#6C5CE7] mr-1"></i>${cls.students || 0} diák</span>
-              <button onclick="deleteClass('${cls.id}')" class="text-red-500 font-semibold hover:underline text-xs"><i class="fa-solid fa-trash mr-1"></i>Törlés</button>
-            </div>
-          </div>
-        `).join('')}
-        <div onclick="openModal('newClassModal')" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#6C5CE7] hover:bg-[#F3F0FF] transition min-h-[180px]">
-          <div class="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-plus text-gray-500 text-xl"></i></div>
-          <p class="text-sm font-medium text-gray-500">Új osztály hozzáadása</p>
-        </div>
-      </div>
-      <p class="text-xs ${window.classesBackendLive ? 'text-emerald-500' : 'text-amber-500'} mt-6">
-        <i class="fa-solid ${window.classesBackendLive ? 'fa-cloud-check' : 'fa-circle-info'} mr-1"></i>
-        ${window.classesBackendLive
-          ? 'Az osztályaid a fiókodhoz vannak mentve, minden eszközön elérhetők.'
-          : 'A háttér-adatbázis még nincs élesítve, így az osztályok egyelőre csak ezen a böngészőn tárolódnak.'}
-      </p>
-    </div>
-  `;
-}
-
-function renderExams() {
-  document.getElementById('main-content').innerHTML = `
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900 mb-1">Online Vizsgák</h1>
-          <p class="text-gray-500">Az AI vizsgaszimulátor a főoldalon érhető el</p>
-        </div>
-      </div>
-      <div class="bg-gradient-to-br from-[#6C5CE7] to-[#5A4BD1] rounded-2xl p-6 mb-8 text-white">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h3 class="text-xl font-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI Vizsgaszimulátor</h3>
-            <p class="text-purple-100 text-sm">Add meg a témát, nehézséget és időtartamot — az AI elkészíti az időzített feladatsort, majd ki is tudod értékeltetni vele a diákok válaszait.</p>
-          </div>
-          <a href="index.html#exam-simulator" class="bg-white text-[#6C5CE7] font-bold px-6 py-3 rounded-xl hover:bg-gray-100 transition flex-shrink-0 whitespace-nowrap">
-            Megnyitás <i class="fa-solid fa-arrow-right ml-1"></i>
-          </a>
-        </div>
-      </div>
-      <p class="text-sm text-gray-400"><i class="fa-solid fa-circle-info mr-1"></i>A generált feladatsorok és kiértékelések jelenleg munkamenetenként jönnek létre.</p>
-    </div>
-  `;
-}
-
-async function renderAnalytics() {
-  const main = document.getElementById('main-content');
-  main.innerHTML = '<div class="flex items-center gap-2 text-gray-400 py-10 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Adatok betöltése...</span></div>';
-  const classes = await loadClasses();
-  const totalStudents = classes.reduce((sum, c) => sum + (Number(c.students) || 0), 0);
-  const avgClassSize = classes.length ? Math.round(totalStudents / classes.length) : 0;
-
-  document.getElementById('main-content').innerHTML = `
-    <div class="max-w-7xl mx-auto">
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-1">Analitika</h1>
-        <p class="text-gray-500">Osztályaid áttekintése</p>
-      </div>
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-users text-blue-600"></i></div><span class="text-sm text-gray-500">Összes diák</span></div>
-          <div class="text-4xl font-extrabold text-gray-900">${totalStudents}</div>
-        </div>
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-chalkboard text-emerald-600"></i></div><span class="text-sm text-gray-500">Osztályok</span></div>
-          <div class="text-4xl font-extrabold text-gray-900">${classes.length}</div>
-        </div>
-        <div class="stat-card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-scale-balanced text-amber-600"></i></div><span class="text-sm text-gray-500">Átlag osztálylétszám</span></div>
-          <div class="text-4xl font-extrabold text-gray-900">${avgClassSize}</div>
-        </div>
-      </div>
-      ${classes.length ? `
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 class="font-bold text-gray-900 mb-6 flex items-center gap-2"><i class="fa-solid fa-chart-bar text-[#6C5CE7]"></i> Osztályonkénti létszám</h3>
-          <div class="space-y-5">
-            ${classes.map(c => {
-              const pct = totalStudents ? Math.round((Number(c.students) || 0) / totalStudents * 100) : 0;
-              return `
-                <div>
-                  <div class="flex justify-between text-sm mb-1"><span class="font-medium text-gray-700">${escapeHtml(c.name)}</span><span class="font-bold text-[#6C5CE7]">${c.students || 0} diák</span></div>
-                  <div class="w-full bg-gray-100 rounded-full h-3"><div class="h-3 rounded-full bg-gradient-to-r from-[#6C5CE7] to-[#A29BFE]" style="width:${pct}%"></div></div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      ` : `
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400">
-          <i class="fa-solid fa-chart-line text-3xl mb-3"></i>
-          <p class="text-sm">Hozz létre osztályokat, hogy itt megjelenjen az analitika.</p>
-        </div>
-      `}
-    </div>
-  `;
-}
-
-async function renderMaterials() {
-  const main = document.getElementById('main-content');
-  main.innerHTML = `
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900 mb-1">Tananyagok</h1>
-          <p class="text-gray-500">A saját fiókodba feltöltött jegyzeteid</p>
-        </div>
-        <a href="index.html" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-xl flex items-center gap-2">
-          <i class="fa-solid fa-cloud-arrow-up"></i> Feltöltés a főoldalon
-        </a>
-      </div>
-      <div id="materialsList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div class="col-span-full flex items-center gap-2 text-gray-400 py-6 justify-center"><i class="fa-solid fa-spinner fa-spin"></i><span>Jegyzetek betöltése...</span></div>
-      </div>
-    </div>
-  `;
-
-  const listEl = document.getElementById('materialsList');
-  try {
-    const resp = await fetch('/.netlify/functions/notes', { headers: await window.getAuthHeaders() });
-    if (!resp.ok) {
-      listEl.innerHTML = '<div class="col-span-full text-center text-red-500 py-6">Hiba a jegyzetek betöltésekor.</div>';
-      return;
-    }
-    const notes = await resp.json();
-    if (!Array.isArray(notes) || notes.length === 0) {
-      listEl.innerHTML = `
-        <div class="col-span-full bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center text-gray-400">
-          <i class="fa-solid fa-book-open text-3xl mb-3"></i>
-          <p class="text-sm">Még nincs feltöltött jegyzeted. <a href="index.html" class="text-[#6C5CE7] font-semibold hover:underline">Tölts fel egyet a főoldalon</a>.</p>
-        </div>
-      `;
-      return;
-    }
-    listEl.innerHTML = notes.map(n => {
-      const title = n.title || n.originalName || n.fileName || 'Névtelen jegyzet';
-      const subject = n.subject || '';
-      const ext = ((n.originalName || n.fileName || '').split('.').pop() || 'file').toLowerCase();
-      const iconMap = { pdf: ['fa-file-pdf', 'text-red-500 bg-red-50'], docx: ['fa-file-word', 'text-blue-500 bg-blue-50'], pptx: ['fa-file-powerpoint', 'text-orange-500 bg-orange-50'] };
-      const [icon, color] = iconMap[ext] || ['fa-file-lines', 'text-gray-500 bg-gray-100'];
-      return `
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:shadow-md transition">
-          <div class="w-12 h-12 ${color} rounded-xl flex items-center justify-center flex-shrink-0"><i class="fa-solid ${icon} text-xl"></i></div>
-          <div class="flex-1 min-w-0">
-            <p class="font-medium text-gray-900 text-sm truncate">${escapeHtml(title)}</p>
-            <p class="text-xs text-gray-400">${escapeHtml(subject)}</p>
-          </div>
-          <button onclick="downloadMaterial('${n.id}')" class="text-[#6C5CE7] hover:text-[#5A4BD1] transition" title="Letöltés"><i class="fa-solid fa-download"></i></button>
-        </div>
-      `;
-    }).join('');
-  } catch (e) {
-    listEl.innerHTML = '<div class="col-span-full text-center text-red-500 py-6">' + escapeHtml(e.message || String(e)) + '</div>';
-  }
-}
-
-window.downloadMaterial = async function(noteId) {
-  try {
-    const resp = await fetch('/.netlify/functions/download-my-note?id=' + encodeURIComponent(noteId), { headers: await window.getAuthHeaders() });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data.url) { showToast('Letöltési hiba'); return; }
-    const a = document.createElement('a');
-    a.href = data.url; a.target = '_blank'; a.rel = 'noopener';
-    if (data.originalName) a.download = data.originalName;
-    document.body.appendChild(a); a.click(); a.remove();
-  } catch (e) {
-    showToast('Letöltési hiba');
-  }
-};
+</script>
+<!-- /skill:chrome -->
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AMISEARCH | Teacher Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--green:oklch(67% .16 163);--green-dark:oklch(56% .15 163);--green-soft:oklch(96% .035 163);--purple:oklch(64% .16 294);--purple-soft:oklch(96% .035 294);--ink:oklch(21% .025 250);--muted:oklch(58% .025 250);--line:oklch(91% .015 250);--canvas:oklch(98% .009 250);--surface:oklch(100% .003 250);--danger:oklch(54% .18 25);--radius:15px;--ease:cubic-bezier(.16,1,.3,1)}*{box-sizing:border-box}body{margin:0;min-width:320px;color:var(--ink);background:var(--canvas);font:15px/1.5 "DM Sans",system-ui,sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.55}a{color:inherit;text-decoration:none}:focus-visible{outline:3px solid oklch(74% .16 294);outline-offset:3px}h1,h2,h3,p{margin:0}h1,h2,h3{font-family:"Space Grotesk",sans-serif;text-wrap:balance}.hidden{display:none!important}
+.topbar{height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,6vw,92px);background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}.top-brand{display:flex;align-items:center;gap:10px;font:700 21px "Space Grotesk",sans-serif;letter-spacing:-.04em;color:var(--green)}.top-mark,.side-mark{display:grid;place-items:center;color:oklch(98% .01 163);background:var(--green);border-radius:11px;font-weight:700;box-shadow:0 6px 14px oklch(67% .16 163/.24)}.top-mark{width:34px;height:34px;font-size:18px}.top-nav{display:flex;align-items:center;gap:27px}.top-nav a{color:var(--green-dark);font-weight:600;font-size:14px}.top-nav a:hover{color:var(--purple)}.language{border:0;background:oklch(96% .01 250);color:var(--ink);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px}.top-user{display:flex;align-items:center;gap:10px}.top-user-copy{text-align:right;font-size:12px;line-height:1.2}.top-user-copy b{display:block}.top-user-copy span{color:var(--purple);font-weight:700}.top-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:oklch(98% .01 294);background:oklch(63% .22 274);font-weight:700}
+.app{display:grid;grid-template-columns:218px minmax(0,1fr);min-height:calc(100vh - 74px)}.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:calc(100vh - 74px);position:sticky;top:74px;height:calc(100vh - 74px)}.side-brand{padding:23px 20px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}.side-mark{width:37px;height:37px;font-size:18px}.side-brand-name{font:700 19px/1 "Space Grotesk",sans-serif;letter-spacing:-.04em;color:var(--green-dark)}.side-brand-sub{display:block;color:var(--green-dark);font-size:11px;font-weight:700;margin-top:5px}.nav-label{color:oklch(70% .02 250);font-size:11px;text-transform:uppercase;font-weight:700;padding:18px 22px 8px;letter-spacing:.08em}.nav{display:grid;gap:3px;padding:0 10px}.nav button{border:0;background:transparent;color:var(--ink);text-align:left;display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;font-weight:500;transition:transform .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}.nav button:hover{background:var(--purple-soft);color:var(--purple);transform:translateX(2px)}.nav button.active{background:var(--purple-soft);color:var(--purple);font-weight:700}.nav-icon{width:18px;text-align:center;font-size:16px}.side-footer{margin-top:auto;padding:16px 10px 17px;border-top:1px solid var(--line)}.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border-radius:11px;background:var(--purple-soft);margin-bottom:12px}.role-switch button{border:0;border-radius:8px;padding:8px 4px;background:transparent;color:var(--muted);font-weight:700;font-size:12px}.role-switch button.active{background:var(--surface);color:var(--green-dark);box-shadow:0 2px 7px oklch(25% .03 250/.08)}.back{display:block;color:var(--green-dark);background:oklch(98% .012 163);padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:12px}.back:hover{background:var(--green-soft)}.mini-profile{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:11px;padding:9px}.mini-avatar{width:29px;height:29px;border-radius:9px;display:grid;place-items:center;color:oklch(98% .01 163);background:var(--green);font-size:12px;font-weight:700}.mini-copy{min-width:0;flex:1}.mini-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.mini-copy span{color:var(--purple);font-size:11px}.logout{width:27px;height:27px;border:0;background:transparent;color:var(--muted);border-radius:7px}.logout:hover{background:oklch(96% .025 25);color:var(--danger)}
+.main{min-width:0;max-width:1325px;width:100%;margin:0 auto;padding:34px clamp(24px,8vw,120px) 60px}.page-head{margin-bottom:27px}.page-head h1{font-size:clamp(28px,3.1vw,39px);letter-spacing:-.06em;line-height:1.1}.page-head p{color:var(--muted);margin-top:3px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:32px}.stat{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px 21px 19px;box-shadow:0 1px 2px oklch(25% .03 250/.02)}.stat-head{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.stat-icon{width:33px;height:33px;border-radius:10px;display:grid;place-items:center;background:var(--purple-soft);color:var(--purple);font-weight:700}.stat:nth-child(2) .stat-icon,.stat:nth-child(3) .stat-icon{background:var(--green-soft);color:var(--green-dark)}.stat-value{font:700 30px/1 "Space Grotesk",sans-serif;letter-spacing:-.06em;margin-top:15px;font-variant-numeric:tabular-nums}.stat:nth-child(4) .stat-value{color:var(--green-dark)}.lower{display:grid;grid-template-columns:335px minmax(0,1fr);gap:18px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px 20px 18px;min-width:0}.panel-title{display:flex;align-items:center;gap:7px;font-size:15px;letter-spacing:-.03em;margin-bottom:15px}.panel-title .accent{color:var(--green-dark)}.quick{display:grid;gap:8px}.quick button,.quick a{border:0;background:oklch(98% .006 250);border-radius:10px;padding:10px;display:flex;align-items:center;gap:11px;text-align:left;color:var(--ink);transition:transform .2s var(--ease),background .2s var(--ease)}.quick button:hover,.quick a:hover{transform:translateX(2px);background:var(--green-soft)}.quick-icon{width:31px;height:31px;border-radius:9px;background:var(--green);color:oklch(98% .01 163);display:grid;place-items:center;font-weight:700;flex:none}.quick a .quick-icon{background:oklch(93% .015 250);color:var(--muted)}.quick span{font-size:13px;font-weight:500}.activity{display:grid}.activity-row{display:flex;align-items:center;gap:12px;padding:8px;min-height:54px}.activity-icon{width:33px;height:33px;border-radius:10px;display:grid;place-items:center;flex:none;background:var(--green-soft);color:var(--green-dark);font-weight:700}.activity-row:nth-child(2) .activity-icon{background:oklch(96% .025 230);color:oklch(55% .18 250)}.activity-row:nth-child(3) .activity-icon{background:var(--purple-soft);color:var(--purple)}.activity-row:nth-child(4) .activity-icon{background:oklch(97% .035 75);color:oklch(63% .15 75)}.activity-copy{min-width:0}.activity-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.activity-copy span{display:block;color:oklch(72% .02 250);font-size:11px}
+.subpage-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:25px}.subpage-head h1{font-size:34px;letter-spacing:-.06em}.subpage-head p{color:var(--muted);margin-top:5px}.btn{min-height:41px;border:0;border-radius:10px;padding:0 15px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:13px;transition:transform .2s var(--ease),background .2s var(--ease)}.btn:hover{transform:translateY(-1px)}.btn-primary{color:oklch(98% .01 163);background:var(--green-dark)}.btn-primary:hover{background:oklch(50% .15 163)}.form-panel{margin-bottom:18px}.form-grid,.upload-grid{display:grid;grid-template-columns:1fr 1fr 125px auto;gap:9px;align-items:end}.field label{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:5px}.input{width:100%;height:41px;border:1px solid var(--line);border-radius:9px;padding:0 11px;color:var(--ink);background:var(--surface)}.input:focus{border-color:var(--green)}.class-grid,.material-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:13px}.class-card,.material-card{border:1px solid var(--line);border-radius:13px;padding:17px;background:var(--surface)}.class-top{display:flex;justify-content:space-between;gap:9px}.class-card h3{font-size:17px}.class-sub{color:var(--muted);font-size:12px;margin-top:3px}.pill{padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;height:max-content}.pill.on{background:var(--green-soft);color:var(--green-dark)}.pill.off{background:oklch(96% .01 250);color:var(--muted)}.class-foot{border-top:1px solid var(--line);margin-top:17px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}.text-btn{border:0;background:transparent;color:var(--green-dark);font-weight:700;font-size:11px;padding:4px}.text-btn:hover{text-decoration:underline}.danger{color:var(--danger)}.exam{background:var(--green);color:oklch(98% .01 163);border-radius:15px;padding:27px;display:flex;justify-content:space-between;align-items:center;gap:20px}.exam h2{font-size:24px;margin-bottom:6px}.exam p{max-width:64ch;color:oklch(94% .035 163);font-size:13px}.exam .btn{background:var(--surface);color:var(--green-dark)}.analytics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.chart{height:260px;display:flex;gap:14px;align-items:end;padding:18px 0 0}.bar-item{flex:1;height:225px;display:grid;grid-template-rows:20px 1fr 20px;justify-items:center;min-width:35px}.bar-track{width:min(46px,100%);height:185px;background:var(--green-soft);border-radius:9px 9px 4px 4px;align-self:end;display:flex;align-items:end;overflow:hidden}.bar-fill{width:100%;background:var(--green);min-height:4px;border-radius:9px 9px 4px 4px;transform-origin:bottom;animation:rise .55s var(--ease) both}.bar-value{font-weight:700;color:var(--green-dark);font-size:12px}.bar-label{color:var(--muted);font-size:10px;max-width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}@keyframes rise{from{transform:scaleY(0)}to{transform:scaleY(1)}}.notice{color:var(--green-dark);background:var(--green-soft);padding:11px 13px;border-radius:10px;font-size:12px;margin-bottom:17px}.file-input{height:41px;border:1px dashed oklch(76% .1 163);border-radius:9px;padding:0 8px;display:flex;align-items:center;overflow:hidden;color:var(--muted)}.file-input input{width:100%;font-size:11px}.material-card{display:flex;align-items:center;gap:11px}.file-icon{width:35px;height:35px;border-radius:9px;display:grid;place-items:center;background:var(--green-soft);color:var(--green-dark);font-weight:700;flex:none}.material-copy{min-width:0;flex:1}.material-copy b,.material-copy span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.material-copy b{font-size:12px}.material-copy span{color:var(--muted);font-size:11px;margin-top:2px}.download{border:0;background:transparent;color:var(--green-dark);font-weight:700}.empty{border:1px dashed var(--line);border-radius:11px;padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;grid-column:1/-1}.empty b{color:var(--ink);display:block;margin-bottom:3px}.toast{position:fixed;right:20px;bottom:20px;background:var(--ink);color:oklch(98% .01 250);padding:11px 14px;border-radius:9px;font-size:12px;transform:translateY(15px);opacity:0;pointer-events:none;transition:transform .25s var(--ease),opacity .25s var(--ease);z-index:40}.toast.show{transform:translateY(0);opacity:1}.toast.error{background:var(--danger)}.mobile-menu{display:none}
+@media(max-width:1050px){.top-nav{gap:13px}.top-nav a:nth-child(-n+3){display:none}.main{padding-inline:32px}.lower{grid-template-columns:1fr}}@media(max-width:760px){.topbar{height:62px;padding:0 15px}.top-nav,.top-user-copy,.language{display:none}.top-user{margin-left:auto}.mobile-menu{display:inline-flex}.app{grid-template-columns:1fr}.sidebar{position:fixed;top:62px;left:0;z-index:18;width:230px;height:calc(100vh - 62px);transform:translateX(-105%);transition:transform .3s var(--ease);box-shadow:15px 0 35px oklch(25% .03 250/.14)}.sidebar.open{transform:translateX(0)}.mobile-overlay{position:fixed;inset:62px 0 0;background:oklch(20% .025 250/.34);z-index:17}.main{padding:27px 16px 44px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:15px}.stat-value{font-size:26px}.lower{gap:13px}.subpage-head{display:block}.form-grid,.upload-grid{grid-template-columns:1fr}.form-grid .btn,.upload-grid .btn{width:100%}.analytics-grid{grid-template-columns:1fr}.exam{display:block;padding:21px}.exam .btn{width:100%;margin-top:17px}.chart{gap:7px}.bar-label{max-width:53px}}
+</style>
+</head>
+<body>
+<div id="authLoading" style="min-height:100vh;display:grid;place-items:center;color:var(--muted)">Tanári felület betöltése…</div>
+<div id="app" class="hidden">
+<header class="topbar"><a class="top-brand" href="index.html"><span class="top-mark">A</span> AMISEARCH</a><nav class="top-nav"><a href="index.html#features">Funkciók</a><a href="index.html#pricing">Árak</a><a href="index.html#ai-tutor">AI Tutor</a><a href="teacher-hub.html">Teacher Hub</a><a href="index.html#about">Rólunk</a><a href="index.html#faq">FAQ</a></nav><div class="top-user"><button class="language" type="button">◉ HU</button><a href="index.html" style="color:var(--green-dark);font-weight:700;font-size:13px">Főoldal</a><div class="top-user-copy"><b id="topName">sregel1982</b><span id="topRole">Tanár · Pro</span></div><div class="top-avatar" id="topAvatar">S</div><button class="mobile-menu btn" id="menuBtn" type="button" aria-label="Menü">☰</button></div></header>
+<div class="app"><aside class="sidebar" id="sidebar"><a class="side-brand" href="teacher-hub.html"><span class="side-mark">A</span><span><span class="side-brand-name">AMISEARCH</span><span class="side-brand-sub">Teacher Hub</span></span></a><div class="nav-label">Menü</div><nav class="nav"><button data-section="dashboard" class="active"><span class="nav-icon">▦</span>Irányítópult</button><button data-section="classes"><span class="nav-icon">♣</span>Osztályaim</button><button data-section="exams"><span class="nav-icon">▤</span>Online Vizsgák</button><button data-section="analytics"><span class="nav-icon">⌁</span>Analitika</button><button data-section="materials"><span class="nav-icon">▮</span>Tananyagok</button></nav><div class="side-footer"><div class="role-switch"><button class="active" type="button">▣ Tanár</button><button type="button" onclick="location.href='index.html'">♟ Diák</button></div><a class="back" href="index.html">← Vissza a főoldalra</a><div class="mini-profile"><div id="miniAvatar" class="mini-avatar">S</div><div class="mini-copy"><b id="miniName">Sregel Lajos</b><span id="miniPlan">Tanár · Pro</span></div><button class="logout" id="logoutSide" type="button" title="Kijelentkezés">↪</button></div></div></aside><div id="mobileOverlay" class="mobile-overlay hidden"></div><main id="main" class="main"></main></div></div><div id="toast" class="toast" role="status"></div>
+<script type="module">
+const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+const SUPABASE_URL='https://rvgzvseejzbzmcqidnzc.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ';
+const supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);window.supabaseClient=supabase;
+let user=null,profile=null,toastTimer;const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const initials=v=>(String(v||'T').trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'T').toUpperCase();
+function toast(msg,error=false){const x=$('#toast');x.textContent=msg;x.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>x.className='toast',3000)}
+async function loadProfile(){const {data,error}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();if(error)throw error;return data}
+function isTeacher(){return ['teacher','tanár','admin'].includes(String(profile?.status||profile?.role||'').toLowerCase())}
+async function getClasses(){const {data,error}=await supabase.from('teacher_classes').select('id,name,subject,students,active,created_at').eq('teacher_id',user.id).order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function getNotes(){const {data,error}=await supabase.from('teacher_notes').select('id,title,subject,original_name,storage_path,created_at').eq('owner_id',user.id).order('created_at',{ascending:false});if(error)throw error;return data||[]}
+async function optional(table,field='teacher_id'){const {data}=await supabase.from(table).select('*').eq(field,user.id).order('created_at',{ascending:false});return data||[]}
+function stat(icon,label,value){return `<div class="stat"><div class="stat-head"><span class="stat-icon">${icon}</span>${esc(label)}</div><div class="stat-value">${esc(value)}</div></div>`}
+function loading(){ $('#main').innerHTML='<div class="empty"><b>Adatok betöltése…</b><span>Kapcsolódás a Supabase adatbázishoz.</span></div>'}
+function setActive(){const current=location.hash.slice(1)||'dashboard';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===current))}
+async function go(section){const ok=['dashboard','classes','exams','analytics','materials'];section=ok.includes(section)?section:'dashboard';history.replaceState(null,'','#'+section);setActive();loading();try{if(section==='dashboard')return dashboard();if(section==='classes')return classPage();if(section==='exams')return exams();if(section==='analytics')return analytics();return materials()}catch(e){$('#main').innerHTML=`<div class="empty"><b>Nem sikerült betölteni</b><span>${esc(e.message)}</span></div>`}}
+function bindGo(){$$('[data-go]').forEach(x=>x.onclick=e=>{e.preventDefault();go(x.dataset.go)})}
+async function dashboard(){const [cs,ex,acts]=await Promise.all([getClasses(),optional('teacher_exams'),optional('teacher_activity')]);const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const name=profile.full_name||profile.fullName||profile.username||user.email;const act=acts.slice(0,4);$('#main').innerHTML=`<div class="page-head"><h1>Jó napot, ${esc(name)}! 👋</h1><p>${cs.filter(c=>c.active).length} aktív osztály · ${ex.length} vizsga vár beadandó</p></div><div class="stats">${stat('♣','Osztályok',cs.length)}${stat('♟','Diákok',total)}${stat('▤','Feladatsor',ex.length)}${stat('⌁','Aktivitás',act.length?Math.min(100,act.length*24)+'%':'0%')}</div><div class="lower"><section class="panel"><h2 class="panel-title"><span class="accent">ϟ</span>Gyors műveletek</h2><div class="quick"><button data-go="exams"><span class="quick-icon">▤</span><span>Új vizsga létrehozása</span></button><button data-go="classes"><span class="quick-icon">♣</span><span>Osztályok kezelése</span></button><button data-go="analytics"><span class="quick-icon">▤</span><span>Statisztikák</span></button><a href="index.html"><span class="quick-icon">⌂</span><span>Vissza a főoldalra</span></a></div></section><section class="panel"><h2 class="panel-title"><span class="accent">⟲</span>Legutóbbi tevékenység</h2><div class="activity">${act.length?act.map((a,i)=>`<div class="activity-row"><span class="activity-icon">${i===0?'▤':i===1?'♟':i===2?'⌁':'!'}</span><div class="activity-copy"><b>${esc(a.title||a.message||a.name||'Tevékenység')}</b><span>${esc(a.time_label||'Most')}</span></div></div>`).join(''):cs.length?cs.slice(0,4).map(c=>`<div class="activity-row"><span class="activity-icon">♣</span><div class="activity-copy"><b>${esc(c.name)}</b><span>${esc(c.subject)} · ${Number(c.students)||0} diák</span></div></div>`).join(''):`<div class="empty"><b>Még nincs aktivitás</b><span>A mentett osztályok itt jelennek meg.</span></div>`}</div></section></div>`;bindGo()}
+async function classPage(){const cs=await getClasses();$('#main').innerHTML=`<div class="subpage-head"><div><h1>Osztályaim</h1><p>Kezeld az osztályaidat és a hozzájuk tartozó létszámot.</p></div></div><section class="panel form-panel"><h2 class="panel-title"><span class="accent">+</span>Új osztály</h2><form id="classForm" class="form-grid"><div class="field"><label>Osztály neve</label><input class="input" id="cName" required placeholder="9.B osztály"></div><div class="field"><label>Tantárgy</label><input class="input" id="cSubject" required placeholder="Matematika"></div><div class="field"><label>Diáklétszám</label><input class="input" id="cStudents" type="number" min="0" value="0"></div><button class="btn btn-primary" type="submit">Létrehozás</button></form></section><section class="class-grid">${cs.length?cs.map(c=>`<article class="class-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="class-sub">${esc(c.subject)}</div></div><span class="pill ${c.active?'on':'off'}">${c.active?'Aktív':'Archivált'}</span></div><div class="class-foot"><span>♣ ${Number(c.students)||0} diák</span><span><button class="text-btn" data-toggle="${esc(c.id)}" data-active="${c.active}">${c.active?'Archiválás':'Aktiválás'}</button><button class="text-btn danger" data-delete="${esc(c.id)}">Törlés</button></span></div></article>`).join(''):`<div class="empty"><b>Még nincs osztályod</b><span>A fenti űrlappal hozz létre egyet.</span></div>`}</section>`;$('#classForm').onsubmit=async e=>{e.preventDefault();try{const {error}=await supabase.from('teacher_classes').insert({teacher_id:user.id,name:$('#cName').value.trim(),subject:$('#cSubject').value.trim(),students:Number($('#cStudents').value)||0,active:true});if(error)throw error;toast('Osztály létrehozva');go('classes')}catch(x){toast(x.message,true)}};$$('[data-toggle]').forEach(b=>b.onclick=async()=>{try{const {error}=await supabase.from('teacher_classes').update({active:b.dataset.active!=='true'}).eq('id',b.dataset.toggle).eq('teacher_id',user.id);if(error)throw error;go('classes')}catch(x){toast(x.message,true)}});$$('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Biztosan törlöd ezt az osztályt?'))return;try{const {error}=await supabase.from('teacher_classes').delete().eq('id',b.dataset.delete).eq('teacher_id',user.id);if(error)throw error;toast('Osztály törölve');go('classes')}catch(x){toast(x.message,true)}})}
+function exams(){$('#main').innerHTML=`<div class="subpage-head"><div><h1>Online Vizsgák</h1><p>Az AI vizsgaszimulátor továbbra is a főoldalon érhető el.</p></div></div><section class="exam"><div><h2>AI vizsgaszimulátor</h2><p>Adj meg témát, nehézséget és időtartamot, az AI elkészíti az időzített feladatsort.</p></div><a class="btn" href="index.html#exam-simulator">Megnyitás →</a></section>`}
+async function analytics(){const cs=await getClasses();const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const max=Math.max(...cs.map(c=>Number(c.students)||0),1);const avg=cs.length?Math.round(total/cs.length):0;$('#main').innerHTML=`<div class="subpage-head"><div><h1>Analitika</h1><p>Valós osztályadatok, demo számok nélkül.</p></div></div><div class="analytics-grid">${stat('♣','Összes diák',total)}${stat('▤','Osztályok',cs.length)}${stat('⌁','Átlag osztálylétszám',avg)}</div><section class="panel"><h2 class="panel-title"><span class="accent">⌁</span>Osztályonkénti létszám</h2>${cs.length?`<div class="chart">${cs.map(c=>`<div class="bar-item"><span class="bar-value">${Number(c.students)||0}</span><div class="bar-track"><div class="bar-fill" style="height:${Math.max(3,Math.round((Number(c.students)||0)/max*100))}%"></div></div><span class="bar-label" title="${esc(c.name)}">${esc(c.name)}</span></div>`).join('')}</div>`:`<div class="empty"><b>Nincs adat</b><span>Hozz létre osztályokat, hogy megjelenjen az analitika.</span></div>`}</section>`}
+async function materials(){const ns=await getNotes();$('#main').innerHTML=`<div class="subpage-head"><div><h1>Tananyagok</h1><p>A saját fiókodba feltöltött jegyzeteid.</p></div></div><div class="notice">A fájlok a Supabase Storage privát <b>teacher-notes</b> bucketjébe kerülnek.</div><section class="panel"><h2 class="panel-title"><span class="accent">↑</span>Tananyag feltöltése</h2><form id="uploadForm" class="upload-grid"><div class="field"><label>Cím</label><input class="input" id="nTitle" placeholder="Algebra alapok"></div><div class="field"><label>Tantárgy</label><input class="input" id="nSubject" placeholder="Matematika"></div><div class="field"><label>Fájl, max. 15 MB</label><div class="file-input"><input id="nFile" type="file" accept=".pdf,.docx,.pptx,.txt,.md" required></div></div><button class="btn btn-primary" type="submit">Feltöltés</button></form><div class="material-grid">${ns.length?ns.map(n=>`<article class="material-card"><span class="file-icon">▤</span><div class="material-copy"><b>${esc(n.title||n.original_name)}</b><span>${esc(n.subject||'Nincs tantárgy')}</span></div><button class="download" data-download="${esc(n.id)}">↓</button></article>`).join(''):`<div class="empty"><b>Még nincs feltöltött tananyagod</b><span>Az első fájl feltöltése után itt lesz mindenhol elérhető.</span></div>`}</div></section>`;$('#uploadForm').onsubmit=async e=>{e.preventDefault();const file=$('#nFile').files[0];if(!file)return;if(file.size>15*1024*1024)return toast('A fájl legfeljebb 15 MB lehet.',true);try{const path=user.id+'/'+crypto.randomUUID()+'-'+file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-');const up=await supabase.storage.from('teacher-notes').upload(path,file,{upsert:false,contentType:file.type||'application/octet-stream'});if(up.error)throw up.error;const ins=await supabase.from('teacher_notes').insert({owner_id:user.id,title:$('#nTitle').value.trim()||file.name,subject:$('#nSubject').value.trim(),original_name:file.name,storage_path:path});if(ins.error)throw ins.error;toast('Tananyag feltöltve');go('materials')}catch(x){toast(x.message,true)}};$$('[data-download]').forEach(b=>b.onclick=async()=>{try{const n=ns.find(x=>x.id===b.dataset.download);const r=await supabase.storage.from('teacher-notes').createSignedUrl(n.storage_path,3600);if(r.error)throw r.error;window.open(r.data.signedUrl,'_blank','noopener')}catch(x){toast(x.message,true)}})}
+$$('.nav button').forEach(b=>b.onclick=()=>{go(b.dataset.section);$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')});$('#menuBtn').onclick=()=>{$('#sidebar').classList.add('open');$('#mobileOverlay').classList.remove('hidden')};$('#mobileOverlay').onclick=()=>{$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')};$('#logoutSide').onclick=async()=>{await supabase.auth.signOut();location.href='index.html'};window.addEventListener('hashchange',()=>go(location.hash.slice(1)));
+async function boot(){const {data}=await supabase.auth.getSession();if(!data.session){location.replace('index.html?return=teacher-hub');return}user=data.session.user;profile=await loadProfile();if(!profile||!isTeacher()){location.replace('index.html?role=teacher-required');return}const name=profile.full_name||profile.fullName||profile.username||user.email;const plan=String(profile.plan||'Free').toLowerCase()==='pro'?'Pro':'Free';$('#topName').textContent=profile.username||user.email.split('@')[0];$('#topRole').textContent='Tanár · '+plan;$('#topAvatar').textContent=initials(name).slice(0,1);$('#miniName').textContent=name;$('#miniPlan').textContent='Tanár · '+plan;$('#miniAvatar').textContent=initials(name).slice(0,1);$('#authLoading').remove();$('#app').classList.remove('hidden');await go(location.hash.slice(1)||'dashboard');supabase.auth.onAuthStateChange((_event,s)=>{if(!s)location.href='index.html'})}
+boot().catch(e=>{console.error(e);$('#authLoading').textContent='A Teacher Hub nem tudott kapcsolódni. Nyisd meg újra a főoldalról.'});
 </script>
 </body>
 </html>
