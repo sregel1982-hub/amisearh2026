@@ -14,9 +14,7 @@ function json(data, status = 200) {
 function getSupabaseAdmin() {
   const supabaseUrl = getEnv("SUPABASE_URL");
   const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase admin env vars missing");
-  }
+  if (!supabaseUrl || !serviceRoleKey) throw new Error("Missing Supabase env");
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -30,65 +28,87 @@ export default async function handler(req) {
   const user = await getSupabaseUser(req);
   if (!user) return json({ error: "Unauthorized" }, 401);
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "Invalid JSON" }, 400);
+  let body = {};
+  try { body = await req.json(); } catch {}
+
+  const noteId = body.id || body.noteId || body.note_id || null;
+  const title  = body.title || body.cim || body.fileName || null;
+
+  if (!noteId && !title) {
+    return json({ error: "Missing note id or title" }, 400);
   }
 
-  const noteId = body?.id || body?.noteId || body?.note_id;
-  if (!noteId) return json({ error: "Missing note id" }, 400);
-
-  let supabase;
-  try {
-    supabase = getSupabaseAdmin();
-  } catch (e) {
-    console.error("[delete-note] init error:", e);
-    return json({ error: "Server misconfiguration" }, 500);
-  }
+  const supabase = getSupabaseAdmin();
 
   try {
-    // 1. Próbáljuk a jegyzetek táblát
-    const { data: jegyzet, error: jErr } = await supabase
-      .from("jegyzetek")
-      .delete()
-      .eq("id", noteId)
-      .eq("user_id", user.id)
-      .select("id")
-      .maybeSingle();
+    // ---------- 1. jegyzetek tábla (id alapján) ----------
+    if (noteId) {
+      const { data, error } = await supabase
+        .from("jegyzetek")
+        .delete()
+        .eq("id", noteId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
 
-    if (jErr) {
-      console.error("[delete-note] jegyzetek error:", jErr);
+      if (!error && data) {
+        return json({ success: true, deletedFrom: "jegyzetek", id: noteId });
+      }
     }
 
-    if (jegyzet) {
-      return json({ success: true, deletedFrom: "jegyzetek", id: noteId });
+    // ---------- 2. uploaded_notes tábla (id alapján) ----------
+    if (noteId) {
+      const { data, error } = await supabase
+        .from("uploaded_notes")
+        .delete()
+        .eq("id", noteId)
+        .or(`uploader_identity_id.eq.${user.id},user_id.eq.${user.id}`)
+        .select("id")
+        .maybeSingle();
+
+      if (!error && data) {
+        return json({ success: true, deletedFrom: "uploaded_notes", id: noteId });
+      }
     }
 
-    // 2. Ha nem volt ott, próbáljuk az uploaded_notes-t
-    const { data: uploaded, error: uErr } = await supabase
-      .from("uploaded_notes")
-      .delete()
-      .eq("id", noteId)
-      .eq("uploader_identity_id", user.id)
-      .select("id")
-      .maybeSingle();
+    // ---------- 3. utolsó esély: cím alapján (csak diagnosztikára) ----------
+    if (title) {
+      const { data: j } = await supabase
+        .from("jegyzetek")
+        .delete()
+        .eq("user_id", user.id)
+        .ilike("cim", title)
+        .select("id");
 
-    if (uErr) {
-      console.error("[delete-note] uploaded_notes error:", uErr);
+      if (j && j.length) {
+        return json({ success: true, deletedFrom: "jegyzetek (by title)", count: j.length });
+      }
+
+      const { data: u } = await supabase
+        .from("uploaded_notes")
+        .delete()
+        .or(`uploader_identity_id.eq.${user.id},user_id.eq.${user.id}`)
+        .ilike("title", title)
+        .select("id");
+
+      if (u && u.length) {
+        return json({ success: true, deletedFrom: "uploaded_notes (by title)", count: u.length });
+      }
     }
 
-    if (uploaded) {
-      return json({ success: true, deletedFrom: "uploaded_notes", id: noteId });
-    }
+    // ---------- Semhol sincs ----------
+    return json({
+      error: "A jegyzet nem található.",
+      debug: {
+        sentId: noteId,
+        sentTitle: title,
+        userId: user.id
+      }
+    }, 404);
 
-    // 3. Sehol sem volt
-    return json({ error: "A jegyzet nem található." }, 404);
-
-  } catch (error) {
-    console.error("[delete-note] failed:", error);
-    return json({ error: "Törlési hiba", details: error?.message }, 500);
+  } catch (err) {
+    console.error("[delete-note]", err);
+    return json({ error: "Törlési hiba", details: err.message }, 500);
   }
 }
 
