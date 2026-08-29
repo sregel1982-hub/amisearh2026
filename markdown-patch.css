@@ -1,0 +1,86 @@
+/* ============================================================
+ *  AMISEARCH – Mini-renderer stíluslap
+ *  ----------------------------------------------------------
+ *  Ezt a CSS-t minden olyan oldalhoz csatold, amelyik az
+ *  AMISEARCH_MINI.render() kimenetét jeleníti meg.
+ *  Ha a `marked` könyvtár fut, a .prose / Tailwind typography
+ *  osztályok gondoskodnak a stílusról – ez a stíluslap csak
+ *  a fallback idején látható.
+ * ============================================================ */
+.ami-p  { margin: 0 0 12px 0; line-height: 1.6; }
+.ami-h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 18px 0 10px;
+  color: #1F2937;
+  border-bottom: 2px solid #6C5CE7;
+  padding-bottom: 6px;
+}
+.ami-h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 16px 0 8px;
+  color: #374151;
+}
+.ami-h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 12px 0 6px;
+  color: #4B5563;
+}
+.ami-strong { font-weight: 700; color: #111827; }
+.ami-em     { font-style: italic; color: #4B5563; }
+
+.ami-hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #D1D5DB, transparent);
+  margin: 16px 0;
+}
+
+.ami-ul, .ami-ol { margin: 8px 0 12px 24px; line-height: 1.6; }
+.ami-ul li, .ami-ol li { margin: 4px 0; }
+
+.ami-quote {
+  border-left: 4px solid #6C5CE7;
+  background: #F3F0FF;
+  padding: 8px 14px;
+  margin: 10px 0;
+  border-radius: 0 6px 6px 0;
+  color: #4338CA;
+  font-style: italic;
+}
+
+.ami-inline-code {
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  color: #B91C1C;
+}
+
+.ami-codeblock {
+  background: #1F2937;
+  color: #F3F4F6;
+  padding: 12px 14px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  margin: 12px 0;
+}
+.ami-codeblock code { background: transparent; color: inherit; padding: 0; }
+
+.ami-error {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  color: #B91C1C;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+}
