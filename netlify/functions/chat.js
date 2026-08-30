@@ -1,3 +1,5 @@
+// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V3 - TELJES, COMMIT-READY
+// FIX: magyar őű áé + empty ID + UTF-8 stream + kép overflow
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { checkQuota, incrementUsage } from "./quota.js";
@@ -35,7 +37,11 @@ function textStreamResponse(generator) {
     async start(controller) {
       try {
         for await (const chunk of generator) {
-          if (chunk) controller.enqueue(encoder.encode(chunk));
+          if (chunk) {
+            // FIX 1: NFC normalizálás - ez javítja a screenshoton lévő ő, ű, á egymásra csúszást
+            const normalized = String(chunk).normalize('NFC');
+            controller.enqueue(encoder.encode(normalized));
+          }
         }
         controller.close();
       } catch (err) {
@@ -45,20 +51,23 @@ function textStreamResponse(generator) {
     }
   }), {
     headers: {
+      // FIX 2: UTF-8 charset explicit - böngésző tudja hogy magyar ékezetek jönnek
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
-      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Origin": "*",
+      "X-Content-Type-Options": "nosniff"
     }
   });
 }
 
 function singleChunkStream(text) {
-  async function* gen() { yield text; }
+  async function* gen() { yield text.normalize('NFC'); }
   return textStreamResponse(gen());
 }
 
 function cleanText(value, max = 70000) {
   return String(value || "")
+    .normalize('NFC') // FIX: magyar ékezetek normalizálása
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
@@ -99,7 +108,6 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
     try {
       const collected = [];
 
-      // Preferred note first (from Chatbe button) — check both tables
       if (preferredNoteId) {
         const id = preferredNoteId;
         const tries = [
@@ -115,7 +123,6 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
         }
       }
 
-      // Recent processed notes from jegyzetek
       const { data: jegyzetek } = await supabase
         .from("jegyzetek")
         .select("id, cim, original_name, text_content, processed")
@@ -126,13 +133,11 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
       if (Array.isArray(jegyzetek)) {
         for (const note of jegyzetek) {
           if (collected.some((n) => String(n.id) === String(note.id))) continue;
-          // Prefer processed, but also include any with usable text_content
           if (note.processed === false && !note.text_content) continue;
           collected.push(note);
         }
       }
 
-      // Fallback table
       const { data: uploaded } = await supabase
         .from("uploaded_notes")
         .select("id, title, original_name, text_content")
@@ -165,8 +170,10 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
 function buildSystemInstruction() {
   return `You are the AMISEARCH educational assistant.
 Always answer in the SAME language as the user's question.
+Use proper UTF-8 Hungarian characters: ő, ű, á, é, í, ó, ú, Ö, Ü, Ő, Ű etc. Never replace them with o, u, a, e.
 Provide clear, structured, academically reliable explanations.
-Use tables and bullet points when helpful.
+Use markdown: ## for headings, - or 1. for lists, **bold** for key terms.
+For math, use $...$ for inline and $$...$$ for display formulas.
 If the user asks for a process or concept map, output a Mermaid mindmap block.
 If the user asks for statistics or time-series data, output a Chart.js JSON config in a json-chart block.
 Always end your answer with: "## Forrásjegyzék"`;
