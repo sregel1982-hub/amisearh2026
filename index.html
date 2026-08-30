@@ -233,10 +233,6 @@
   #practiceContent th, #practiceContent td, #chatArea th, #chatArea td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left; }
   .ai-output th, .prose th, #practiceContent th, #chatArea th { background: #f3f0ff; font-weight: 600; }
   .ai-output hr, .prose hr, #practiceContent hr, #chatArea hr { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
-  #chatArea img, .ai-output img { max-width:100% !important; max-height:320px !important; object-fit:contain !important; border-radius:0.75rem; display:block; margin:0.5rem auto; }
-  #chatArea .ai-output { word-break: normal !important; overflow-wrap: break-word !important; }
-  #chatArea .ai-output em { display:inline !important; }
-
   
 </style>
 
@@ -2614,119 +2610,73 @@
     return clone.innerHTML.trim();
   }
 
-  function _aiBubbleText(bubble) {
-    if (!bubble) return '';
-    const clone = bubble.cloneNode(true);
+  function 
+  function _aiBubbleText(bubbleEl) {
+    if (!bubbleEl) return '';
+    const clone = bubbleEl.cloneNode(true);
     const tb = clone.querySelector('[data-ai-dl-toolbar]');
     if (tb) tb.remove();
     return (clone.innerText || clone.textContent || '').trim();
   }
-
+  function _aiBubbleHtml(bubbleEl) {
+    if (!bubbleEl) return '';
+    const clone = bubbleEl.cloneNode(true);
+    const tb = clone.querySelector('[data-ai-dl-toolbar]');
+    if (tb) tb.remove();
+    return clone.innerHTML;
+  }
   window.downloadAiAnswerPdf = async function(btn) {
     const bubble = _findAiBubbleFrom(btn);
     if (!bubble) return;
     const q = btn.getAttribute('data-q') || 'ai-valasz';
     try {
       const { jsPDF } = window.jspdf || {};
-      if (!jsPDF || !window.html2canvas) {
-        alert('PDF library hiányzik.');
-        return;
-      }
-      // Tisztítjuk a klónt — toolbart eltávolítjuk
+      if (!jsPDF || !window.html2canvas) { alert('PDF library hiányzik.'); return; }
       const clone = bubble.cloneNode(true);
-      const tb = clone.querySelector('[data-ai-dl-toolbar]');
-      if (tb) tb.remove();
-      // Ideiglenesen DOM-ba illesztjük (offscreen), hogy html2canvas tudja renderelni
-      clone.style.position = 'absolute';
-      clone.style.left = '-99999px';
-      clone.style.top = '0';
-      clone.style.background = '#ffffff';
-      clone.style.padding = '20px';
-      clone.style.width = '700px';
+      const tb = clone.querySelector('[data-ai-dl-toolbar]'); if (tb) tb.remove();
+      clone.style.position = 'absolute'; clone.style.left = '-99999px'; clone.style.top = '0';
+      clone.style.width = '700px'; clone.style.padding = '24px'; clone.style.background = 'white';
+      clone.style.color = '#1a202c'; clone.style.fontFamily = "'Poppins', sans-serif";
+      clone.style.fontSize = '14px'; clone.style.lineHeight = '1.8'; clone.style.wordWrap = 'break-word';
+      clone.querySelectorAll('ul').forEach(ul => { ul.style.margin = '12px 0 12px 20px'; });
+      clone.querySelectorAll('li').forEach(li => { li.style.margin = '8px 0'; li.style.lineHeight = '1.7'; });
+      clone.querySelectorAll('img').forEach(img => { img.style.maxWidth = '100%'; img.style.maxHeight = '250px'; img.style.objectFit = 'contain'; });
       document.body.appendChild(clone);
-      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      await new Promise(r => setTimeout(r, 400));
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, width: 700, windowWidth: 700 });
       document.body.removeChild(clone);
-
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 30;
-      const imgWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(14);
-      pdf.text('AMISEARCH — AI válasz', margin, margin);
-      let heightLeft = imgHeight;
-      let position = margin + 20;
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= (pageHeight - position);
-      while (heightLeft > 0) {
-        position = -heightLeft + margin;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= (pageHeight - margin * 2);
-      }
-      pdf.save((window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.pdf');
-    } catch (e) {
-      console.error(e);
-      alert('PDF generálás hiba: ' + (e?.message || e));
-    }
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      let heightLeft = pdfHeight; let position = 0; const pageHeight = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) { position = heightLeft - pdfHeight; pdf.addPage(); pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight); heightLeft -= pageHeight; }
+      const fileName = (window.sanitizeFilename ? window.sanitizeFilename(q) : q).slice(0,50) + '.pdf';
+      pdf.save(fileName);
+    } catch (e) { console.error(e); alert('PDF hiba: ' + (e?.message || e)); }
   };
-
   window.downloadAiAnswerWord = async function(btn) {
-    const bubble = _findAiBubbleFrom(btn);
-    if (!bubble) return;
+    const bubble = _findAiBubbleFrom(btn); if (!bubble) return;
     const q = btn.getAttribute('data-q') || 'ai-valasz';
     try {
-      if (!window.html2canvas) {
-        alert('html2canvas library hiányzik.');
-        return;
-      }
-      const clone = bubble.cloneNode(true);
-      const tb = clone.querySelector('[data-ai-dl-toolbar]');
-      if (tb) tb.remove();
-      clone.style.position = 'absolute';
-      clone.style.left = '-99999px';
-      clone.style.top = '0';
-      clone.style.background = '#ffffff';
-      clone.style.padding = '20px';
-      clone.style.width = '700px';
-      document.body.appendChild(clone);
-      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-      document.body.removeChild(clone);
-
-      const imgDataUrl = canvas.toDataURL('image/png');
-      const contentHtml = _aiBubbleHtml(bubble);
-      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title><style>body{font-family:Calibri,Arial,sans-serif;line-height:1.45;color:#111827;padding:20px;} h1,h2,h3{color:#5A4BD1;} p,li{font-size:12pt;} pre,code{font-family:Consolas,monospace;white-space:pre-wrap;} table{border-collapse:collapse;} td,th{border:1px solid #ddd;padding:4px;}</style></head><body><h1>AMISEARCH — AI válasz</h1><p><i>' + new Date().toLocaleString() + '</i></p>' + contentHtml + '</body></html>';
-      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.doc';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error(e);
-      alert('Word generálás hiba: ' + (e?.message || e));
-    }
+      const clone = bubble.cloneNode(true); const tb = clone.querySelector('[data-ai-dl-toolbar]'); if (tb) tb.remove();
+      const htmlContent = clone.innerHTML;
+      const fullHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>body{font-family:Calibri,sans-serif;font-size:11pt;line-height:1.7;} h1{color:#0D7C66;border-bottom:2pt solid #0D7C66;} ul,ol{margin:8pt 0 8pt 18pt;} li{margin:6pt 0;} sup{color:#6C5CE7;}</style></head><body>${htmlContent}<p style="margin-top:16pt;font-size:8pt;color:#888;border-top:1pt solid #ddd;padding-top:6pt;">Forrás: amisearch.org - ${new Date().toLocaleDateString('hu-HU')}</p></body></html>`;
+      const blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
+      a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q).slice(0,50) + '.doc';
+      document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    } catch (e) { console.error(e); alert('Word hiba: ' + (e?.message || e)); }
   };
-
   window.copyAiAnswer = function(btn) {
-    const bubble = _findAiBubbleFrom(btn);
-    if (!bubble) return;
+    const bubble = _findAiBubbleFrom(btn); if (!bubble) return;
     const text = _aiBubbleText(bubble);
-    try {
-      navigator.clipboard.writeText(text);
-      const orig = btn.innerHTML;
-      btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>' + (window.currentLang === 'hu' ? 'Másolva!' : 'Copied!');
-      setTimeout(() => { btn.innerHTML = orig; }, 1500);
-    } catch (e) { /* csendes */ }
+    try { navigator.clipboard.writeText(text); const orig = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Másolva!'; setTimeout(() => { btn.innerHTML = orig; }, 1500); } catch (e) {}
   };
 
-  /* ──────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────
      SAJÁT JEGYZETEK panel — listáz + 1-kattintásos összefoglaló
      ────────────────────────────────────────────────────────────── */
   window.myNotesCache = [];
