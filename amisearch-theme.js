@@ -33,7 +33,9 @@
       .replace(/\\sqrt\s*\{([^{}]+)\}/g, '√($1)')
       .replace(/[{}]/g, '')
       .replace(/\\[a-zA-Z]+/g, '')
-      .replace(/\s+/g, ' ')
+      // CSAK a nem-sortörés whitespace-t vonjuk össze – a \n-eket megtartjuk
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/ *\n */g, '\n')
       .trim();
   }
 
@@ -140,7 +142,8 @@
     normalizeMathForExport(clone);
     clone.querySelectorAll('script, style, noscript, svg, canvas').forEach((el) => el.remove());
     clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
-    clone.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,section,article').forEach((el) => {
+    // Bővített blokk-szelektor: div/tr is sortörést kap (markdown-render után gyakran div-ek vannak)
+    clone.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,section,article,div,tr').forEach((el) => {
       if (el.tagName === 'LI') el.prepend('• ');
       el.appendChild(document.createTextNode('\n'));
     });
@@ -355,34 +358,34 @@
     style.textContent = `
       .btn-primary,
       button[type="submit"],
-      .bg-\[\#6C5CE7\], .bg-purple-600, .bg-indigo-600 {
+      .bg-\\[#6C5CE7\\], .bg-purple-600, .bg-indigo-600 {
         background: ${theme.primary} !important;
         background-color: ${theme.primary} !important;
       }
       .btn-primary:hover,
       button[type="submit"]:hover,
-      .hover\:bg-\[\#5A4BD1\]:hover, .hover\:bg-purple-700:hover, .hover\:bg-indigo-700:hover {
+      .hover\\:bg-\\[#5A4BD1\\]:hover, .hover\\:bg-purple-700:hover, .hover\\:bg-indigo-700:hover {
         background: ${theme.dark} !important;
         background-color: ${theme.dark} !important;
       }
-      .text-\[\#6C5CE7\], .text-purple-600, .text-indigo-600,
-      a.text-\[\#6C5CE7\], button.text-\[\#6C5CE7\] {
+      .text-\\[#6C5CE7\\], .text-purple-600, .text-indigo-600,
+      a.text-\\[#6C5CE7\\], button.text-\\[#6C5CE7\\] {
         color: ${theme.primary} !important;
       }
-      .hover\:text-\[\#6C5CE7\]:hover, .hover\:text-purple-600:hover, .hover\:text-indigo-600:hover {
+      .hover\\:text-\\[#6C5CE7\\]:hover, .hover\\:text-purple-600:hover, .hover\\:text-indigo-600:hover {
         color: ${theme.primary} !important;
       }
-      .border-\[\#6C5CE7\], .border-purple-600, .border-indigo-600 {
+      .border-\\[#6C5CE7\\], .border-purple-600, .border-indigo-600 {
         border-color: ${theme.primary} !important;
       }
-      .focus\:border-\[\#6C5CE7\]:focus {
+      .focus\\:border-\\[#6C5CE7\\]:focus {
         border-color: ${theme.primary} !important;
       }
       .bg-purple-50, .bg-indigo-50, .bg-purple-100, .bg-indigo-100 {
         background-color: ${theme.soft} !important;
       }
-      .from-\[\#6C5CE7\] { --tw-gradient-from: ${theme.primary} var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(108 92 231 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-      .to-\[\#A29BFE\] { --tw-gradient-to: ${theme.accent} var(--tw-gradient-to-position) !important; }
+      .from-\\[#6C5CE7\\] { --tw-gradient-from: ${theme.primary} var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(108 92 231 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+      .to-\\[#A29BFE\\] { --tw-gradient-to: ${theme.accent} var(--tw-gradient-to-position) !important; }
       .gradient-text {
         background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%) !important;
         -webkit-background-clip: text !important;
