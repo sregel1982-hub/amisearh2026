@@ -16,27 +16,109 @@
 
   function latexToPlain(value) {
     let text = String(value || '');
-    for (let i = 0; i < 5; i += 1) {
-      text = text.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2');
+
+    // Többszörös \frac kezelés (belső → külső)
+    for (let i = 0; i < 8; i += 1) {
+      text = text.replace(/\\dfrac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
+      text = text.replace(/\\tfrac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
+      text = text.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
     }
-    return text
-      .replace(/\\dfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
-      .replace(/\\tfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
+
+    // Gyök, hatvány, index, operátorok, görög betűk
+    text = text
+      .replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g, '($2)^(1/$1)')
+      .replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
       .replace(/\\left|\\right/g, '')
-      .replace(/\\times/g, '×')
-      .replace(/\\cdot/g, '·')
+      .replace(/\\times|\\cdot|\\ast/g, '·')
       .replace(/\\div/g, '÷')
-      .replace(/\\leq/g, '≤')
-      .replace(/\\geq/g, '≥')
-      .replace(/\\neq/g, '≠')
       .replace(/\\pm/g, '±')
-      .replace(/\\sqrt\s*\{([^{}]+)\}/g, '√($1)')
-      .replace(/[{}]/g, '')
+      .replace(/\\mp/g, '∓')
+      .replace(/\\leq|\\le/g, '≤')
+      .replace(/\\geq|\\ge/g, '≥')
+      .replace(/\\neq|\\ne/g, '≠')
+      .replace(/\\approx/g, '≈')
+      .replace(/\\infty/g, '∞')
+      .replace(/\\pi/g, 'π')
+      .replace(/\\alpha/g, 'α')
+      .replace(/\\beta/g, 'β')
+      .replace(/\\gamma/g, 'γ')
+      .replace(/\\delta/g, 'δ')
+      .replace(/\\theta/g, 'θ')
+      .replace(/\\lambda/g, 'λ')
+      .replace(/\\mu/g, 'μ')
+      .replace(/\\sigma/g, 'σ')
+      .replace(/\\phi/g, 'φ')
+      .replace(/\\omega/g, 'ω')
+      .replace(/\\sum/g, 'Σ')
+      .replace(/\\prod/g, 'Π')
+      .replace(/\\int/g, '∫')
+      .replace(/\\rightarrow|\\to/g, '→')
+      .replace(/\\leftarrow/g, '←')
+      .replace(/\\Rightarrow/g, '⇒')
+      .replace(/\\Leftrightarrow|\\iff/g, '⇔')
+      .replace(/\\ldots|\\dots/g, '…')
+      .replace(/\\,/g, ' ')
+      .replace(/\\;/g, ' ')
+      .replace(/\\!/g, '')
+      .replace(/\\quad|\\qquad/g, '  ')
+      .replace(/\\text\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\mathrm\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\mathbf\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\overline\s*\{([^{}]*)\}/g, '$1̄')
+      .replace(/\\underline\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\hat\s*\{([^{}]*)\}/g, '$1̂')
+      .replace(/\\bar\s*\{([^{}]*)\}/g, '$1̄');
+
+    // Unicode szuper- és alsó indexek
+    const SUPER = {
+      '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵',
+      '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻',
+      '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ', 'i': 'ⁱ'
+    };
+    const SUB = {
+      '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅',
+      '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋',
+      '=': '₌', '(': '₍', ')': '₎', 'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ',
+      'x': 'ₓ', 'i': 'ᵢ', 'n': 'ₙ', 'm': 'ₘ', 't': 'ₜ'
+    };
+
+    function toSuper(s) {
+      return String(s).split('').map((c) => SUPER[c] || c).join('');
+    }
+    function toSub(s) {
+      return String(s).split('').map((c) => SUB[c] || c).join('');
+    }
+
+    // ^{...} és _{...}
+    text = text.replace(/\^\{([^{}]+)\}/g, (_, exp) => {
+      const clean = exp.replace(/\s+/g, '');
+      if (/^[0-9+\-()n]+$/.test(clean)) return toSuper(clean);
+      return '^(' + exp + ')';
+    });
+    text = text.replace(/_\{([^{}]+)\}/g, (_, sub) => {
+      const clean = sub.replace(/\s+/g, '');
+      if (/^[0-9+\-()a-z]+$/i.test(clean)) return toSub(clean);
+      return '_(' + sub + ')';
+    });
+
+    // Egy karakteres ^2, _n
+    text = text.replace(/\^([0-9n+\-])/g, (_, c) => SUPER[c] || ('^' + c));
+    text = text.replace(/_([0-9a-z])/gi, (_, c) => SUB[c.toLowerCase()] || ('_' + c));
+
+    // Maradék LaTeX parancsok és zárójelek tisztítása
+    // FONTOS: a sortöréseket (\n) megtartjuk
+    text = text
       .replace(/\\[a-zA-Z]+/g, '')
-      // CSAK a nem-sortörés whitespace-t vonjuk össze – a \n-eket megtartjuk
+      .replace(/[{}]/g, '')
       .replace(/[^\S\n]+/g, ' ')
       .replace(/ *\n */g, '\n')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')')
+      .replace(/\s*([·÷±≤≥≠≈→←⇒⇔])\s*/g, ' $1 ')
+      .replace(/\s{2,}/g, ' ')
       .trim();
+
+    return text;
   }
 
   function cleanText(value) {
@@ -126,12 +208,23 @@
 
   function normalizeMathForExport(root) {
     if (!root || !root.querySelectorAll) return;
+
     root.querySelectorAll('.katex').forEach((el) => {
       const annotation = el.querySelector('annotation[encoding="application/x-tex"], annotation');
-      const latex = cleanText(annotation ? annotation.textContent : '');
-      const plain = latexToPlain(latex || el.getAttribute('data-latex') || '');
+      let latex = '';
+      if (annotation) latex = annotation.textContent || '';
+      if (!latex) latex = el.getAttribute('data-latex') || '';
+
+      let plain = '';
+      if (latex) {
+        plain = latexToPlain(latex);
+      } else {
+        plain = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+      }
+
       el.replaceWith(document.createTextNode(plain ? ' ' + plain + ' ' : ' '));
     });
+
     root.querySelectorAll('.katex-html, .katex-mathml, math, annotation, [aria-hidden="true"]').forEach((el) => el.remove());
   }
 
@@ -142,7 +235,7 @@
     normalizeMathForExport(clone);
     clone.querySelectorAll('script, style, noscript, svg, canvas').forEach((el) => el.remove());
     clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
-    // Bővített blokk-szelektor: div/tr is sortörést kap (markdown-render után gyakran div-ek vannak)
+    // Bővített blokk-szelektor: div/tr is sortörést kap
     clone.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,section,article,div,tr').forEach((el) => {
       if (el.tagName === 'LI') el.prepend('• ');
       el.appendChild(document.createTextNode('\n'));
