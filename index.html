@@ -233,6 +233,10 @@
   #practiceContent th, #practiceContent td, #chatArea th, #chatArea td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left; }
   .ai-output th, .prose th, #practiceContent th, #chatArea th { background: #f3f0ff; font-weight: 600; }
   .ai-output hr, .prose hr, #practiceContent hr, #chatArea hr { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+  #chatArea img, .ai-output img { max-width:100% !important; max-height:320px !important; object-fit:contain !important; border-radius:0.75rem; display:block; margin:0.5rem auto; }
+  #chatArea .ai-output { word-break: normal !important; overflow-wrap: break-word !important; }
+  #chatArea .ai-output em { display:inline !important; }
+
   
 </style>
 
@@ -241,7 +245,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="/vendor/dompurify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
 <script>
   window.safeMarkdown = function (value) {
     var source = String(value == null ? '' : value);
@@ -1688,7 +1692,7 @@
     try {
       const res = await fetch('/.netlify/functions/award-points', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ reason }),
       });
       if (res.ok) {
@@ -1989,7 +1993,7 @@
       setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('registering'));
       const regResp = await fetch('/.netlify/functions/notes', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({
           fileName: filePath,
           originalName: file.name,
@@ -2040,7 +2044,7 @@
       try {
         const idxResp = await fetch('/.netlify/functions/index-document', {
           method: 'POST',
-          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
           body: JSON.stringify({ noteId: regData.id, fileName: filePath })
         });
         if (idxResp.ok) {
@@ -2290,7 +2294,7 @@
     try {
       const resp = await fetch('/.netlify/functions/external-search', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ query, lang, includeForeign: !!includeForeign, page: pg })
       });
       if (!resp.ok) {
@@ -2411,7 +2415,7 @@
     try {
       const response = await window.fetchWithTimeout('/.netlify/functions/search', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
       }, 45000);
       if (response.ok && response.body) {
@@ -2610,22 +2614,12 @@
     return clone.innerHTML.trim();
   }
 
-  
-  function _aiBubbleText(bubbleEl) {
-    if (!bubbleEl) return '';
-    const clone = bubbleEl.cloneNode(true);
+  function _aiBubbleText(bubble) {
+    if (!bubble) return '';
+    const clone = bubble.cloneNode(true);
     const tb = clone.querySelector('[data-ai-dl-toolbar]');
     if (tb) tb.remove();
-    // FIX: Keep markdown formatting, not just innerText
     return (clone.innerText || clone.textContent || '').trim();
-  }
-
-  function _aiBubbleHtml(bubbleEl) {
-    if (!bubbleEl) return '';
-    const clone = bubbleEl.cloneNode(true);
-    const tb = clone.querySelector('[data-ai-dl-toolbar]');
-    if (tb) tb.remove();
-    return clone.innerHTML;
   }
 
   window.downloadAiAnswerPdf = async function(btn) {
@@ -2638,71 +2632,42 @@
         alert('PDF library hiányzik.');
         return;
       }
+      // Tisztítjuk a klónt — toolbart eltávolítjuk
       const clone = bubble.cloneNode(true);
       const tb = clone.querySelector('[data-ai-dl-toolbar]');
       if (tb) tb.remove();
-      
-      // FIX: LaTeX + magyar ékezetek + tördelés megőrzése
+      // Ideiglenesen DOM-ba illesztjük (offscreen), hogy html2canvas tudja renderelni
       clone.style.position = 'absolute';
       clone.style.left = '-99999px';
       clone.style.top = '0';
-      clone.style.width = '700px';
+      clone.style.background = '#ffffff';
       clone.style.padding = '20px';
-      clone.style.background = 'white';
-      clone.style.color = 'black';
-      clone.style.fontFamily = "'Poppins', 'Noto Sans', sans-serif";
-      clone.style.fontSize = '14px';
-      clone.style.lineHeight = '1.7';
-      clone.style.wordWrap = 'break-word';
-      clone.style.overflowWrap = 'break-word';
-      
-      // FIX: KaTeX elemek láthatóvá tétele PDF-ben
-      clone.querySelectorAll('.katex').forEach(el => {
-        el.style.display = 'inline-block';
-      });
-      clone.querySelectorAll('img').forEach(img => {
-        img.style.maxWidth = '100%';
-        img.style.maxHeight = '250px';
-        img.style.objectFit = 'contain';
-      });
-      
+      clone.style.width = '700px';
       document.body.appendChild(clone);
-      
-      // Várunk a KaTeX renderre
-      await new Promise(r => setTimeout(r, 300));
-      
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: 700,
-        windowWidth: 700
-      });
-      
+      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
       document.body.removeChild(clone);
-      
+
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      let heightLeft = pdfHeight;
-      let position = 0;
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-      
+      const margin = 30;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.text('AMISEARCH — AI válasz', margin, margin);
+      let heightLeft = imgHeight;
+      let position = margin + 20;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= (pageHeight - position);
       while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
+        position = -heightLeft + margin;
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= (pageHeight - margin * 2);
       }
-      
-      const fileName = (window.sanitizeFilename ? window.sanitizeFilename(q) : q).slice(0,50) + '.pdf';
-      pdf.save(fileName);
+      pdf.save((window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.pdf');
     } catch (e) {
       console.error(e);
       alert('PDF generálás hiba: ' + (e?.message || e));
@@ -2714,54 +2679,35 @@
     if (!bubble) return;
     const q = btn.getAttribute('data-q') || 'ai-valasz';
     try {
+      if (!window.html2canvas) {
+        alert('html2canvas library hiányzik.');
+        return;
+      }
       const clone = bubble.cloneNode(true);
       const tb = clone.querySelector('[data-ai-dl-toolbar]');
       if (tb) tb.remove();
-      
-      // FIX: Word export megtartja a formázást + KaTeX-et
-      const htmlContent = clone.innerHTML;
-      
-      const fullHtml = `
-        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: 'Poppins', 'Calibri', sans-serif; font-size: 11pt; line-height: 1.6; color: #000; }
-            h1 { font-size: 16pt; color: #6C5CE7; margin: 12pt 0 6pt 0; }
-            h2 { font-size: 14pt; color: #6C5CE7; margin: 10pt 0 5pt 0; }
-            h3 { font-size: 12pt; color: #2D3436; margin: 8pt 0 4pt 0; }
-            p { margin: 6pt 0; }
-            ul, ol { margin: 6pt 0 6pt 24pt; }
-            li { margin: 3pt 0; }
-            strong { font-weight: bold; }
-            em { font-style: italic; }
-            .katex { font-family: 'Cambria Math', 'Times New Roman', serif; }
-            img { max-width: 100%; height: auto; }
-            code { background: #f3f0ff; padding: 2pt 4pt; border-radius: 3pt; font-family: 'Consolas', monospace; }
-            pre { background: #f5f5f5; padding: 8pt; border-radius: 4pt; white-space: pre-wrap; }
-            table { border-collapse: collapse; width: 100%; margin: 8pt 0; }
-            th, td { border: 1pt solid #ddd; padding: 4pt 8pt; text-align: left; }
-            th { background: #f3f0ff; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          ${htmlContent}
-          <p style="margin-top: 20pt; font-size: 9pt; color: #888; border-top: 1pt solid #ddd; padding-top: 6pt;">Forrás: amisearch.org - ${new Date().toLocaleDateString('hu-HU')}</p>
-        </body>
-        </html>
-      `;
-      
-      const blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
+      clone.style.position = 'absolute';
+      clone.style.left = '-99999px';
+      clone.style.top = '0';
+      clone.style.background = '#ffffff';
+      clone.style.padding = '20px';
+      clone.style.width = '700px';
+      document.body.appendChild(clone);
+      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      document.body.removeChild(clone);
+
+      const imgDataUrl = canvas.toDataURL('image/png');
+      const contentHtml = _aiBubbleHtml(bubble);
+      const htmlDoc = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>AI válasz</title><style>body{font-family:Calibri,Arial,sans-serif;line-height:1.45;color:#111827;padding:20px;} h1,h2,h3{color:#5A4BD1;} p,li{font-size:12pt;} pre,code{font-family:Consolas,monospace;white-space:pre-wrap;} table{border-collapse:collapse;} td,th{border:1px solid #ddd;padding:4px;}</style></head><body><h1>AMISEARCH — AI válasz</h1><p><i>' + new Date().toLocaleString() + '</i></p>' + contentHtml + '</body></html>';
+      const blob = new Blob(['\ufeff' + htmlDoc], { type: 'application/msword;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q).slice(0,50) + '.doc';
+      a.download = (window.sanitizeFilename ? window.sanitizeFilename(q) : q) + '.doc';
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
       alert('Word generálás hiba: ' + (e?.message || e));
@@ -2771,17 +2717,16 @@
   window.copyAiAnswer = function(btn) {
     const bubble = _findAiBubbleFrom(btn);
     if (!bubble) return;
-    // FIX: Copy megtartja a formázást, de plain textként is jól olvasható
     const text = _aiBubbleText(bubble);
     try {
       navigator.clipboard.writeText(text);
       const orig = btn.innerHTML;
       btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>' + (window.currentLang === 'hu' ? 'Másolva!' : 'Copied!');
       setTimeout(() => { btn.innerHTML = orig; }, 1500);
-    } catch (e) { }
+    } catch (e) { /* csendes */ }
   };
 
-/* ──────────────────────────────────────────────────────────────
+  /* ──────────────────────────────────────────────────────────────
      SAJÁT JEGYZETEK panel — listáz + 1-kattintásos összefoglaló
      ────────────────────────────────────────────────────────────── */
   window.myNotesCache = [];
@@ -2907,7 +2852,7 @@
     try {
       let resp = await fetch('/.netlify/functions/summarize', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ noteId: String(noteId), lang })
       });
       let data = await resp.json().catch(() => ({}));
@@ -2918,7 +2863,7 @@
         if (summaryBox) summaryBox.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Jegyzet feldolgozása...' : 'Processing note...') + '</span></div>';
         const indexResp = await fetch('/.netlify/functions/index-document', {
           method: 'POST',
-          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
           body: JSON.stringify({ noteId: String(noteId), filePath: note?.filePath || note?.fileName || '' })
         });
         if (!indexResp.ok) {
@@ -2927,7 +2872,7 @@
         }
         resp = await fetch('/.netlify/functions/summarize', {
           method: 'POST',
-          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
           body: JSON.stringify({ noteId: String(noteId), lang })
         });
         data = await resp.json().catch(() => ({}));
@@ -3040,7 +2985,7 @@
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message: prompt, history: [], notes: '' })
       }, 60000);
       if (!resp.ok) {
@@ -3196,7 +3141,7 @@
     try {
       const response = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message, history: window.chatHistory.slice(-10), notes: window.uploadedNotes }),
       }, 45000);
 
@@ -3348,7 +3293,7 @@
     try {
       const response = await window.fetchWithTimeout('/.netlify/functions/search', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
       }, 45000);
       if (response.ok && response.body) {
@@ -3389,7 +3334,7 @@
     try {
       const res = await fetch('/.netlify/functions/site-rating', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ rating }),
       });
       const data = await res.json();
@@ -3563,7 +3508,7 @@
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message: prompt, history: [], notes: window.uploadedNotes || '' })
       }, 70000);
 
@@ -3625,7 +3570,7 @@
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message: prompt, history: [], notes: window.uploadedNotes || '' })
       }, 70000);
 
@@ -3798,7 +3743,7 @@
         if (!profileData.profile) {
           await fetch('/.netlify/functions/user-profile', {
             method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
             body: JSON.stringify({
               fullName: (user.user_metadata && user.user_metadata.full_name) || email.split('@')[0],
               username: (user.user_metadata && user.user_metadata.username) || email.split('@')[0],
@@ -3857,7 +3802,7 @@
         try {
           await fetch('/.netlify/functions/user-profile', {
             method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
             body: JSON.stringify({ fullName: name, username: username, status: status, email: email }),
           });
         } catch (profileErr) {
