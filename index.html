@@ -233,20 +233,9 @@
   #practiceContent th, #practiceContent td, #chatArea th, #chatArea td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left; }
   .ai-output th, .prose th, #practiceContent th, #chatArea th { background: #f3f0ff; font-weight: 600; }
   .ai-output hr, .prose hr, #practiceContent hr, #chatArea hr { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
-
-  /* FIX: Image overflow - prevents huge Wikimedia images from breaking modal (screenshot bug) */
-  #chatArea img, .ai-output img, #practiceContent img, #examContent img, #searchResults img, #dashSearchResults img {
-    max-width: 100% !important;
-    height: auto !important;
-    max-height: 320px !important;
-    object-fit: contain !important;
-    border-radius: 0.75rem;
-    margin: 0.5rem auto;
-    display: block;
-  }
-  #chatArea .prose { font-size: 0.9rem; line-height: 1.7; }
-  #chatArea .typing-dot { animation: typingBounce 1.2s infinite; }
-  @keyframes typingBounce { 0%,80%,100%{ transform: translateY(0); opacity:.5 } 40%{ transform: translateY(-6px); opacity:1 } }
+  #chatArea img, .ai-output img { max-width:100% !important; max-height:320px !important; object-fit:contain !important; border-radius:0.75rem; display:block; margin:0.5rem auto; }
+  #chatArea .ai-output { word-break: normal !important; overflow-wrap: break-word !important; }
+  #chatArea .ai-output em { display:inline !important; }
 
   
 </style>
@@ -1703,7 +1692,7 @@
     try {
       const res = await fetch('/.netlify/functions/award-points', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ reason }),
       });
       if (res.ok) {
@@ -2004,7 +1993,7 @@
       setUploadStatus('info', '<i class="fa-solid fa-spinner fa-spin mr-2"></i>' + t('registering'));
       const regResp = await fetch('/.netlify/functions/notes', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({
           fileName: filePath,
           originalName: file.name,
@@ -2055,7 +2044,7 @@
       try {
         const idxResp = await fetch('/.netlify/functions/index-document', {
           method: 'POST',
-          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
           body: JSON.stringify({ noteId: regData.id, fileName: filePath })
         });
         if (idxResp.ok) {
@@ -2305,63 +2294,81 @@
     try {
       const resp = await fetch('/.netlify/functions/external-search', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ query, lang, includeForeign: !!includeForeign, page: pg })
       });
       if (!resp.ok) {
-        targetEl.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800"><i class="fa-solid fa-triangle-exclamation mr-2"></i>' + escapeHtml('Kulso kereses nem erheto el [HTTP ' + resp.status + ']') + '</div>';
+        let errMsg = (lang === 'hu' ? 'Külső keresés nem érhető el.' : 'External search unavailable.');
+        try {
+          const text = await resp.text();
+          errMsg += ' [HTTP ' + resp.status + ']';
+          if (text && text.length < 300) errMsg += ' ' + text.slice(0, 200);
+        } catch {}
+        targetEl.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800"><i class="fa-solid fa-triangle-exclamation mr-2"></i>' + escapeHtml(errMsg) + '</div>';
         return;
       }
       const data = await resp.json();
-      let results = (data && data.results) || [];
-      const seen = new Map();
-      results.forEach(r => {
-        const key = (r.title||'').toLowerCase().trim().replace(/\s+/g,' ').slice(0,100) + '|' + (r.source||'');
-        if(!seen.has(key)) seen.set(key, r);
-        else {
-          const prev = seen.get(key);
-          if((r.abstract||'').length > (prev.abstract||'').length) seen.set(key, r);
-        }
-      });
-      results = Array.from(seen.values());
-      results = results.map(r => {
-        if(!r.abstract) return r;
-        const sens = r.abstract.split(/(?<=[.!?])\s+/);
-        const uniq=[]; const set=new Set();
-        sens.forEach(s=>{
-          const k=s.trim().slice(0,80).toLowerCase();
-          if(k.length<10){ uniq.push(s); return; }
-          if(!set.has(k)){ set.add(k); uniq.push(s); }
-        });
-        return {...r, abstract: uniq.join(' ')};
-      });
+      const results = (data && data.results) || [];
       if (!results.length) {
-        targetEl.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center text-gray-500">Nincs kulso talalat.</div>';
+        targetEl.innerHTML = '<div class="bg-white rounded-3xl p-5 shadow border border-gray-100 text-center text-gray-500"><i class="fa-solid fa-globe text-3xl mb-2 text-gray-300"></i><p>' + (lang === 'hu' ? (pg > 1 ? 'Nincs több találat.' : 'Nincs külső találat. Próbáld be a "Idegen nyelvű is" pipát.') : (pg > 1 ? 'No more results.' : 'No external results. Try the foreign-language checkbox.')) + '</p>' + (pg > 1 ? '<button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg - 1) + ')" class="mt-3 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium">← ' + (lang === 'hu' ? 'Vissza' : 'Back') + '</button>' : '') + '</div>';
         return;
       }
-      let htmlOut = '<div class="text-sm text-gray-500 mb-2 flex items-center justify-between"><span><i class="fa-solid fa-globe mr-1"></i>' + (lang === 'hu' ? 'Kulso akademiai talalatok' : 'External results') + ' (' + results.length + ')</span><span class="text-xs text-gray-400">Oldal ' + pg + '</span></div><div class="space-y-3">';
+      let html = '<div class="text-sm text-gray-500 mb-2 flex items-center justify-between"><span><i class="fa-solid fa-globe mr-1"></i>' + (lang === 'hu' ? 'Külső akadémiai találatok' : 'External academic results') + ' (' + results.length + ')</span>' + (pg > 1 ? '<span class="text-xs text-gray-400">' + (lang === 'hu' ? 'Oldal' : 'Page') + ' ' + pg + '</span>' : '') + '</div>';
+      html += '<div class="space-y-3">';
       for (const r of results) {
+        const langBadge = r.language === 'hu'
+          ? '<span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">Magyar</span>'
+          : '<span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">English</span>';
         const srcBadge = '<span class="px-2 py-0.5 text-xs bg-purple-100 text-[#6C5CE7] rounded-full">' + escapeHtml(r.source || '') + '</span>';
-        const langBadge = r.language === 'hu' ? '<span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">Magyar</span>' : '<span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">English</span>';
         const year = r.year ? '<span class="text-xs text-gray-500">' + r.year + '</span>' : '';
         const authors = r.authors ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(r.authors) + '</p>' : '';
-        const abs = r.abstract ? (window.safeMarkdown ? window.safeMarkdown(r.abstract) : '<p class="text-sm text-gray-600 mt-2">' + escapeHtml(r.abstract) + '</p>') : '';
-        const absHtml = window.safeMarkdown ? '<div class="text-sm text-gray-600 mt-2 prose prose-sm max-w-none">' + abs + '</div>' : '<p class="text-sm text-gray-600 mt-2">' + escapeHtml(r.abstract||'') + '</p>';
-        const pdfBtn = r.pdfUrl ? '<a href="' + escapeHtml(r.pdfUrl) + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium"><i class="fa-solid fa-file-pdf"></i>PDF</a>' : '';
-        const linkBtn = r.sourceUrl ? '<a href="' + escapeHtml(r.sourceUrl) + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"><i class="fa-solid fa-arrow-up-right-from-square"></i> Megnyitas</a>' : '';
-        htmlOut += '<div class="bg-white rounded-2xl p-4 shadow border border-gray-100"><div class="flex items-start gap-2 mb-1 flex-wrap">' + srcBadge + langBadge + year + '</div><h4 class="font-semibold text-gray-900">' + escapeHtml(r.title || '') + '</h4>' + authors + absHtml + '<div class="mt-3 flex gap-2 flex-wrap">' + pdfBtn + linkBtn + '</div></div>';
+        const abstract = r.abstract ? '<p class="text-sm text-gray-600 mt-2 line-clamp-3">' + escapeHtml(r.abstract) + '</p>' : '';
+        const pdfBtn = r.pdfUrl
+          ? '<a href="' + escapeHtml(r.pdfUrl) + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition"><i class="fa-solid fa-file-pdf"></i>PDF</a>'
+          : '';
+        const linkBtn = r.sourceUrl
+          ? '<a href="' + escapeHtml(r.sourceUrl) + '" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition"><i class="fa-solid fa-arrow-up-right-from-square"></i>' + (lang === 'hu' ? 'Megnyitás' : 'Open') + '</a>'
+          : '';
+        html += '<div class="bg-white rounded-2xl p-4 shadow border border-gray-100">';
+        html += '  <div class="flex items-start gap-2 mb-1 flex-wrap">' + srcBadge + langBadge + year + '</div>';
+        html += '  <h4 class="font-semibold text-gray-900">' + escapeHtml(r.title || '') + '</h4>';
+        html += authors + abstract;
+        html += '  <div class="mt-3 flex gap-2 flex-wrap">' + pdfBtn + linkBtn + '</div>';
+        html += '</div>';
       }
-      htmlOut += '</div>';
-      htmlOut += '<div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100"><button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg - 1) + ')" class="' + (pg > 1 ? '' : 'hidden') + ' inline-flex items-center gap-2 text-sm px-4 py-2 bg-white border rounded-lg">Előző</button><span class="text-xs text-gray-500">Oldal ' + pg + '</span><button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg + 1) + ')" class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-[#6C5CE7] text-white rounded-lg">Következő</button></div>';
-      targetEl.innerHTML = htmlOut;
+      html += '</div>';
+
+      /* Pagination controls */
+      html += '<div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">';
+      if (pg > 1) {
+        html += '<button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg - 1) + ')" data-testid="ext-prev-page-btn" class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg font-medium text-gray-700 transition"><i class="fa-solid fa-arrow-left"></i>' + (lang === 'hu' ? 'Előző' : 'Previous') + '</button>';
+      } else {
+        html += '<div></div>';
+      }
+      html += '<span class="text-xs text-gray-500">' + (lang === 'hu' ? 'Oldal' : 'Page') + ' ' + pg + '</span>';
+      if (results.length >= 10) {
+        html += '<button onclick="window.runExternalSearch(window._externalSearchState.query, window._externalSearchState.lang, window._externalSearchState.includeForeign, window._externalSearchState.target, ' + (pg + 1) + ')" data-testid="ext-next-page-btn" class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-[#6C5CE7] hover:bg-[#5A4BD1] text-white rounded-lg font-medium transition">' + (lang === 'hu' ? 'Következő' : 'Next') + '<i class="fa-solid fa-arrow-right"></i></button>';
+      } else {
+        html += '<div></div>';
+      }
+      html += '</div>';
+      targetEl.innerHTML = html;
     } catch (e) {
       console.error('External search error:', e);
-      targetEl.innerHTML = '<div class="text-gray-400 text-sm">Kulso kereses hiba: ' + escapeHtml(e.message) + '</div>';
+      targetEl.innerHTML = '<div class="text-gray-400 text-sm">' + (lang === 'hu' ? 'Külső keresés hiba.' : 'External search error.') + '</div>';
     }
   };
 
-  window.handleDashboardSearch = async function() {
+  /* ──────────────────────────────────────────────────────────────
+     LemonSqueezy checkout — lásd a 
+<!-- Live Teacher Hub integration: runs after the legacy mock renderer -->
 
+
+</body> előtti <script> blokkban
+     ────────────────────────────────────────────────────────────── */
+
+
+  window.handleDashboardSearch = async function() {
     const input = document.getElementById('dashSearchInput');
     const resultsContainer = document.getElementById('dashSearchResults');
     const docResults = document.getElementById('dashDocResults');
@@ -2408,7 +2415,7 @@
     try {
       const response = await window.fetchWithTimeout('/.netlify/functions/search', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
       }, 45000);
       if (response.ok && response.body) {
@@ -2845,7 +2852,7 @@
     try {
       let resp = await fetch('/.netlify/functions/summarize', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ noteId: String(noteId), lang })
       });
       let data = await resp.json().catch(() => ({}));
@@ -2856,7 +2863,7 @@
         if (summaryBox) summaryBox.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><i class="fa-solid fa-spinner fa-spin"></i><span>' + (lang === 'hu' ? 'Jegyzet feldolgozása...' : 'Processing note...') + '</span></div>';
         const indexResp = await fetch('/.netlify/functions/index-document', {
           method: 'POST',
-          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
           body: JSON.stringify({ noteId: String(noteId), filePath: note?.filePath || note?.fileName || '' })
         });
         if (!indexResp.ok) {
@@ -2865,7 +2872,7 @@
         }
         resp = await fetch('/.netlify/functions/summarize', {
           method: 'POST',
-          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
           body: JSON.stringify({ noteId: String(noteId), lang })
         });
         data = await resp.json().catch(() => ({}));
@@ -2978,7 +2985,7 @@
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message: prompt, history: [], notes: '' })
       }, 60000);
       if (!resp.ok) {
@@ -3114,77 +3121,130 @@
     });
   }
 
-  window.appendBubble = function(role, htmlContent, isStreaming=false){
-    const chatArea = document.getElementById('chatArea');
-    const wrap = document.createElement('div');
-    wrap.className = 'flex items-start space-x-3 mb-5 ' + (role==='user' ? 'justify-end' : '');
-    if(role==='user'){
-      wrap.innerHTML = `<div class="bg-[#6C5CE7] text-white rounded-2xl rounded-br-sm p-3.5 shadow-sm max-w-[85%] text-sm leading-relaxed">${htmlContent}</div><div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user text-white text-sm"></i></div>`;
-    } else {
-      const id = isStreaming ? 'ai-stream-'+Date.now() : 'ai-final-'+Date.now();
-      wrap.innerHTML = `<div class="w-8 h-8 bg-[#6C5CE7] rounded-full flex items-center justify-center flex-shrink-0 mt-1"><i class="fa-solid fa-wand-magic-sparkles text-white text-sm"></i></div><div class="bg-white rounded-2xl rounded-bl-sm p-4 shadow-sm border border-gray-100 max-w-[85%]"><div id="${id}" class="prose prose-sm max-w-none text-gray-800 leading-relaxed text-sm ai-output">${htmlContent}</div></div>`;
-      wrap._streamId = id;
-    }
-    chatArea.appendChild(wrap);
-    chatArea.scrollTop = chatArea.scrollHeight;
-    return wrap;
-  };
-
   window.sendMessage = async function() {
     const input = document.getElementById('chatInput');
     const chatArea = document.getElementById('chatArea');
-    const raw = input.value.trim();
-    if (!raw) return;
-    function chatEsc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
-    window.appendBubble('user', chatEsc(raw));
-    window.chatHistory.push({ role: 'user', content: raw });
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    chatArea.innerHTML += '<div class="flex items-start space-x-3 mb-4 justify-end"><div class="bg-[#6C5CE7] text-white rounded-xl p-3 shadow-sm max-w-[80%]"><p class="text-sm">' + escapeHtml(message) + '</p></div><div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user text-white text-sm"></i></div></div>';
+
+    window.chatHistory.push({ role: 'user', content: message });
     input.value = '';
-    const streamingWrap = window.appendBubble('assistant', `<span class="inline-flex gap-1 items-center"><span class="w-2 h-2 bg-[#6C5CE7] rounded-full animate-bounce typing-dot"></span><span class="w-2 h-2 bg-[#6C5CE7] rounded-full animate-bounce typing-dot" style="animation-delay:.15s"></span><span class="w-2 h-2 bg-[#6C5CE7] rounded-full animate-bounce typing-dot" style="animation-delay:.3s"></span><span class="ml-2 text-xs text-gray-400">gondolkodik...</span></span>`, true);
-    const streamEl = document.getElementById(streamingWrap._streamId);
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    const aiMsgId = 'ai-msg-' + Date.now();
+    chatArea.innerHTML += '<div class="flex items-start space-x-3 mb-4"><div class="w-8 h-8 bg-[#6C5CE7] rounded-full flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-face-smile-beam text-white text-sm"></i></div><div class="bg-white rounded-xl p-3 shadow-sm"><p class="text-sm" id="' + aiMsgId + '"><span class="text-gray-400 animate-pulse">▋</span></p></div></div>';
+    chatArea.scrollTop = chatArea.scrollHeight;
+
     try {
       const response = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ message: raw, history: window.chatHistory.slice(-10), notes: window.uploadedNotes }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
+        body: JSON.stringify({ message, history: window.chatHistory.slice(-10), notes: window.uploadedNotes }),
       }, 45000);
+
       if (!response.ok) {
         const errMsg = await window.getAiErrorMessage(response, window.currentLang);
-        streamEl.innerHTML = '<span class="text-amber-700 font-medium">' + errMsg + '</span>';
+        const target402 = document.getElementById(aiMsgId);
+        if (target402) {
+          target402.innerHTML = '<span class="text-amber-700 font-medium">' + errMsg + '</span>';
+        }
         return;
       }
+
       let fullText = '';
-      let lastRender = 0;
+      const target = document.getElementById(aiMsgId);
+
       fullText = await window.readTextStream(response, function(text) {
         fullText = text;
-        const now = Date.now();
-        if(now - lastRender > 80){
-          streamEl.innerHTML = window.safeMarkdown ? window.safeMarkdown(fullText) : chatEsc(fullText);
-          chatArea.scrollTop = chatArea.scrollHeight;
-          lastRender = now;
-        }
+        target.innerHTML = window.safeMarkdown ? window.safeMarkdown(fullText) : escapeHtml(fullText);
+        chatArea.scrollTop = chatArea.scrollHeight;
       });
-      if (!fullText) throw new Error(window.currentLang === 'hu' ? 'Az AI nem adott valaszt.' : 'AI returned no response.');
-      streamEl.innerHTML = window.safeMarkdown ? window.safeMarkdown(fullText) : chatEsc(fullText);
+
+      if (!fullText) {
+        throw new Error(window.currentLang === 'hu' ? 'Az AI nem adott választ.' : 'AI returned no response.');
+      }
+
       window.chatHistory.push({ role: 'assistant', content: fullText });
       if (window.renderMathInElement) {
-        renderMathInElement(streamEl, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\[', right: '\]', display: true}, {left: '\(', right: '\)', display: false}], throwOnError: false });
+        renderMathInElement(target, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}], throwOnError: false });
       }
-      const bubble = streamEl.closest('.bg-white');
-      if (bubble && !bubble.querySelector('[data-ai-dl-toolbar]')) {
-        const tb = document.createElement('div');
-        tb.dataset.aiDlToolbar = '1';
-        tb.className = 'flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap';
-        tb.innerHTML = '<button onclick="window.downloadAiAnswerPdf(this)" data-q="' + chatEsc(raw).slice(0,80) + '" class="text-xs px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="window.downloadAiAnswerWord(this)" data-q="' + chatEsc(raw).slice(0,80) + '" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button><button onclick="window.copyAiAnswer(this)" class="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"><i class="fa-regular fa-copy mr-1"></i>' + (window.currentLang === 'hu' ? 'Masolas' : 'Copy') + '</button>';
-        bubble.appendChild(tb);
+
+      /* AI válasz letöltése PDF/Word formátumban — minden válasz alá tesszük */
+      try {
+        const bubble = target.parentElement;
+        if (bubble && !bubble.querySelector('[data-ai-dl-toolbar]')) {
+          const toolbar = document.createElement('div');
+          toolbar.dataset.aiDlToolbar = '1';
+          toolbar.className = 'flex gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap';
+          const safeQ = window.sanitizeFilename ? window.sanitizeFilename(message) : message.replace(/[^a-zA-Z0-9_-]/g,'_');
+          toolbar.innerHTML =
+            '<button onclick="window.downloadAiAnswerPdf(this)" data-q="' + escapeHtml(safeQ).slice(0,80) + '" class="text-xs px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 font-medium transition"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button>' +
+            '<button onclick="window.downloadAiAnswerWord(this)" data-q="' + escapeHtml(safeQ).slice(0,80) + '" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium transition"><i class="fa-solid fa-file-word mr-1"></i>Word</button>' +
+            '<button onclick="window.copyAiAnswer(this)" class="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition"><i class="fa-regular fa-copy mr-1"></i>' + (window.currentLang === 'hu' ? 'Másolás' : 'Copy') + '</button>';
+          bubble.appendChild(toolbar);
+        }
+      } catch (e) { /* csendes */ }
+
+      if (window.mermaid) {
+        /* Mermaid blokk detektálás — több formátumot is elfogadunk:
+           - ```mermaid (szabályos), ```mindmap, ```flowchart, etc.
+           - sima ``` blokk amely 'mindmap' / 'flowchart' / 'graph' / 'sequenceDiagram' / 'classDiagram' / 'erDiagram' sorral kezdődik */
+        const mermaidDiagramTypes = /^(mindmap|flowchart|graph|sequenceDiagram|classDiagram|erDiagram|stateDiagram|gantt|pie|journey|gitGraph|timeline)/i;
+        const candidateBlocks = target.querySelectorAll(
+          '.language-mermaid, .language-mindmap, .language-flowchart, code[class*="language-"], pre code'
+        );
+        const processed = new Set();
+        for (const block of candidateBlocks) {
+          if (processed.has(block)) continue;
+          const raw = (block.textContent || '').trim();
+          if (!raw) continue;
+          // Eldöntjük: ez tényleg mermaid-e?
+          const isMermaid =
+            block.className.includes('language-mermaid') ||
+            block.className.includes('language-mindmap') ||
+            block.className.includes('language-flowchart') ||
+            mermaidDiagramTypes.test(raw.split('\n')[0].trim());
+          if (!isMermaid) continue;
+          processed.add(block);
+          const parent = block.closest('pre') || block.parentElement;
+          if (!parent) continue;
+          const wrapper = document.createElement('div');
+          wrapper.style.position = 'relative';
+          const mermaidDiv = document.createElement('div');
+          mermaidDiv.className = 'mermaid-render';
+          wrapper.appendChild(mermaidDiv);
+          parent.replaceWith(wrapper);
+          try {
+            const id = 'mm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+            wrapper.dataset.topic = window.extractMindMapTopic(raw);
+            const sanitized = sanitizeMermaidCode(raw, wrapper.dataset.topic || 'Gondolattérkép');
+            const { svg } = await mermaid.render(id, sanitized);
+            mermaidDiv.innerHTML = svg;
+            const toolbar = document.createElement('div');
+            toolbar.className = 'flex gap-2 mt-2 justify-end';
+            toolbar.innerHTML = '<button onclick="window.openMindMapPage(this.closest(\'div\')?.parentElement?.dataset?.topic || \'Gondolattérkép\')" class="text-xs px-3 py-1.5 bg-indigo-100 text-[#6C5CE7] rounded-lg hover:bg-indigo-200 transition font-medium"><i class="fa-solid fa-up-right-from-square mr-1"></i>Aloldal</button><button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+            wrapper.appendChild(toolbar);
+          } catch (e) {
+            wrapper.dataset.topic = window.extractMindMapTopic(raw);
+            mermaidDiv.innerHTML = renderMindMapFallback(sanitizeMermaidCode(raw, wrapper.dataset.topic || 'Gondolattérkép'));
+            const toolbar = document.createElement('div');
+            toolbar.className = 'flex gap-2 mt-2 justify-end';
+            toolbar.innerHTML = '<button onclick="window.openMindMapPage(this.closest(\'div\')?.parentElement?.dataset?.topic || \'Gondolattérkép\')" class="text-xs px-3 py-1.5 bg-indigo-100 text-[#6C5CE7] rounded-lg hover:bg-indigo-200 transition font-medium"><i class="fa-solid fa-up-right-from-square mr-1"></i>Aloldal</button><button onclick="downloadMindMapPdf(this)" class="text-xs px-3 py-1.5 bg-purple-100 text-[#6C5CE7] rounded-lg hover:bg-purple-200 transition font-medium"><i class="fa-solid fa-file-pdf mr-1"></i>PDF</button><button onclick="downloadMindMapWord(this)" class="text-xs px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition font-medium"><i class="fa-solid fa-file-word mr-1"></i>Word</button>';
+            wrapper.appendChild(toolbar);
+          }
+        }
       }
     } catch (err) {
-      streamEl.textContent = err && err.message ? err.message : (window.currentLang === 'hu' ? 'Hiba tortent. Probald ujra.' : 'An error occurred.');
-      streamEl.classList.add('text-red-500');
+      const target = document.getElementById(aiMsgId);
+      target.textContent = err && err.message ? err.message : (window.currentLang === 'hu' ? 'Hiba történt. Próbáld újra.' : 'An error occurred. Please try again.');
+      target.classList.add('text-red-500');
     }
-  };
+  }
 
   document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
-
     if (e.key === 'Enter') window.sendMessage();
   });
 
@@ -3233,7 +3293,7 @@
     try {
       const response = await window.fetchWithTimeout('/.netlify/functions/search', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ query: query, notes: window.uploadedNotes || '', lang: lang === 'hu' ? 'hu' : 'en' }),
       }, 45000);
       if (response.ok && response.body) {
@@ -3274,7 +3334,7 @@
     try {
       const res = await fetch('/.netlify/functions/site-rating', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ rating }),
       });
       const data = await res.json();
@@ -3448,7 +3508,7 @@
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message: prompt, history: [], notes: window.uploadedNotes || '' })
       }, 70000);
 
@@ -3510,7 +3570,7 @@
     try {
       const resp = await window.fetchWithTimeout('/.netlify/functions/chat', {
         method: 'POST',
-        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
         body: JSON.stringify({ message: prompt, history: [], notes: window.uploadedNotes || '' })
       }, 70000);
 
@@ -3683,7 +3743,7 @@
         if (!profileData.profile) {
           await fetch('/.netlify/functions/user-profile', {
             method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
             body: JSON.stringify({
               fullName: (user.user_metadata && user.user_metadata.full_name) || email.split('@')[0],
               username: (user.user_metadata && user.user_metadata.username) || email.split('@')[0],
@@ -3742,7 +3802,7 @@
         try {
           await fetch('/.netlify/functions/user-profile', {
             method: 'POST',
-            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json' }),
+            headers: await window.getAuthHeaders({ 'Content-Type': 'application/json; charset=utf-8' }),
             body: JSON.stringify({ fullName: name, username: username, status: status, email: email }),
           });
         } catch (profileErr) {
