@@ -2,12 +2,20 @@
 const getEnv = (key) => process.env[key] || (typeof Netlify !== "undefined" && Netlify.env.get(key));
 
 export function isAiConfigured() {
-  return !!getEnv("GEMINI_API_KEY");
+  // Elfogadja a Gemini VAGY a Groq kulcsot
+  return !!(getEnv("GEMINI_API_KEY") || getEnv("GROQ_API_KEY"));
+}
+
+export function getPreferredProvider() {
+  // Ha van Groq kulcs, azt preferáljuk (amíg a Gemini hátralék rendeződik)
+  if (getEnv("GROQ_API_KEY")) return "groq";
+  if (getEnv("GEMINI_API_KEY")) return "gemini";
+  return null;
 }
 
 export function aiUnavailableResponse() {
   return new Response(JSON.stringify({
-    error: "Az AI szolgáltatás pillanatnyilag nem elérhető. Kérjük, ellenőrizd a Netlify környezeti változókat, különösen a GEMINI_API_KEY értékét.",
+    error: "Az AI szolgáltatás pillanatnyilag nem elérhető. Kérjük, ellenőrizd a Netlify környezeti változókat (GEMINI_API_KEY vagy GROQ_API_KEY).",
     code: "ai_unavailable"
   }), {
     status: 503,
