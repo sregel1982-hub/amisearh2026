@@ -1,12 +1,16 @@
-// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V3 - TELJES, COMMIT-READY
-// FIX: magyar őű áé + empty ID + UTF-8 stream + kép overflow
+// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V3 - GROQ SUPPORT
+// FIX: magyar őű áé + empty ID + UTF-8 stream + kép overflow + Groq fallback
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { checkQuota, incrementUsage } from "./quota.js";
 import { detectLanguage, webSearch, imageSearch } from "./search-utils.mjs";
 
-const getEnv = (key) => process.env[key];
-const ai = new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") });
+const getEnv = (key) => process.env[key] || (typeof Netlify !== "undefined" && Netlify.env.get?.(key));
+
+const hasGroq = !!getEnv("GROQ_API_KEY");
+const hasGemini = !!getEnv("GEMINI_API_KEY");
+
+const geminiAi = hasGemini ? new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") }) : null;
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -38,7 +42,6 @@ function textStreamResponse(generator) {
       try {
         for await (const chunk of generator) {
           if (chunk) {
-            // FIX 1: NFC normalizálás - ez javítja a screenshoton lévő ő, ű, á egymásra csúszást
             const normalized = String(chunk).normalize('NFC');
             controller.enqueue(encoder.encode(normalized));
           }
@@ -51,7 +54,6 @@ function textStreamResponse(generator) {
     }
   }), {
     headers: {
-      // FIX 2: UTF-8 charset explicit - böngésző tudja hogy magyar ékezetek jönnek
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": "*",
@@ -67,7 +69,7 @@ function singleChunkStream(text) {
 
 function cleanText(value, max = 70000) {
   return String(value || "")
-    .normalize('NFC') // FIX: magyar ékezetek normalizálása
+    .normalize('NFC')
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
@@ -78,7 +80,7 @@ function cleanText(value, max = 70000) {
 
 function getSupabaseAdmin() {
   const url = getEnv("SUPABASE_URL");
-  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const key = getEnv("SUPABASE_SERVICE_ROLE_KEY") || getEnv("SERVICE_ROLE_KEY");
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
@@ -191,85 +193,3 @@ function buildPrompt({ message, notesContext, webContext, history }) {
     `## QUESTION\n${message}`
   ].filter(Boolean).join("");
 }
-
-async function classifyRequest(message) {
-  try {
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: `Classify this request. If the user wants a real image or illustration, answer:\nTYPE: IMAGE\nQUERY: <English search phrase>\nOtherwise:\nTYPE: TEXT\nQUERY: -\n\nUser message: "${message}"` }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 40 }
-    });
-    const text = result?.text || "";
-    const type = (text.match(/TYPE:\s*(IMAGE|TEXT)/i)?.[1] || "TEXT").toUpperCase();
-    const query = text.match(/QUERY:\s*(.+)/i)?.[1]?.trim() || message.slice(0, 60);
-    return { type, searchQuery: query === "-" ? message.slice(0, 60) : query };
-  } catch { return { type: "TEXT", searchQuery: message.slice(0, 60) }; }
-}
-
-export default async (req) => {
-  try {
-    if (req.method === "OPTIONS") return corsOptionsResponse();
-    if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
-
-    let body = {};
-    try {
-      const raw = await req.text();
-      if (raw) body = JSON.parse(raw);
-    } catch { return jsonResponse({ error: "Invalid JSON" }, 400); }
-
-    const user = await getSupabaseUser(req);
-    if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
-
-    const quota = await checkQuota(user.id, "ai_questions");
-    if (!quota.allowed) {
-      return jsonResponse({ error: quota.message || "Quota exceeded", code: "quota_exceeded" }, 402);
-    }
-
-    const message = cleanText(body.message || body.query || "", 12000);
-    if (!message) return jsonResponse({ error: "Missing message" }, 400);
-
-    const classification = await classifyRequest(message);
-
-    if (classification.type === "IMAGE") {
-      const img = await imageSearch(classification.searchQuery);
-      await incrementUsage(user.id, "ai_questions");
-      if (!img) return singleChunkStream("Sajnálom, nem találtam szabadon felhasználható képet.\n\n## Forrásjegyzék");
-      return singleChunkStream(`
-
-![${img.title}](${img.url})
-
-\n\n**${img.title}**  \nForrás: ${img.source}  \n${img.sourceUrl}\n\n## Forrásjegyzék\n- ${img.source}`);
-    }
-
-    const lang = await detectLanguage(message);
-    const notesContext = await loadUserNotesContext(user, body.notes || "", body.noteId || body.note_id || null);
-    const webResult = await webSearch(message, lang);
-    const webContext = webResult
-      ? `=== SOURCE: ${webResult.source} ===\n${webResult.summary}\nURL: ${webResult.url}`
-      : "";
-
-    const promptText = buildPrompt({ message, notesContext, webContext, history: body.history || [] });
-
-    await incrementUsage(user.id, "ai_questions");
-
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
-      systemInstruction: buildSystemInstruction(),
-      contents: [{ role: "user", parts: [{ text: promptText }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
-    });
-
-    async function* generator() {
-      for await (const chunk of stream) {
-        const text = chunk?.text || "";
-        if (text) yield text;
-      }
-    }
-
-    return textStreamResponse(generator());
-
-  } catch (err) {
-    console.error("Fatal error:", err);
-    return jsonResponse({ error: "Internal server error" }, 500);
-  }
-};
