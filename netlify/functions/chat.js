@@ -222,12 +222,8 @@ async function* geminiChunks(promptText, systemInstruction) {
 // GROQ STREAM (OpenAI-kompatibilis /chat/completions végpont)
 // -------------------------------
 
-async function fetchGroqStream(promptText, systemInstruction) {
-  const apiKey = getEnv("GROQ_API_KEY");
-  if (!apiKey) throw new Error("Groq nincs konfigurálva (hiányzó GROQ_API_KEY).");
-  const model = getEnv("GROQ_MODEL") || "llama-3.3-70b-versatile";
-
-  const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+async function requestGroqCompletion(apiKey, model, promptText, systemInstruction) {
+  return fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -244,6 +240,21 @@ async function fetchGroqStream(promptText, systemInstruction) {
       ]
     })
   });
+}
+
+async function fetchGroqStream(promptText, systemInstruction) {
+  const apiKey = getEnv("GROQ_API_KEY");
+  if (!apiKey) throw new Error("Groq nincs konfigurálva (hiányzó GROQ_API_KEY).");
+
+  const primaryModel = getEnv("GROQ_MODEL") || "openai/gpt-oss-120b";
+  const fallbackModel = "openai/gpt-oss-20b";
+
+  let resp = await requestGroqCompletion(apiKey, primaryModel, promptText, systemInstruction);
+
+  if (!resp.ok && primaryModel !== fallbackModel) {
+    console.error(`Groq modell (${primaryModel}) sikertelen, próba: ${fallbackModel}`);
+    resp = await requestGroqCompletion(apiKey, fallbackModel, promptText, systemInstruction);
+  }
 
   if (!resp.ok || !resp.body) {
     const errText = await resp.text().catch(() => "");
