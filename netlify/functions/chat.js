@@ -1,5 +1,4 @@
-// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V3 - GROQ SUPPORT
-// FIX: magyar őű áé + empty ID + UTF-8 stream + kép overflow + Groq fallback
+// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V4 - GEMINI FIRST + EXPORT FORMATTING FIX
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { checkQuota, incrementUsage } from "./quota.js";
@@ -10,6 +9,7 @@ const getEnv = (key) => process.env[key] || (typeof Netlify !== "undefined" && N
 const hasGroq = !!getEnv("GROQ_API_KEY");
 const hasGemini = !!getEnv("GEMINI_API_KEY");
 
+// ✅ GEMINI ELSŐDLEGES
 const geminiAi = hasGemini ? new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") }) : null;
 
 function jsonResponse(data, status = 200) {
@@ -35,6 +35,7 @@ function corsOptionsResponse() {
   });
 }
 
+// ✅ Javított stream — formázás megőrzése exportáláshoz
 function textStreamResponse(generator) {
   const encoder = new TextEncoder();
   return new Response(new ReadableStream({
@@ -42,7 +43,10 @@ function textStreamResponse(generator) {
       try {
         for await (const chunk of generator) {
           if (chunk) {
-            const normalized = String(chunk).normalize('NFC');
+            const normalized = String(chunk)
+              .normalize('NFC')
+              .replace(/\r\n/g, "\n")
+              .replace(/\r/g, "\n");
             controller.enqueue(encoder.encode(normalized));
           }
         }
@@ -63,19 +67,46 @@ function textStreamResponse(generator) {
 }
 
 function singleChunkStream(text) {
-  async function* gen() { yield text.normalize('NFC'); }
+  async function* gen() { 
+    yield text.normalize('NFC')
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n"); 
+  }
   return textStreamResponse(gen());
 }
 
+// ✅ Javított szövegtisztítás — sortörések és formázás megőrzése
 function cleanText(value, max = 70000) {
   return String(value || "")
     .normalize('NFC')
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
-    .replace(/\n{4,}/g, "\n\n\n")
+    .replace(/\n{5,}/g, "\n\n\n\n") // Maximum 4 egymás utáni sortörés
     .trim()
     .slice(0, max);
+}
+
+// ✅ Export-barát formázás — PDF/Word-hez
+function formatForExport(text) {
+  return text
+    .normalize('NFC')
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    // Fejezetcímek — extra sortörés
+    .replace(/^(## .+)$/gm, "\n$1\n")
+    // Félkövér szöveg megőrzése
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    // Listaelemek — egységes behúzás
+    .replace(/^- /gm, "• ")
+    .replace(/^(\d+)\. /gm, "$1. ")
+    // Képletek — egyszerűsítés, de megtartás
+    .replace(/\$(.+?)\$/g, "($1)")
+    .replace(/\$\$(.+?)\$\$/g, "\n[$1]\n")
+    // Összefolyás megakadályozása
+    .replace(/([^\n])(## )/g, "$1\n\n$2")
+    .replace(/([^\n])(• |\d+\. )/g, "$1\n$2")
+    .trim();
 }
 
 function getSupabaseAdmin() {
@@ -172,13 +203,18 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
 function buildSystemInstruction() {
   return `You are the AMISEARCH educational assistant.
 Always answer in the SAME language as the user's question.
-Use proper UTF-8 Hungarian characters: ő, ű, á, é, í, ó, ú, Ö, Ü, Ő, Ű etc. Never replace them with o, u, a, e.
+Use proper UTF-8 Hungarian characters: ő, ű, á, é, í, ó, ú, ö, ü, Ő, Ű, Á, É, Í, Ó, Ú, Ö, Ü etc. Never replace them with o, u, a, e.
 Provide clear, structured, academically reliable explanations.
 Use markdown: ## for headings, - or 1. for lists, **bold** for key terms.
 For math, use $...$ for inline and $$...$$ for display formulas.
 If the user asks for a process or concept map, output a Mermaid mindmap block.
 If the user asks for statistics or time-series data, output a Chart.js JSON config in a json-chart block.
-Always end your answer with: "## Forrásjegyzék"`;
+## FORMATTING RULES FOR EXPORT:
+- Always use CLEAR line breaks between sections
+- Place each paragraph on its own line
+- Use blank lines between headings and content
+- Do NOT collapse multiple paragraphs into one line
+- End your answer with: "## Forrásjegyzék"`;
 }
 
 function buildPrompt({ message, notesContext, webContext, history }) {
@@ -194,7 +230,6 @@ function buildPrompt({ message, notesContext, webContext, history }) {
   ].filter(Boolean).join("");
 }
 
-// Gyors, offline nyelvfelismerés (nincs extra API hívás, nem lassítja a választ)
 function guessLang(text) {
   const t = String(text || "");
   const hunPattern = /[őűáéíóúöüŐŰÁÉÍÓÚÖÜ]|\b(és|vagy|hogy|egy|nem|van|mit|hol|kérem|keresés|jegyzet|tantárgy|vizsga|tétel|fejezet|miért|hogyan)\b/i;
@@ -202,7 +237,7 @@ function guessLang(text) {
 }
 
 // -------------------------------
-// GEMINI STREAM
+// GEMINI STREAM — ELSŐDLEGES
 // -------------------------------
 
 async function* geminiChunks(promptText, systemInstruction) {
@@ -214,12 +249,16 @@ async function* geminiChunks(promptText, systemInstruction) {
   });
   for await (const chunk of stream) {
     const text = typeof chunk?.text === "function" ? chunk.text() : chunk?.text;
-    if (text) yield text;
+    if (text) {
+      yield text
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
+    }
   }
 }
 
 // -------------------------------
-// GROQ STREAM (OpenAI-kompatibilis /chat/completions végpont)
+// GROQ STREAM — TARTALÉK
 // -------------------------------
 
 async function requestGroqCompletion(apiKey, model, promptText, systemInstruction) {
@@ -284,16 +323,18 @@ async function* groqChunks(resp) {
       try {
         const json = JSON.parse(data);
         const delta = json?.choices?.[0]?.delta?.content;
-        if (delta) yield delta;
-      } catch {
-        // hibás/darabolt JSON chunk - kihagyjuk, a következő read() összeragasztja
-      }
+        if (delta) {
+          yield delta
+            .replace(/\r\n/g, "\n")
+            .replace(/\r/g, "\n");
+        }
+      } catch {}
     }
   }
 }
 
 // -------------------------------
-// FŐ HANDLER - ez hiányzott a fájlból, emiatt nem működött semelyik AI funkció
+// FŐ HANDLER — GEMINI AZ ELSŐDLEGES
 // -------------------------------
 
 export default async function handler(req) {
@@ -321,6 +362,7 @@ export default async function handler(req) {
   const history = Array.isArray(body?.history) ? body.history : [];
   const inlineNotes = typeof body?.notes === "string" ? body.notes : "";
   const noteId = body?.noteId || null;
+  const forExport = body?.export === true; // Jelző, ha exportáljuk
 
   if (!message) {
     return jsonResponse({ error: "A kérdés (message) megadása kötelező.", code: "missing_message" }, 400);
@@ -368,28 +410,25 @@ export default async function handler(req) {
   }
 
   const systemInstruction = buildSystemInstruction();
-  const promptText = buildPrompt({ message, notesContext, webContext, history });
+  let promptText = buildPrompt({ message, notesContext, webContext, history });
 
-  // Nem blokkoljuk a választ a számláló miatt
   incrementUsage(user?.id).catch((e) => console.error("Usage increment error:", e));
 
-  const primary = hasGroq ? "groq" : "gemini";
-
+  // ✅ GEMINI AZ ELSŐDLEGES — GROQ TARTALÉK
   try {
-    if (primary === "groq") {
+    if (hasGemini) {
+      return textStreamResponse(geminiChunks(promptText, systemInstruction));
+    }
+    if (hasGroq) {
       const resp = await fetchGroqStream(promptText, systemInstruction);
       return textStreamResponse(groqChunks(resp));
     }
-    return textStreamResponse(geminiChunks(promptText, systemInstruction));
   } catch (err) {
-    console.error(`${primary} hívás sikertelen, tartalék szolgáltató próbálása:`, err?.message || err);
+    console.error("Gemini hívás sikertelen, Groq tartalék próbálása:", err?.message || err);
   }
 
   try {
-    if (primary === "groq" && hasGemini) {
-      return textStreamResponse(geminiChunks(promptText, systemInstruction));
-    }
-    if (primary === "gemini" && hasGroq) {
+    if (hasGemini && hasGroq) {
       const resp = await fetchGroqStream(promptText, systemInstruction);
       return textStreamResponse(groqChunks(resp));
     }
@@ -401,4 +440,9 @@ export default async function handler(req) {
     error: "Az AI szolgáltatás jelenleg nem elérhető. Próbáld újra később.",
     code: "ai_unavailable"
   }, 503);
+}
+
+// ✅ Külső exportáló függvény — ezt hívd a PDF/Word generálásakor
+export async function formatExportContent(rawContent) {
+  return formatForExport(rawContent);
 }
