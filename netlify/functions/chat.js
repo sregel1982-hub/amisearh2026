@@ -446,3 +446,83 @@ export default async function handler(req) {
 export async function formatExportContent(rawContent) {
   return formatForExport(rawContent);
 }
+// ==================================================
+// ✅ KÜLÖN FORMÁZÓ MODUL — PDF/Word letöltéshez
+// Másold be a chat.js fájl legvégére
+// ==================================================
+
+/**
+ * Tiszta, olvasható formátumot biztosít a letöltött fájlhoz
+ * Megoldja az összecsúszó sorok, hiányos sortörések problémáját
+ */
+export function formatExportContent(rawText) {
+  if (!rawText || typeof rawText !== "string") return "";
+
+  let text = rawText
+    .normalize("NFC")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+
+  // 1. Fejezetcímek — mindig új sor + üres sorok
+  text = text
+    .replace(/([^\n])(#{1,6} .+)/g, "$1\n\n$2")
+    .replace(/(#{1,6} .+)([^\n])/g, "$1\n$2");
+
+  // 2. Felsorolások — minden elem ÚJ SORON kezdődjön
+  text = text
+    .replace(/([^\n])(• |\- |\* |\d+\.\s)/g, "$1\n$2")
+    .replace(/(\.\s)([A-ZÁÉÍÓÚÖÜŐŰ])/g, "$1\n$2");
+
+  // 3. Mondatok végén új sor ha felsorolás jön
+  text = text
+    .replace(/([.!?])\s+(• |\d+\.)/g, "$1\n$2");
+
+  // 4. Hosszú szövegrészek tördelése olvasható szélességre
+  const sorHossz = 85;
+  const sorok = text.split("\n");
+  const tordeltSorok = [];
+  
+  for (const sor of sorok) {
+    if (sor.length <= sorHossz || sor.startsWith("#") || sor.startsWith("•") || /^\d+\./.test(sor)) {
+      tordeltSorok.push(sor);
+      continue;
+    }
+    // Hosszú sorok intelligens tördelése szóközöknél
+    let marad = sor;
+    while (marad.length > sorHossz) {
+      const vagas = marad.lastIndexOf(" ", sorHossz);
+      if (vagas === -1) break;
+      tordeltSorok.push(marad.slice(0, vagas));
+      marad = marad.slice(vagas + 1);
+    }
+    tordeltSorok.push(marad);
+  }
+  text = tordeltSorok.join("\n");
+
+  // 5. Túl sok üres sor csökkentése
+  text = text
+    .replace(/\n{5,}/g, "\n\n\n")
+    .trim();
+
+  return text;
+}
+
+/**
+ * Teljes fájl tartalom összeállítása fejléc + formázott tartalom
+ */
+export function buildExportContent(cim, nyersTartalom, datum = null) {
+  const exportDatum = datum || new Date().toLocaleString("hu-HU");
+  
+  return `${cim}
+Készült: ${exportDatum}
+Forrás: AMISEARCH — amisearch.org
+
+${"=".repeat(50)}
+
+${formatExportContent(nyersTartalom)}
+
+${"=".repeat(50)}
+Készült az AMISEARCH segítségével 📚
+`;
+}
+
