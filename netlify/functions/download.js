@@ -1,20 +1,42 @@
-// download.js - Letöltés kezelése
-import generatePDF from "./generate-pdf.js";
+// download.js - VÉGSŐ JAVÍTÁS — sortörések garantáltak
+export function formatForExport(text) {
+  if (!text) return "";
 
+  let t = text
+    .normalize("NFC")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+
+  // 1. Minden felsorolás új sorra kerül
+  t = t.replace(/(\S)\s+(• |\- |\d+\.\s)/g, "$1\n$2");
+
+  // 2. Fejezetcímek elé és után üres sor
+  t = t.replace(/(\S)\s*(#{1,6}\s)/g, "$1\n\n$2");
+  t = t.replace(/(#{1,6}\s.+?)(\S)/g, "$1\n\n$2");
+
+  // 3. Mondat végénél új sor, ha új szakasz jön
+  t = t.replace(/([.!?])\s+(A-zÁÉÍÓÚÖÜŐŰ]\w+:)/g, "$1\n\n$2");
+
+  // 4. "• Szó" minták elé mindig új sor
+  t = t.replace(/([^\n])\s+(•\s+)/g, "$1\n$2");
+
+  // 5. Tisztítás: maximum 3 üres sor
+  t = t.replace(/\n{4,}/g, "\n\n\n");
+
+  return t.trim();
+}
+
+// Fájl letöltése
 export async function downloadAsFile(content, fileName, fileType = "txt") {
-  let blob, mimeType;
+  const szep = formatForExport(content); // ✅ Itt lép érvénybe a formázás
 
-  if (fileType === "pdf" || fileType === "html") {
-    blob = await generatePDF(content, fileName.replace(/\.(pdf|html)$/, ""));
-    mimeType = "text/html";
-    fileName = fileName.endsWith(".html") ? fileName : fileName + ".html";
-  } else if (fileType === "txt") {
-    // ✅ Szöveges fájlhoz is formázunk!
-    const formatted = formatForExport(content);
-    blob = new Blob([formatted], { type: "text/plain;charset=utf-8" });
+  let blob, mimeType;
+  if (fileType === "txt") {
+    blob = new Blob([szep], { type: "text/plain;charset=utf-8" });
     fileName = fileName.endsWith(".txt") ? fileName : fileName + ".txt";
   } else {
-    blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    blob = new Blob([szep], { type: "text/plain;charset=utf-8" });
+    fileName = fileName.endsWith(".docx") ? fileName : fileName + ".txt";
   }
 
   const url = URL.createObjectURL(blob);
@@ -25,18 +47,4 @@ export async function downloadAsFile(content, fileName, fileType = "txt") {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-// ✅ Külső használatra is elérhető formázó függvény
-export function formatForExport(text) {
-  if (!text || typeof text !== "string") return "";
-  return text
-    .normalize("NFC")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/([^\n])(#{1,6} .+)/g, "$1\n\n$2")
-    .replace(/([^\n])(• |\- |\* |\d+\.\s)/g, "$1\n$2")
-    .replace(/([.!?])\s+(• |\d+\.)/g, "$1\n$2")
-    .replace(/\n{5,}/g, "\n\n\n")
-    .trim();
 }
