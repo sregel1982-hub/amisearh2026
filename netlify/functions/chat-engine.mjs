@@ -1,56 +1,58 @@
-// chat-engine.mjs - AMISEARCH - VÉGSŐ FORMÁZÁS JAVÍTÁS
+// chat-engine.mjs — AMISEARCH | TELJES JAVÍTOTT VÁLTOZAT
+// ✅ "array" hiba javítva ✅ Sortörések rendben ✅ Magyar formázás
+
 import { GoogleGenAI } from "@google/genai";
 import { checkQuota, incrementUsage } from "./quota.js";
 import { webSearch } from "./search-utils.mjs";
 
-const getEnv = (key) => 
+// Környezeti változók olvasása
+const getEnv = (key) =>
   process.env[key] || (typeof Netlify !== "undefined" && Netlify.env.get?.(key));
 
-const geminiAi = getEnv("GEMINI_API_KEY") 
-  ? new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") }) 
+// AI szolgáltatások inicializálása
+const geminiAi = getEnv("GEMINI_API_KEY")
+  ? new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") })
   : null;
 
 const hasGroq = !!getEnv("GROQ_API_KEY");
 const hasGemini = !!getEnv("GEMINI_API_KEY");
 
-// ==============================================
-// ✅ KULCS: Rendszerüzenet — AZ AI ELEVE JÓL FORMÁZZON
-// ==============================================
+// ==================================================
+// ✅ RENDSZERÜZENET — AZ AI ELEVE JÓL FORMÁZZON
+// ==================================================
 function buildSystemInstruction() {
   return `Te vagy az AMISEARCH oktatósegédje.
-Mindig a felhasználó kérdésével MEGEGYEZŐ nyelven válaszolj!
+Mindig a felhasználó kérdésével megegyező nyelven válaszolj!
 Használj helyes magyar ékezeteket: ő, ű, á, é, í, ó, ú, ö, ü, Ő, Ű, Á, É, Í, Ó, Ú, Ö, Ü.
 
-## KÖTELEZŐ FORMÁZÁSI SZABÁLYOK — MINDIG TARTSD BE:
+## KÖTELEZŐ FORMÁZÁSI SZABÁLYOK:
 - Minden bekezdés KÜLÖN SORON kezdődjön!
 - Bekezdések között HAGYJ ÜRES SORT!
-- Fejezetcímek: ## jelöléssel, SAJÁT SORON, előtte-utána üres sor
+- Fejezetcímek: ## jelöléssel, saját soron, előtte-utána üres sor
 - Felsorolás: minden elem KÜLÖN SORON kezdődjön • vagy számmal
 - Soha NE írj több mondatot egy sorba!
 - Soha NE egyesítsd a felsorolás elemeit egy sorba!
-- Ne legyen 5-nél több egymás utáni üres sor!
+- NE használd az "array" szót egyáltalán!
 
 ## PÉLDA:
 ## Első fejezet
 
 Ez az első bekezdés.
 
-## Második fejezet
-
 • Első pont
 • Második pont
 • Harmadik pont
 
-Végül a záró bekezdés.
-
 A válasz végére mindig írd: "## Forrásjegyzék"`;
 }
 
+// Nyelv felismerés
 function guessLang(text) {
   const hunPattern = /[őűáéíóúöüŐŰÁÉÍÓÚÖÜ]|\b(és|vagy|hogy|nem|van|mit|hol|kérem|jegyzet|tantárgy|vizsga)\b/i;
   return hunPattern.test(text) ? "hu" : "en";
 }
 
+// Szöveg tisztítása
 function cleanText(text, max = 30000) {
   return String(text || "")
     .normalize("NFC")
@@ -62,29 +64,45 @@ function cleanText(text, max = 30000) {
     .slice(0, max);
 }
 
-// ==============================================
-// ✅ STREAM FELDOLGOZÁS — NE OLVADJANAK ÖSSZE A DARABOK
-// ==============================================
+// ==================================================
+// ✅ VÉGSŐ FORMÁZÁS — "array" szavak törlése itt történik
+// ==================================================
+export function veglegesFormazas(szoveg) {
+  if (!szoveg || typeof szoveg !== "string") return "";
+
+  return szoveg
+    .normalize("NFC")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+
+    // Felsorolások mindig új sorra kerüljenek
+    .replace(/(\S)\s+(• |\- |\* |\d+\.\s)/g, "$1\n$2")
+
+    // Fejezetcímek elválasztása
+    .replace(/(\S)\s*(#{1,6}\s)/g, "$1\n\n$2")
+    .replace(/(#{1,6}\s.+?)(\S)/g, "$1\n\n$2")
+
+    // ✅ TÖRÖLD AZ ÖSSZES "array" SZÓT — EZ A LEGFONTOSABB!
+    .replace(/\s*array\s*/gi, " ")
+    .replace(/\barray\b/gi, "")
+
+    // Túl sok üres szóköz/sor csökkentése
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+// ==================================================
+// ✅ STREAM FELDOLGOZÁS — válaszok formázása menet közben
+// ==================================================
 async function* processGeminiStream(stream) {
-  let elozoDarab = "";
-  
   for await (const chunk of stream) {
     const nyersSzoveg = typeof chunk?.text === "function" ? chunk.text() : chunk?.text;
     if (!nyersSzoveg) continue;
 
-    // Sortörések egységesítése
-    const szoveg = nyersSzoveg
-      .normalize("NFC")
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n");
-
-    // Ha listaelem jön, NE legyen előtte szóköz, új sorra kerüljön
-    const javitott = szoveg
-      .replace(/(\S)\s+(• |\d+\.\s)/g, "$1\n$2")
-      .replace(/\n{4,}/g, "\n\n\n");
-
-    elozoDarab = javitott;
-    yield javitott;
+    // Itt is azonnal tisztítjuk a szöveget
+    const tiszta = veglegesFormazas(nyersSzoveg);
+    if (tiszta) yield tiszta;
   }
 }
 
@@ -101,32 +119,30 @@ async function* processGroqStream(stream) {
     buffer = sorok.pop() || "";
 
     for (const sor of sorok) {
-      const tiszta = sor.trim();
-      if (!tiszta || !tiszta.startsWith("data:")) continue;
-      const adat = tiszta.slice(5).trim();
+      const tisztaSor = sor.trim();
+      if (!tisztaSor || !tisztaSor.startsWith("data:")) continue;
+      const adat = tisztaSor.slice(5).trim();
       if (adat === "[DONE]") return;
-      
+
       try {
         const json = JSON.parse(adat);
         const tartalom = json?.choices?.[0]?.delta?.content;
         if (tartalom) {
-          yield tartalom
-            .normalize("NFC")
-            .replace(/\r\n/g, "\n")
-            .replace(/\r/g, "\n")
-            .replace(/(\S)\s+(• |\d+\.\s)/g, "$1\n$2");
+          const tisztitott = veglegesFormazas(tartalom);
+          if (tisztitott) yield tisztitott;
         }
       } catch {}
     }
   }
 }
 
+// Groq hívás
 async function fetchGroq(prompt, utasitas) {
   const kulcs = getEnv("GROQ_API_KEY");
-  if (!kulcs) throw new Error("Nincs Groq API kulcs");
+  if (!kulcs) throw new Error("Nincs Groq API kulcs beállítva");
 
   const modell = getEnv("GROQ_MODEL") || "llama3-70b-8192";
-  
+
   const valasz = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -149,9 +165,9 @@ async function fetchGroq(prompt, utasitas) {
   return valasz;
 }
 
-// ==============================================
-// FŐ FÜGGVÉNY
-// ==============================================
+// ==================================================
+// FŐ FÜGGVÉNY — ezt hívja meg a chat.js
+// ==================================================
 export async function kezelKerest(kérés, elozmenyek = [], jegyzetSzoveg = "") {
   if (!kérés?.trim()) throw new Error("Hiányzik a kérdés");
 
@@ -168,14 +184,17 @@ export async function kezelKerest(kérés, elozmenyek = [], jegyzetSzoveg = "") 
     if (keresEredmeny?.summary) {
       webTalalat = `${keresEredmeny.summary}\n\n(Forrás: ${keresEredmeny.source})`;
     }
-  } catch (e) { console.error("Keresési hiba:", e); }
+  } catch (e) {
+    console.error("Web keresési hiba:", e);
+  }
 
-  // Összeállítjuk a beküldendő szöveget
+  // Előzmények összeállítása
   const elozmenySzoveg = elozmenyek
     .slice(-6)
     .map(t => `${t.felhasznalo ? "Felhasználó" : "AI"}: ${cleanText(t.szoveg, 2000)}`)
     .join("\n");
 
+  // Teljes prompt összeállítása
   const teljesKeres = [
     jegyzetSzoveg ? `## FELHASZNÁLT JEGYZET\n${jegyzetSzoveg}\n\n` : "",
     webTalalat ? `## KÜLSŐ FORRÁS\n${webTalalat}\n\n` : "",
@@ -183,7 +202,7 @@ export async function kezelKerest(kérés, elozmenyek = [], jegyzetSzoveg = "") 
     `## KÉRDÉS\n${kérés}`
   ].filter(Boolean).join("");
 
-  // Futtatás — Gemini első, Groq tartalék
+  // AI hívás — Gemini első, Groq tartalék
   try {
     if (hasGemini) {
       const stream = await geminiAi.models.generateContentStream({
@@ -203,27 +222,4 @@ export async function kezelKerest(kérés, elozmenyek = [], jegyzetSzoveg = "") 
   }
 
   throw new Error("Egyik AI szolgáltatás sem elérhető");
-}
-
-// ==============================================
-// ✅ KÜLSŐ FORMÁZÓ — A LETÖLTÉSHEZ IS HASZNÁLHATÓ
-// ==============================================
-export function veglegesFormazas(szoveg) {
-  if (!szoveg) return "";
-  
-  return szoveg
-    .normalize("NFC")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    
-    // Felsorolások mindig új soron
-    .replace(/(\S)\s+(• |\- |\* |\d+\.\s)/g, "$1\n$2")
-    
-    // Fejezetcímek elválasztása
-    .replace(/(\S)\s*(#{1,6}\s)/g, "$1\n\n$2")
-    .replace(/(#{1,6}\s.+?)(\S)/g, "$1\n\n$2")
-    
-    // Túl sok üres sor csökkentése
-    .replace(/\n{4,}/g, "\n\n\n")
-    .trim();
 }
