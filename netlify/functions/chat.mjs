@@ -1,5 +1,5 @@
-// netlify/functions/chat.mjs - AMISEARCH CHAT ENGINE V4.5
-// FIX: erősebb formázás + megbízhatóbb képkeresés
+// netlify/functions/chat.mjs - AMISEARCH CHAT ENGINE V4.6
+// Erősebb formázás + biztonságos képmarkdown + Gemini elsődleges
 
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
@@ -112,7 +112,7 @@ async function getSupabaseUser(req) {
 async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = null) {
   const parts = [];
   const inline = cleanText(inlineNotes, 30000);
-  if (inline) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inline}`);
+  if (inline) parts.push("=== FELTÖLTÖTT DOKUMENTUM ===\n" + inline);
 
   const supabase = getSupabaseAdmin();
   if (!supabase || !user?.id) return parts.join("\n\n");
@@ -168,7 +168,7 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
       const title = note.cim || note.title || note.original_name || "Jegyzet";
       const text = cleanText(note.text_content, 12000);
       if (text.length > 80) {
-        parts.push(`=== JEGYZET: \( {title} ===\n \){text}`);
+        parts.push("=== JEGYZET: " + title + " ===\n" + text);
         added++;
       }
     }
@@ -180,42 +180,52 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
 }
 
 function buildSystemInstruction({ hasImage = false } = {}) {
-  const base = `Te vagy az AMISEARCH oktatósegédje.
-Mindig a felhasználó kérdésének nyelvén válaszolj (magyarul, ha magyar a kérdés).
-Használj helyes magyar ékezeteket: ő, ű, á, é, í, ó, ú, ö, ü, Ő, Ű, Á, É, Í, Ó, Ú, Ö, Ü.
+  let base = `Te vagy az AMISEARCH oktatósegédje.
+Mindig a felhasználó kérdésének nyelvén válaszolj.
+Használj helyes magyar ékezeteket.
 
-## KÖTELEZŐ FORMÁZÁSI SZABÁLYOK (SZIGORÚAN BE TARTANDÓ):
-- Minden bekezdés KÜLÖN SORON kezdődjön!
-- Bekezdések között HAGYJ ÜRES SORT!
-- Fejezetcímek: ## címmel, saját soron, előtte és utána üres sor
-- Felsorolás: minden elem KÜLÖN SORON kezdődjön • vagy - jellel
-- Soha ne írj több mondatot egy sorba!
-- Soha ne egyesítsd a felsorolás elemeit egy sorba!
-- Használj **félkövér** kiemelést a fontos fogalmaknál
-- Matematikai képleteket LaTeX-ben írd: \( f'(x) \) vagy \[ ... \]
+KRITIKUS FORMÁZÁSI SZABÁLYOK – EZEKET KÖTELEZŐ BETARTANI:
 
-## PÉLDA HELYES FORMÁZÁSRA:
+1. Minden új bekezdés ÚJ SORON kezdődjön.
+2. Bekezdések között MINDIG legyen üres sor.
+3. Fejezetcímeket ## jellel írj, saját soron, előtte és utána üres sorral.
+4. Felsorolás minden eleme saját soron kezdődjön • vagy - jellel.
+5. Soha ne írj több mondatot egyetlen sorba.
+6. Matematikai képleteket LaTeX-ben írd: \( ... \) vagy \[ ... \]
+7. A válasz végén MINDIG legyen ez a sor:
 
-## Definíció
+## Forrásjegyzék
 
-A deriválás a differenciálszámítás alapművelete.
+Ha van forrás, sorold fel. Ha nincs, írd: Saját tudás alapján.
 
-## Jelölések
+PÉLDA HELYES KIMENETRE:
 
-• Lagrange-féle: \( f'(x) \)
-• Leibniz-féle: \( \\frac{dy}{dx} \)
+## 1. Feladat
 
-A válasz végére MINDIG írd ki:
+Adott a háromszög...
 
-## Forrásjegyzék`;
+## Megoldás
+
+Először kiszámítjuk a meredekségeket.
+
+• AB oldal: ...
+• BC oldal: ...
+
+## Összefoglalás
+
+A háromszög derékszögű a B csúcsnál.
+
+## Forrásjegyzék
+
+Saját tudás alapján.`;
 
   if (hasImage) {
-    return base + `
+    base += `
 
-## KÉP SZABÁLY (NAGYON FONTOS):
-A rendszer MÁR BEILLESZTETT egy képet a válasz legelső sorába.
-SOHA ne mondd, hogy „nem tudok képet mutatni”, „szöveges AI vagyok” vagy „nem rendelkezem képmegjelenítő funkcióval”.
-A kép már ott van. Csak röviden reflektálj rá (pl. „Íme egy illusztráció:”), majd folytasd a magyarázatot.`;
+KÉP SZABÁLY:
+A rendszer már beillesztett egy képet a válasz elejére.
+SOHA ne írd le, hogy „szöveges AI vagyok”, „nem tudok képet mutatni” vagy hasonló mondatot.
+A kép már ott van.`;
   }
 
   return base;
@@ -223,18 +233,17 @@ A kép már ott van. Csak röviden reflektálj rá (pl. „Íme egy illusztráci
 
 function buildPrompt({ message, notesContext, webContext, imageContext, history }) {
   const historyText = (Array.isArray(history) ? history.slice(-8) : [])
-    .map((i) => `${i.role === "assistant" ? "AI" : "User"}: ${cleanText(i.content, 2500)}`)
+    .map((i) => (i.role === "assistant" ? "AI: " : "User: ") + cleanText(i.content, 2500))
     .join("\n");
 
-  return [
-    notesContext ? `## NOTES\n${notesContext}\n\n` : "",
-    imageContext ? `## FOUND IMAGE\n${imageContext}\n\n` : "",
-    webContext ? `## EXTERNAL SOURCES\n${webContext}\n\n` : "",
-    historyText ? `## HISTORY\n${historyText}\n\n` : "",
-    `## QUESTION\n${message}`
-  ]
-    .filter(Boolean)
-    .join("");
+  let prompt = "";
+  if (notesContext) prompt += "## NOTES\n" + notesContext + "\n\n";
+  if (imageContext) prompt += "## FOUND IMAGE\n" + imageContext + "\n\n";
+  if (webContext) prompt += "## EXTERNAL SOURCES\n" + webContext + "\n\n";
+  if (historyText) prompt += "## HISTORY\n" + historyText + "\n\n";
+  prompt += "## QUESTION\n" + message;
+
+  return prompt;
 }
 
 function guessLang(text) {
@@ -246,8 +255,8 @@ function guessLang(text) {
 function detectImageIntent(message) {
   const t = String(message || "").toLowerCase();
   return (
-    /\b(kép|képet|képeket|fotó|mutass|ábra|illusztráció|rajz|hogy néz ki|kép kellene|képet szeretnék)\b/.test(t) ||
-    /\b(image|picture|photo|show me|illustration|diagram|draw)\b/.test(t)
+    /kép|képet|képeket|fotó|fotót|mutass|ábra|illusztráció|rajz|hogy néz ki|kép kellene|képet szeretnék|mutass egy|mutass nekem/i.test(t) ||
+    /image|picture|photo|show me|illustration|diagram|draw|can you show/i.test(t)
   );
 }
 
@@ -256,7 +265,7 @@ function normalizeImageResult(raw) {
   const url = raw.url || raw.imageUrl || raw.image || raw.link || raw.src;
   if (!url) return null;
   return {
-    url,
+    url: url,
     title: raw.title || raw.alt || "Kép",
     source: raw.source || "Wikimedia Commons",
     sourceUrl: raw.sourceUrl || raw.pageUrl || raw.link || ""
@@ -268,24 +277,20 @@ async function findImage(message, lang) {
 
   try {
     const queries = [];
-
     queries.push(message.slice(0, 120));
 
     const cleaned = message
-      .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell/gi, " ")
+      .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell|fotó|fotót/gi, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 80);
     if (cleaned.length > 2) queries.push(cleaned);
 
     if (lang === "hu") {
+      if (/macska|cica/i.test(message)) queries.push("cat");
       if (/dinoszaurusz/i.test(message)) queries.push("dinosaur");
+      if (/óra|órák/i.test(message)) queries.push("clock watch");
       if (/tyrannosaurus|t-rex|trex/i.test(message)) queries.push("Tyrannosaurus rex");
-      if (/triceratops/i.test(message)) queries.push("Triceratops");
-      if (/vulkán/i.test(message)) queries.push("volcano");
-      if (/ember|emberi test|anatómi/i.test(message)) queries.push("human anatomy");
-      if (/sejt/i.test(message)) queries.push("cell biology");
-      if (/atom|molekula/i.test(message)) queries.push("atom molecule");
     }
 
     for (const q of queries) {
@@ -305,22 +310,36 @@ async function findImage(message, lang) {
 
 function buildImageMarkdown(image) {
   if (!image) return "";
-  let md = `![\( {image.title}]( \){image.url})\n`;
-  md += `*${image.title} – Forrás: ${image.source}*\n`;
+  let md = "![" + (image.title || "Kép") + "](" + image.url + ")\n";
+  md += "*" + (image.title || "Kép") + " – Forrás: " + (image.source || "Wikimedia Commons") + "*\n";
   if (image.sourceUrl) {
-    md += `Forrás: \( {image.source}\n \){image.sourceUrl}\n`;
+    md += "Forrás: " + image.sourceUrl + "\n";
   }
-  md += `\n`;
-  return md;
+  return md + "\n";
 }
 
 async function* geminiChunks(promptText, systemInstruction) {
   if (!geminiAi) throw new Error("Gemini nincs konfigurálva");
+
+  const strongSystem = systemInstruction + `
+
+KRITIKUS TILALOM:
+Soha ne írd le ezeket a mondatokat:
+- „szöveges alapú mesterséges intelligencia”
+- „nem tudok képeket megjeleníteni”
+- „nem tudok képet generálni”
+- „sajnos nem rendelkezem képmegjelenítő funkcióval”
+Ha képet kértek, és van kép, csak magyarázz.`;
+
   const stream = await geminiAi.models.generateContentStream({
     model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: promptText }] }],
-    config: { systemInstruction, temperature: 0.35 }
+    config: {
+      systemInstruction: strongSystem,
+      temperature: 0.3
+    }
   });
+
   for await (const chunk of stream) {
     const text = typeof chunk?.text === "function" ? chunk.text() : chunk?.text;
     if (text) yield text.replace(/\r\n/g, "\n");
@@ -332,12 +351,12 @@ async function requestGroqCompletion(apiKey, model, promptText, systemInstructio
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: "Bearer " + apiKey
     },
     body: JSON.stringify({
-      model,
+      model: model,
       stream: true,
-      temperature: 0.35,
+      temperature: 0.3,
       max_tokens: 4096,
       messages: [
         { role: "system", content: systemInstruction },
@@ -358,7 +377,7 @@ async function fetchGroqStream(promptText, systemInstruction) {
   if (!resp.ok && primary !== fallback) {
     resp = await requestGroqCompletion(apiKey, fallback, promptText, systemInstruction);
   }
-  if (!resp.ok || !resp.body) throw new Error(`Groq hiba: ${resp.status}`);
+  if (!resp.ok || !resp.body) throw new Error("Groq hiba: " + resp.status);
   return resp;
 }
 
@@ -438,7 +457,7 @@ export default async function handler(req) {
       webSearch(message.slice(0, 200), lang),
       new Promise((r) => setTimeout(() => r(null), 4000))
     ]);
-    if (sr?.summary) webContext = `${sr.summary}\n\n(Forrás: ${sr.source})`;
+    if (sr?.summary) webContext = sr.summary + "\n\n(Forrás: " + sr.source + ")";
   } catch {}
 
   let image = null;
@@ -450,15 +469,16 @@ export default async function handler(req) {
 
   const systemInstruction = buildSystemInstruction({ hasImage: !!image });
   const promptText = buildPrompt({
-    message,
-    notesContext,
-    webContext,
-    imageContext: image ? `${image.title} — ${image.url} — ${image.sourceUrl}` : "",
-    history
+    message: message,
+    notesContext: notesContext,
+    webContext: webContext,
+    imageContext: image ? image.title + " — " + image.url + " — " + image.sourceUrl : "",
+    history: history
   });
 
   incrementUsage(user?.id).catch(() => {});
 
+  // Gemini elsődleges
   try {
     if (hasGemini) {
       return textStreamResponse(prependImage(imageMarkdown, geminiChunks(promptText, systemInstruction)));
@@ -467,6 +487,7 @@ export default async function handler(req) {
     console.error("Gemini hiba:", err?.message);
   }
 
+  // Groq fallback
   try {
     if (hasGroq) {
       const resp = await fetchGroqStream(promptText, systemInstruction);
