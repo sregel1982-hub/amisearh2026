@@ -210,7 +210,7 @@ A válasz végére MINDIG írd ki:
 ## Forrásjegyzék`;
 
   if (hasImage) {
-    return `${base}
+    return base + `
 
 ## KÉP SZABÁLY (NAGYON FONTOS):
 A rendszer MÁR BEILLESZTETT egy képet a válasz legelső sorába.
@@ -305,9 +305,13 @@ async function findImage(message, lang) {
 
 function buildImageMarkdown(image) {
   if (!image) return "";
-  return `![\( {image.title}]( \){image.url})\n*${image.title} – Forrás: \( {image.source}*\n \){
-    image.sourceUrl ? `Forrás: \( {image.source}\n \){image.sourceUrl}` : ""
-  }\n\n`;
+  let md = `![\( {image.title}]( \){image.url})\n`;
+  md += `*${image.title} – Forrás: ${image.source}*\n`;
+  if (image.sourceUrl) {
+    md += `Forrás: \( {image.source}\n \){image.sourceUrl}\n`;
+  }
+  md += `\n`;
+  return md;
 }
 
 async function* geminiChunks(promptText, systemInstruction) {
