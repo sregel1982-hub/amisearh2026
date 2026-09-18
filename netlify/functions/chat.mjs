@@ -1,5 +1,5 @@
-// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V4.5
-// FIX: erősebb formázás + megbízhatóbb képkeresés + soha ne mondja hogy "nem tudok képet mutatni"
+// netlify/functions/chat.mjs - AMISEARCH CHAT ENGINE V4.5
+// FIX: erősebb formázás + megbízhatóbb képkeresés
 
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
@@ -179,9 +179,6 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
   return parts.join("\n\n");
 }
 
-// ==================================================
-// ERŐS SYSTEM PROMPT – formázás + képkezelés
-// ==================================================
 function buildSystemInstruction({ hasImage = false } = {}) {
   const base = `Te vagy az AMISEARCH oktatósegédje.
 Mindig a felhasználó kérdésének nyelvén válaszolj (magyarul, ha magyar a kérdés).
@@ -266,19 +263,14 @@ function normalizeImageResult(raw) {
   };
 }
 
-// ==================================================
-// JOBB KÉPKERESÉS (több próbálkozás + fordítás)
-// ==================================================
 async function findImage(message, lang) {
   if (typeof imageSearch !== "function") return null;
 
   try {
     const queries = [];
 
-    // Eredeti kérdés
     queries.push(message.slice(0, 120));
 
-    // Tisztított verzió
     const cleaned = message
       .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell/gi, " ")
       .replace(/\s+/g, " ")
@@ -286,7 +278,6 @@ async function findImage(message, lang) {
       .slice(0, 80);
     if (cleaned.length > 2) queries.push(cleaned);
 
-    // Gyakori magyar → angol fordítások
     if (lang === "hu") {
       if (/dinoszaurusz/i.test(message)) queries.push("dinosaur");
       if (/tyrannosaurus|t-rex|trex/i.test(message)) queries.push("Tyrannosaurus rex");
@@ -482,4 +473,4 @@ export default async function handler(req) {
   }
 
   return jsonResponse({ error: "AI szolgáltatás nem elérhető", code: "ai_unavailable" }, 503);
-    }
+}
