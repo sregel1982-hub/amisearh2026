@@ -1,4 +1,6 @@
 // utils/generatePDF.js – AMISEARCH szép PDF generátor
+// ✅ JAVÍTVA: a kép-markdown (![alt](url)) most már valódi <img>-ként jelenik meg,
+//    nem szövegként folyik bele a bekezdésbe.
 
 export function formatForExport(text) {
   if (!text) return "";
@@ -20,29 +22,34 @@ export function formatForExport(text) {
   return t;
 }
 
-// Markdown → egyszerű HTML (címsor + lista támogatás)
+// Markdown → egyszerű HTML (kép + címsor + lista támogatás)
 function markdownToHtml(md) {
   let html = md
+    // ✅ KÉP — ezt KELL elsőként lefuttatni, különben a bekezdés-szabály
+    // szétszedi a "![alt](url)" szintaxist, és az url szövegként landol.
+    .replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => {
+      const safeAlt = String(alt || "").replace(/"/g, "&quot;");
+      const safeUrl = String(url || "").trim();
+      return `<figure class="amis-img"><img src="${safeUrl}" alt="${safeAlt}" /><figcaption>${safeAlt}</figcaption></figure>`;
+    })
     // ## Címsor
-    .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+    .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
     // ### Címsor
-    .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+    .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
     // Félkövér
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     // Listák
-    .replace(/^[•\-\*]\s+(.+)$/gm, '<li>$1</li>')
-    .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+    .replace(/^[•\-\*]\s+(.+)$/gm, "<li>$1</li>")
+    .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
     // Bekezdések
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>');
+    .replace(/\n\n/g, "</p><p>")
+    .replace(/\n/g, "<br>");
 
   // Listákat <ul>-be csomagoljuk
-  html = html.replace(/(<li>.*?<\/li>)/gs, (match) => {
-    return `<ul>${match}</ul>`;
-  });
+  html = html.replace(/(<li>.*?<\/li>)/gs, (match) => `<ul>${match}</ul>`);
 
   // Többszörös ul tisztítás
-  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  html = html.replace(/<\/ul>\s*<ul>/g, "");
 
   return `<p>${html}</p>`;
 }
@@ -104,6 +111,24 @@ export default async function generatePDF(content, title = "AMISEARCH válasz") 
       color: #666;
       font-size: 0.9em;
       margin-bottom: 24px;
+    }
+    /* ✅ ÚJ: kép-blokk stílusa, hogy ne folyjon egybe a szöveggel */
+    .amis-img {
+      margin: 18px 0;
+      text-align: center;
+      page-break-inside: avoid;
+    }
+    .amis-img img {
+      max-width: 100%;
+      max-height: 380px;
+      border-radius: 6px;
+      display: block;
+      margin: 0 auto;
+    }
+    .amis-img figcaption {
+      font-size: 0.8em;
+      color: #777;
+      margin-top: 6px;
     }
     .footer {
       margin-top: 40px;
