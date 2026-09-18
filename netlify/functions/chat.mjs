@@ -1,5 +1,5 @@
-// netlify/functions/chat.mjs - AMISEARCH CHAT ENGINE V4.6
-// Erősebb formázás + biztonságos képmarkdown + Gemini elsődleges
+// netlify/functions/chat.mjs - AMISEARCH CHAT ENGINE V4.8
+// Erősebb formázás + bővített képkeresés + Gemini elsődleges
 
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
@@ -196,28 +196,7 @@ KRITIKUS FORMÁZÁSI SZABÁLYOK – EZEKET KÖTELEZŐ BETARTANI:
 
 ## Forrásjegyzék
 
-Ha van forrás, sorold fel. Ha nincs, írd: Saját tudás alapján.
-
-PÉLDA HELYES KIMENETRE:
-
-## 1. Feladat
-
-Adott a háromszög...
-
-## Megoldás
-
-Először kiszámítjuk a meredekségeket.
-
-• AB oldal: ...
-• BC oldal: ...
-
-## Összefoglalás
-
-A háromszög derékszögű a B csúcsnál.
-
-## Forrásjegyzék
-
-Saját tudás alapján.`;
+Ha van forrás, sorold fel. Ha nincs, írd: Saját tudás alapján.`;
 
   if (hasImage) {
     base += `
@@ -226,6 +205,20 @@ KÉP SZABÁLY:
 A rendszer már beillesztett egy képet a válasz elejére.
 SOHA ne írd le, hogy „szöveges AI vagyok”, „nem tudok képet mutatni” vagy hasonló mondatot.
 A kép már ott van.`;
+  } else {
+    base += `
+
+HA NINCS KÉP (KÖTELEZŐ SZABÁLY):
+A rendszer megpróbált képet keresni az interneten, de nem talált.
+Ezért:
+
+1. SOHA ne írj „Képzelj el...”, „Állat leírása”, „Homokóra leírása” stílusú kitalált leírást.
+2. Az első mondatod legyen pontosan ez:
+
+Sajnos most nem találtam megfelelő képet ehhez a kéréshez az interneten.
+
+3. Utána maximum 3-4 rövid mondatban magyarázz a témáról.
+4. A végén írd ki: ## Forrásjegyzék`;
   }
 
   return base;
@@ -255,7 +248,7 @@ function guessLang(text) {
 function detectImageIntent(message) {
   const t = String(message || "").toLowerCase();
   return (
-    /kép|képet|képeket|fotó|fotót|mutass|ábra|illusztráció|rajz|hogy néz ki|kép kellene|képet szeretnék|mutass egy|mutass nekem/i.test(t) ||
+    /kép|képet|képeket|fotó|fotót|mutass|ábra|illusztráció|rajz|hogy néz ki|kép kellene|képet szeretnék|mutass egy|mutass nekem|keress képet/i.test(t) ||
     /image|picture|photo|show me|illustration|diagram|draw|can you show/i.test(t)
   );
 }
@@ -277,33 +270,74 @@ async function findImage(message, lang) {
 
   try {
     const queries = [];
+
     queries.push(message.slice(0, 120));
 
     const cleaned = message
-      .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell|fotó|fotót/gi, " ")
+      .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell|fotó|fotót|leírása|leírás|keress|találj/gi, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 80);
     if (cleaned.length > 2) queries.push(cleaned);
 
     if (lang === "hu") {
-      if (/macska|cica/i.test(message)) queries.push("cat");
-      if (/dinoszaurusz/i.test(message)) queries.push("dinosaur");
-      if (/óra|órák/i.test(message)) queries.push("clock watch");
-      if (/tyrannosaurus|t-rex|trex/i.test(message)) queries.push("Tyrannosaurus rex");
+      const map = {
+        "macska|cica": "cat",
+        "kutya|puli|komondor|vizsla|német juhász": "dog",
+        "oroszlán": "lion",
+        "tigris": "tiger",
+        "elefánt": "elephant",
+        "zsiráf": "giraffe",
+        "medve": "bear",
+        "farkas": "wolf",
+        "róka": "fox",
+        "nyúl": "rabbit",
+        "ló|csikó": "horse",
+        "dinoszaurusz": "dinosaur",
+        "tyrannosaurus|t-rex|trex": "Tyrannosaurus rex",
+        "triceratops": "Triceratops",
+        "óra|órák": "clock",
+        "homokóra|homokorak": "hourglass",
+        "vízóra|klepszidra": "water clock",
+        "napóra": "sundial",
+        "autó|kocsi": "car",
+        "virág|rózsa|tulipán": "flower",
+        "hegy|hegység": "mountain",
+        "tenger|óceán": "sea ocean",
+        "naplemente|napnyugta": "sunset",
+        "erdő": "forest",
+        "folyó": "river",
+        "vár|kastély": "castle",
+        "templom": "church",
+        "ember|emberi test|anatómi": "human anatomy",
+        "sejt": "cell biology",
+        "atom|molekula": "atom molecule",
+        "bolygó|föld|mars": "planet",
+        "csillag|csillagkép": "star constellation"
+      };
+
+      for (const [hu, en] of Object.entries(map)) {
+        if (new RegExp(hu, "i").test(message)) {
+          queries.push(en);
+        }
+      }
     }
 
     for (const q of queries) {
       if (!q || q.length < 3) continue;
+
       const result = await Promise.race([
         imageSearch(q, lang),
-        new Promise((r) => setTimeout(() => r(null), 4500))
+        new Promise((r) => setTimeout(() => r(null), 5000))
       ]);
+
       const normalized = normalizeImageResult(result);
       if (normalized) return normalized;
     }
+
     return null;
-  } catch {
+  } catch (e) {
+    console.error("findImage hiba:", e);
     return null;
   }
 }
@@ -329,10 +363,10 @@ Soha ne írd le ezeket a mondatokat:
 - „nem tudok képeket megjeleníteni”
 - „nem tudok képet generálni”
 - „sajnos nem rendelkezem képmegjelenítő funkcióval”
-Ha képet kértek, és van kép, jelenítsd meg.`;
+Ha képet kértek, és van kép, csak magyarázz.`;
 
   const stream = await geminiAi.models.generateContentStream({
-    model: "gemini-3.5-flash",
+    model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     config: {
       systemInstruction: strongSystem,
@@ -498,96 +532,4 @@ export default async function handler(req) {
   }
 
   return jsonResponse({ error: "AI szolgáltatás nem elérhető", code: "ai_unavailable" }, 503);
-}
-} else {
-  base += `
-
-HA NINCS KÉP:
-Ha a rendszer nem talált képet, NE írj részletes leírást úgy, mintha látnád.
-NE kezdd „Homokóra leírása” vagy „Képzelj el...” stílusban.
-Írd egyszerűen:
-
-Sajnos most nem találtam megfelelő képet ehhez a kéréshez.
-
-Majd utána röviden magyarázz a témáról.`;
-}
-async function findImage(message, lang) {
-  if (typeof imageSearch !== "function") return null;
-
-  try {
-    const queries = [];
-
-    // 1. Eredeti kérdés
-    queries.push(message.slice(0, 120));
-
-    // 2. Tisztított verzió (kiveszi a "kép kellene" stb. szavakat)
-    const cleaned = message
-      .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell|fotó|fotót|leírása|leírás|keress|találj/gi, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 80);
-    if (cleaned.length > 2) queries.push(cleaned);
-
-    // 3. Magyar → angol fordítások (bővített lista)
-    if (lang === "hu") {
-      const map = {
-        "macska|cica": "cat",
-        "kutya|puli|komondor|vizsla|német juhász": "dog",
-        "oroszlán": "lion",
-        "tigris": "tiger",
-        "elefánt": "elephant",
-        "zsiráf": "giraffe",
-        "medve": "bear",
-        "farkas": "wolf",
-        "róka": "fox",
-        "nyúl": "rabbit",
-        "ló|csikó": "horse",
-        "dinoszaurusz": "dinosaur",
-        "tyrannosaurus|t-rex|trex": "Tyrannosaurus rex",
-        "triceratops": "Triceratops",
-        "óra|órák": "clock",
-        "homokóra|homokorak": "hourglass",
-        "vízóra|klepszidra": "water clock",
-        "napóra": "sundial",
-        "autó|kocsi": "car",
-        "virág|rózsa|tulipán": "flower",
-        "hegy|hegység": "mountain",
-        "tenger|óceán": "sea ocean",
-        "naplemente|napnyugta": "sunset",
-        "erdő": "forest",
-        "folyó": "river",
-        "vár|kastély": "castle",
-        "templom": "church",
-        "ember|emberi test|anatómi": "human anatomy",
-        "sejt": "cell biology",
-        "atom|molekula": "atom molecule",
-        "bolygó|föld|mars": "planet",
-        "csillag|csillagkép": "star constellation"
-      };
-
-      for (const [hu, en] of Object.entries(map)) {
-        if (new RegExp(hu, "i").test(message)) {
-          queries.push(en);
-        }
       }
-    }
-
-    // 4. Próbálkozás sorban, amíg talál
-    for (const q of queries) {
-      if (!q || q.length < 3) continue;
-
-      const result = await Promise.race([
-        imageSearch(q, lang),
-        new Promise((r) => setTimeout(() => r(null), 5000))
-      ]);
-
-      const normalized = normalizeImageResult(result);
-      if (normalized) return normalized;
-    }
-
-    return null;
-  } catch (e) {
-    console.error("findImage hiba:", e);
-    return null;
-  }
-}
