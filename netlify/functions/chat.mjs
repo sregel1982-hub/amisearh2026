@@ -329,10 +329,10 @@ Soha ne írd le ezeket a mondatokat:
 - „nem tudok képeket megjeleníteni”
 - „nem tudok képet generálni”
 - „sajnos nem rendelkezem képmegjelenítő funkcióval”
-Ha képet kértek, és van kép, csak magyarázz.`;
+Ha képet kértek, és van kép, jelenítsd meg.`;
 
   const stream = await geminiAi.models.generateContentStream({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.5-flash",
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     config: {
       systemInstruction: strongSystem,
@@ -498,4 +498,96 @@ export default async function handler(req) {
   }
 
   return jsonResponse({ error: "AI szolgáltatás nem elérhető", code: "ai_unavailable" }, 503);
+}
+} else {
+  base += `
+
+HA NINCS KÉP:
+Ha a rendszer nem talált képet, NE írj részletes leírást úgy, mintha látnád.
+NE kezdd „Homokóra leírása” vagy „Képzelj el...” stílusban.
+Írd egyszerűen:
+
+Sajnos most nem találtam megfelelő képet ehhez a kéréshez.
+
+Majd utána röviden magyarázz a témáról.`;
+}
+async function findImage(message, lang) {
+  if (typeof imageSearch !== "function") return null;
+
+  try {
+    const queries = [];
+
+    // 1. Eredeti kérdés
+    queries.push(message.slice(0, 120));
+
+    // 2. Tisztított verzió (kiveszi a "kép kellene" stb. szavakat)
+    const cleaned = message
+      .replace(/képet|kép|képeket|mutass|kellene|egy|a|az|szeretnék|legyen|kell|fotó|fotót|leírása|leírás|keress|találj/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80);
+    if (cleaned.length > 2) queries.push(cleaned);
+
+    // 3. Magyar → angol fordítások (bővített lista)
+    if (lang === "hu") {
+      const map = {
+        "macska|cica": "cat",
+        "kutya|puli|komondor|vizsla|német juhász": "dog",
+        "oroszlán": "lion",
+        "tigris": "tiger",
+        "elefánt": "elephant",
+        "zsiráf": "giraffe",
+        "medve": "bear",
+        "farkas": "wolf",
+        "róka": "fox",
+        "nyúl": "rabbit",
+        "ló|csikó": "horse",
+        "dinoszaurusz": "dinosaur",
+        "tyrannosaurus|t-rex|trex": "Tyrannosaurus rex",
+        "triceratops": "Triceratops",
+        "óra|órák": "clock",
+        "homokóra|homokorak": "hourglass",
+        "vízóra|klepszidra": "water clock",
+        "napóra": "sundial",
+        "autó|kocsi": "car",
+        "virág|rózsa|tulipán": "flower",
+        "hegy|hegység": "mountain",
+        "tenger|óceán": "sea ocean",
+        "naplemente|napnyugta": "sunset",
+        "erdő": "forest",
+        "folyó": "river",
+        "vár|kastély": "castle",
+        "templom": "church",
+        "ember|emberi test|anatómi": "human anatomy",
+        "sejt": "cell biology",
+        "atom|molekula": "atom molecule",
+        "bolygó|föld|mars": "planet",
+        "csillag|csillagkép": "star constellation"
+      };
+
+      for (const [hu, en] of Object.entries(map)) {
+        if (new RegExp(hu, "i").test(message)) {
+          queries.push(en);
+        }
+      }
+    }
+
+    // 4. Próbálkozás sorban, amíg talál
+    for (const q of queries) {
+      if (!q || q.length < 3) continue;
+
+      const result = await Promise.race([
+        imageSearch(q, lang),
+        new Promise((r) => setTimeout(() => r(null), 5000))
+      ]);
+
+      const normalized = normalizeImageResult(result);
+      if (normalized) return normalized;
+    }
+
+    return null;
+  } catch (e) {
+    console.error("findImage hiba:", e);
+    return null;
+  }
 }
