@@ -1,4 +1,11 @@
-// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V4.2 - TISZTA ESM + GEMINI FIRST
+// netlify/functions/chat.js - AMISEARCH CHAT ENGINE V4.3 - TISZTA ESM + GEMINI FIRST + KÉPKERESÉS JAVÍTVA
+//
+// ✅ JAVÍTVA (V4.3): az imageSearch() korábban importálva volt, de SOHA nem hívtuk meg.
+//    Emiatt ha valaki képet kért ("kép kellene egy hajóról"), a modell nem kapott
+//    képi találatot, és szövegben írta le, hogy "nem tud képet mutatni".
+//    Most: intent-felismerés -> imageSearch() hívás -> a talált kép GARANTÁLTAN
+//    bekerül a válasz elejére markdown képként, függetlenül attól, mit ír az AI.
+
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import { checkQuota, incrementUsage } from "./quota.js";
@@ -173,7 +180,7 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
       const title = note.cim || note.title || note.original_name || "Jegyzet";
       const text = cleanText(note.text_content, 12000);
       if (text.length > 80) {
-        parts.push(`=== JEGYZET: \( {title} ===\n \){text}`);
+        parts.push(`=== JEGYZET: ${title} ===\n${text}`);
         added++;
       }
     }
@@ -184,23 +191,40 @@ async function loadUserNotesContext(user, inlineNotes = "", preferredNoteId = nu
   return parts.join("\n\n");
 }
 
-function buildSystemInstruction() {
-  return `You are the AMISEARCH educational assistant.
+function buildSystemInstruction({ hasImage = false } = {}) {
+  const base = `You are the AMISEARCH educational assistant.
 Always answer in the SAME language as the user's question.
 Use proper UTF-8 Hungarian characters: ő, ű, á, é, í, ó, ú, ö, ü, Ő, Ű, Á, É, Í, Ó, Ú, Ö, Ü.
 Provide clear, structured explanations.
 Use markdown: ## for headings, - or 1. for lists, **bold** for key terms.
 Each paragraph on its own line. Blank lines between sections.
 End your answer with: "## Forrásjegyzék"`;
+
+  // ✅ ÚJ: ha van talált kép, az AI-nak tudnia kell róla, és NEM szabad
+  // azt állítania, hogy nem tud képet mutatni — mert a rendszer már beillesztette.
+  if (hasImage) {
+    return `${base}
+
+FONTOS: A rendszer már talált és beillesztett egy releváns képet a válasz elejére.
+NE írd le újra a képet szövegben, és SOHA ne mondd azt, hogy "nem tudok képet mutatni"
+vagy "nem tudok képet generálni" — ez hamis, mert a kép már ott van a válaszban.
+Csak röviden reflektálj a képre, és add meg a kért magyarázatot/szöveges tartalmat.`;
+  }
+
+  return `${base}
+
+Ha a felhasználó képet vagy vizuális anyagot kér, és nem kaptál kép-forrást a rendszertől,
+udvariasan jelezd, hogy jelenleg nem áll rendelkezésre találat, ne állíts valótlant a képességeidről.`;
 }
 
-function buildPrompt({ message, notesContext, webContext, history }) {
+function buildPrompt({ message, notesContext, webContext, imageContext, history }) {
   const historyText = (Array.isArray(history) ? history.slice(-8) : [])
     .map(item => `${item.role === "assistant" ? "AI" : "User"}: ${cleanText(item.content, 2500)}`)
     .join("\n");
 
   return [
     notesContext ? `## NOTES\n${notesContext}\n\n` : "",
+    imageContext ? `## FOUND IMAGE (already inserted into the reply, do not re-describe it)\n${imageContext}\n\n` : "",
     webContext ? `## EXTERNAL SOURCES\n${webContext}\n\n` : "",
     historyText ? `## HISTORY\n${historyText}\n\n` : "",
     `## QUESTION\n${message}`
@@ -210,6 +234,51 @@ function buildPrompt({ message, notesContext, webContext, history }) {
 function guessLang(text) {
   const t = String(text || "");
   return /[őűáéíóúöüŐŰÁÉÍÓÚÖÜ]|\b(és|vagy|hogy|jegyzet|vizsga)\b/i.test(t) ? "hu" : "en";
+}
+
+// ==================================================
+// ✅ ÚJ: kép-igény felismerése a kérdésből
+// ==================================================
+function detectImageIntent(message) {
+  const t = String(message || "").toLowerCase();
+  const huPattern = /\b(kép|képet|képeket|fotó|fotót|mutass|ábra|ábrát|illusztráció|rajz|nézd meg hogy néz ki|hogy néz ki)\b/;
+  const enPattern = /\b(image|picture|photo|show me|what does .* look like|illustration|diagram|drawing)\b/;
+  return huPattern.test(t) || enPattern.test(t);
+}
+
+// A keresőmotor eltérő mezőneveket adhat vissza — több lehetséges kulcsot is kipróbálunk,
+// hogy ne dőljön el a funkció, ha a search-utils.mjs válasz-alakja kicsit más.
+function normalizeImageResult(raw) {
+  if (!raw) return null;
+  const url = raw.url || raw.imageUrl || raw.image || raw.link || raw.src;
+  if (!url) return null;
+  const title = raw.title || raw.alt || raw.name || "Kép";
+  const source = raw.source || raw.sourceName || "";
+  const sourceUrl = raw.sourceUrl || raw.pageUrl || raw.link || "";
+  return { url, title, source, sourceUrl };
+}
+
+async function findImage(message, lang) {
+  if (typeof imageSearch !== "function") return null;
+  try {
+    const result = await Promise.race([
+      imageSearch(message.slice(0, 200), lang),
+      new Promise(resolve => setTimeout(() => resolve(null), 4000))
+    ]);
+    return normalizeImageResult(result);
+  } catch (e) {
+    console.error("Image search error:", e);
+    return null;
+  }
+}
+
+// Markdown blokk, amit GARANTÁLTAN a válasz elejére teszünk — nem bízzuk a modellre.
+function buildImageMarkdown(image) {
+  if (!image) return "";
+  const caption = image.source ? `${image.title} (Forrás: ${image.source})` : image.title;
+  const lines = [`![${image.title}](${image.url})`, `*${caption}*`];
+  if (image.sourceUrl) lines.push(`[Forrás megtekintése](${image.sourceUrl})`);
+  return lines.join("\n") + "\n\n";
 }
 
 // GEMINI — ELSŐDLEGES
@@ -290,6 +359,15 @@ async function* groqChunks(resp) {
   }
 }
 
+// ✅ ÚJ: generátor-wrapper, ami a kép markdownt GARANTÁLTAN a stream elejére teszi,
+// mielőtt bármi az AI válaszából elindulna.
+async function* prependImage(imageMarkdown, innerGenerator) {
+  if (imageMarkdown) yield imageMarkdown;
+  for await (const chunk of innerGenerator) {
+    yield chunk;
+  }
+}
+
 // FŐ HANDLER
 export default async function handler(req) {
   if (req.method === "OPTIONS") return corsOptionsResponse();
@@ -327,9 +405,10 @@ export default async function handler(req) {
     console.error("Notes error:", e);
   }
 
+  const lang = guessLang(message);
+
   let webContext = "";
   try {
-    const lang = guessLang(message);
     const searchResult = await Promise.race([
       webSearch(message.slice(0, 200), lang),
       new Promise(resolve => setTimeout(() => resolve(null), 4000))
@@ -341,8 +420,22 @@ export default async function handler(req) {
     console.error("Web search error:", e);
   }
 
-  const systemInstruction = buildSystemInstruction();
-  const promptText = buildPrompt({ message, notesContext, webContext, history });
+  // ✅ ÚJ: kép keresése, ha a kérdés erre utal
+  let image = null;
+  let imageMarkdown = "";
+  if (detectImageIntent(message)) {
+    image = await findImage(message, lang);
+    imageMarkdown = buildImageMarkdown(image);
+  }
+
+  const systemInstruction = buildSystemInstruction({ hasImage: !!image });
+  const promptText = buildPrompt({
+    message,
+    notesContext,
+    webContext,
+    imageContext: image ? `${image.title} — ${image.url}` : "",
+    history
+  });
 
   // Quota növelés (háttérben)
   incrementUsage(user?.id).catch(e => console.error("Quota error:", e));
@@ -350,7 +443,7 @@ export default async function handler(req) {
   // GEMINI → GROQ tartalék
   try {
     if (hasGemini) {
-      return textStreamResponse(geminiChunks(promptText, systemInstruction));
+      return textStreamResponse(prependImage(imageMarkdown, geminiChunks(promptText, systemInstruction)));
     }
   } catch (err) {
     console.error("Gemini hiba, Groq próba:", err?.message);
@@ -359,7 +452,7 @@ export default async function handler(req) {
   try {
     if (hasGroq) {
       const resp = await fetchGroqStream(promptText, systemInstruction);
-      return textStreamResponse(groqChunks(resp));
+      return textStreamResponse(prependImage(imageMarkdown, groqChunks(resp)));
     }
   } catch (err2) {
     console.error("Groq is sikertelen:", err2?.message);
