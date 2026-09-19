@@ -1,65 +1,83 @@
-// chat.js V4.9 - FORRÁSOK MINDENHONNAN
+// netlify/functions/chat.mjs - V5.1 - TISZTA, NINCS DUPLIKÁCIÓ
 import { imageSearch, webSearch } from "./search-utils.mjs";
 import { GoogleGenAI } from "@google/genai";
 
 export default async (req) => {
-  if(req.method==="OPTIONS") return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"*","Access-Control-Allow-Methods":"POST,OPTIONS"}});
-  try{
-    const {message} = await req.json();
-    const ai = new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
-    const needImg = /kép|fotó|templom|ford|korona|felvilágosodás|image|photo/i.test(message);
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "POST, OPTIONS"
+      }
+    });
+  }
 
-    let imgMd="", webCtx="", sources=[];
-    if(needImg){
-      const img = await imageSearch(message, "hu");
-      if(img?.url) imgMd = `![${img.title}](${img.url})\n*${img.title} – Forrás: ${img.source}*\n${img.sourceUrl}\n\n`;
+  try {
+    const body = await req.json().catch(() => ({}));
+    const message = (body.message || "").toString().slice(0, 4000);
+    if (!message) {
+      return new Response(JSON.stringify({ error: "Üres kérdés" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
     }
+
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const web = await webSearch(message, "hu");
-    if(web?.sources){
-      sources=web.sources;
-      webCtx = web.summary + "\n\nForrások URL-lel:\n" + sources.map(s=>`- ${s.source}: ${s.title} – ${s.url}`).join("\n");
+
+    let imgMd = "";
+    if (/kép|fotó|templom|korona|pécs|ford|felvilágosodás|image|photo/i.test(message)) {
+      try {
+        const img = await imageSearch(message);
+        if (img?.url) imgMd = `![${(img.title || "Kép").replace(/\]/g, "")}](${img.url})\n*Forrás: ${img.source} – ${img.sourceUrl}*\n\n`;
+      } catch {}
     }
 
-    const system = `AMISEARCH vagy. Magyarul, tagoltan válaszolj.
-Szabály: ## alcímek külön sorban, üres sor a szakaszok közt, - lista, **félkövér**.
-${imgMd? "Kép már beillesztve a válasz elejére, ne mondd hogy nem tudsz képet mutatni." : ""}
-A végén KÖTELEZŐ Forrásjegyzék valódi URL-ekkel a megadott forrásokból. Soha ne írd hogy "belső adatbázis", mindig a valódi URL-t add meg.
-${webCtx? "## TALÁLT FORRÁSOK\n"+webCtx : ""}`;
+    let system = "";
+    if (web.isTask) {
+      system = `Te AMISEARCH matektanár vagy. FELADATOT kérnek, nem lexikális forrást.
+GENERÁLJ egy kétismeretlenes egyenletrendszer feladatot, oldd meg lépésről lépésre.
+Formázás: ## Feladat, ## Megoldás, ## Ellenőrzés.
+NE mondd hogy "források nem tartalmaznak", mert ez generált feladat.`;
+    } else {
+      system = `Te AMISEARCH vagy. Magyarul, tagoltan válaszolj.
+Használj ## alcímeket külön sorban, üres sor a bekezdések közt, - lista, **félkövér**.
+${imgMd ? "Kép már beillesztve a válasz elejére." : ""}
+TALÁLT FORRÁSOK: ${web.summary || "nincs"}
+A végén: ## Forrásjegyzék valódi URL-ekkel, soha ne írd hogy "belső adatbázis".`;
+    }
 
-    const stream = await ai.models.generateContentStream({model:"gemini-2.5-flash",contents:[{role:"user",parts:[{text:message}]}],config:{systemInstruction:system}});
-    const enc=new TextEncoder();
-    return new Response(new ReadableStream({
-      async start(c){ if(imgMd) c.enqueue(enc.encode(imgMd)); for await(const ch of stream){ if(ch.text) c.enqueue(enc.encode(ch.text)); } c.close(); }
-    }),{headers:{"Content-Type":"text/plain; charset=utf-8","Access-Control-Allow-Origin":"*"}});
-  }catch(e){ return new Response(JSON.stringify({error:e.message}),{status:500,headers:{"Content-Type":"application/json","Access-Control-Allow-Origin":"*"}}); }
-};
-import { imageSearch, webSearch } from "./search-utils.mjs";
-import { GoogleGenAI } from "@google/genai";
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: message }] }],
+      config: { systemInstruction: system }
+    });
 
-export default async (req)=>{
-  if(req.method==="OPTIONS") return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"*"}});
-  const {message} = await req.json();
-  const ai=new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
+    const enc = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(c) {
+        if (imgMd) c.enqueue(enc.encode(imgMd));
+        for await (const ch of stream) {
+          if (ch.text) c.enqueue(enc.encode(ch.text));
+        }
+        c.close();
+      }
+    });
 
-  const web=await webSearch(message, "hu");
-  let imgMd="";
-  if(/kép|templom|korona|pécs|ford|felvilágosodás/i.test(message)){
-    const img=await imageSearch(message); if(img?.url) imgMd=`![${img.title}](${img.url})\n\n`;
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-cache"
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   }
-
-  let system="";
-  if(web.isTask){
-    system=`Te AMISEARCH matektanár vagy. A felhasználó FELADATOT kér. GENERÁLJ egy kétismeretlenes egyenletrendszer feladatot, oldd meg lépésről lépésre.
-Formázás: ## Feladat, ## Megoldás, ## Ellenőrzés. Használj szép matek formázást. NE hivatkozz külső forrásokra, mert ez saját generált feladat.`;
-  } else {
-    system=`Te AMISEARCH vagy. Magyarul, tagoltan válaszolj. ## alcímek, - lista.
-${imgMd?"Kép már beillesztve.":""}
-Források:\n${web.summary}\nA végén: ## Forrásjegyzék valódi URL-ekkel. Soha ne írd hogy "nem tartalmaznak" ha feladat.`;
-  }
-
-  const stream=await ai.models.generateContentStream({model:"gemini-2.5-flash",contents:[{role:"user",parts:[{text:message}]}],config:{systemInstruction:system}});
-  const enc=new TextEncoder();
-  return new Response(new ReadableStream({
-    async start(c){ if(imgMd) c.enqueue(enc.encode(imgMd)); for await(const ch of stream){ if(ch.text) c.enqueue(enc.encode(ch.text)); } c.close(); }
-  }),{headers:{"Content-Type":"text/plain; charset=utf-8","Access-Control-Allow-Origin":"*"}});
 };
