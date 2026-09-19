@@ -1,17 +1,18 @@
-// utils/generatePDF.js V7 — JAVÍTOTT, TÖKÉLETES TAGOLTSÁG
+// utils/generatePDF.js V9 — BÁRMELYIK SZÖVEGNÉL MŰKÖDIK, előre megadott lista NÉLKÜL
 export function formatForExport(text){
   let t = String(text||"").normalize("NFC").replace(/\r/g,"\n");
   
-  // • jelölő mindig új sort kezdjen
-  t = t.replace(/[ \t]*•[ \t]*/g, "\n• ");
+  // 1. Felsorolás jelek mindig új sort kapjanak
+  t = t.replace(/[ \t]*[-•][ \t]*/g, "\n• ");
   
-  // Nagybetűs kezdet új bekezdés — pontosabban
+  // 2. Mondat végén nagybetűs kezdet → új bekezdés
   t = t.replace(/([.!?])\s+([A-ZÁÉÍÓÖŐÚŰ])/g, "$1\n\n$2");
   
-  // Ha magyar magánhangzó után közvetlenül nagybetűs szó jön → új sor
-  t = t.replace(/([a-záéíóöőúüű])([A-ZÁÉÍÓÖŐÚŰ])/g, "$1\n\n$2");
+  // 3. Mintázat: Nagybetűs szó, 3-40 betű, nincs benne írásjel → valószínűleg CÍM
+  // Ez a lényeg: BÁRMELYIK szövegben felismeri a fejezetcímeket
+  t = t.replace(/([.!?])\s+([A-ZÁÉÍÓÖŐÚŰ][a-záéíóöőúüűA-ZÁÉÍÓÖŐÚŰ\s]{3,40})(?=\s+[A-ZÁÉÍÓÖŐÚŰ][a-záéíóöőúüű])/g, "$1\n\n$2\n");
   
-  // Többszörös üres sorok maximalizálása kettőre
+  // 4. Tiszta sortörések
   t = t.replace(/\n{3,}/g, "\n\n");
   
   return t.trim();
@@ -39,18 +40,27 @@ function toBeautifulHtml(raw){
       html += `<figure><img src="${img[2]}" alt="${img[1]}"><figcaption>${img[1]}</figcaption></figure>`;
       continue;
     }
-    // SZEKCIÓ CÍM — pontosabb felismerés
-    if(/^.{3,60}:$/.test(line) || /^(Rangja|Forrás|Történelmi|Kulturális|Egyéb|Összegzés|Megoldás|Irány|Feladat)[^:]{0,50}$/i.test(line)){
+    
+    // ✅ CÍM FELISMERÉS — BÁRMELYIK, előre lista nélkül
+    // Ha: 5-60 betű, nagybetűvel kezdődik, NEM végződik írásjellel, NEM tartalmaz mondatvégi jelet → CÍM
+    const isLikelyHeading = 
+      line.length >= 5 && line.length <= 60 &&
+      /^[A-ZÁÉÍÓÖŐÚŰ]/.test(line) &&
+      !/[.!?]$/.test(line) &&
+      !/ [a-záéíóöőúüű]{15,}/.test(line); // Ha túl hosszú kisbetűs rész → nem cím
+
+    if(isLikelyHeading || /^.{3,60}:$/.test(line)){
       flushPara();
       html += `<h3>${line.replace(/:$/,"")}</h3>`;
       continue;
     }
-    // FELSOROLÁS — • jellel kezdődik
+    
+    // FELSOROLÁS
     if(line.startsWith("•")){
       flushPara();
       const content = line.slice(1).trim();
       const colon = content.indexOf(":");
-      if(colon>2 && colon<80){
+      if(colon > 2 && colon < 80){
         const title = content.slice(0,colon).trim();
         const desc = content.slice(colon+1).trim();
         html += `<div class="card"><strong>${title}:</strong> ${desc.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")}</div>`;
@@ -59,22 +69,19 @@ function toBeautifulHtml(raw){
       }
       continue;
     }
-    // BEKEZDÉS — ha elég hosszú, azonnal lezárjuk, ne gyűjtsön tovább
+    
+    // SZÖVEG — ésszerű darabolás
     if(line.length > 0){
       if(buffer.length === 0) {
         buffer = line;
       } else {
-        // Ha a sor nagybetűvel kezdődik → új bekezdés
-        if(/^[A-ZÁÉÍÓÖŐÚŰ]/.test(line) && buffer.length > 80) {
+        // Ha új egység kezdődik → lezárjuk
+        if((/^[A-ZÁÉÍÓÖŐÚŰ][a-záéíóöőúüű]{2,15}$/.test(line) && line.length < 20) || buffer.length > 250) {
           flushPara();
           buffer = line;
         } else {
           buffer += " " + line;
         }
-      }
-      // Régebbi: >300 → most rövidebb, hamarabb szakad
-      if(buffer.length > 180) {
-        flushPara();
       }
     }
   }
@@ -84,8 +91,6 @@ function toBeautifulHtml(raw){
 
 export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
   const body = toBeautifulHtml(content);
-
-  // Linkek szépítése és tördelése
   const withLinks = body.replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
 
   const html = `<!DOCTYPE html><html lang="hu"><head><meta charset="UTF-8"><title>${filename}</title>
@@ -100,9 +105,6 @@ export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
   p{margin:0 0 0.8em 0;text-align:justify;line-height:1.7;}
   .card{ background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #e11d48; border-radius:10px; padding:10px 12px; margin:0.7em 0; page-break-inside:avoid;}
   .card strong{color:#881337;}
-  figure{margin:18px 0;text-align:center;page-break-inside:avoid;} 
-  figure img{max-width:100%;max-height:380px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);} 
-  figcaption{font-size:8.5pt;color:#64748b;margin-top:6px;}
   a{color:#4f46e5;word-break:break-all;text-decoration:none;border-bottom:1px dotted #a5b4fc;}
   .meta{color:#94a3b8;font-size:8.5pt;margin-bottom:14px;}
   .footer{margin-top:30px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:8pt;color:#94a3b8;text-align:center;}
