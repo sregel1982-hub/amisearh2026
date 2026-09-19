@@ -1,41 +1,51 @@
-// AMISEARCH — TESZT: CSAK ALAP, KERESÉS NÉLKÜL
+// AMISEARCH — GEMINI 2.0 STABIL, TISZTA ESM
 import { GoogleGenAI } from "@google/genai";
 
 const getEnv = (key) => process.env[key];
 
-// RÖVID, BIZTONSÁGOS ÜZENET
-const SYSTEM_PROMPT = `Te az AMISEARCH tanulási segítője vagy. Mindig keress külső forrásokban, és jelöld meg őket: 📚 Cím — Kiadó, Év. Ne találj ki adatot!`;
+const SYSTEM_PROMPT = `Te az AMISEARCH megbízható tanulási segítője vagy.
+
+Szabályok:
+1. Keresd a választ külső forrásokban!
+2. Képletek: \\(képlet\\) vagy \\[képlet\\]
+3. Forrás: 📚 [cím](link)
+4. Ne találj ki adatot!`;
 
 export default async (req) => {
   try {
-    const { messages = [] } = await req.json();
+    const body = await req.json();
+    const messages = body.messages || [];
+
     const apiKey = getEnv("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("Nincs API kulcs megadva a környezeti változókban (GEMINI_API_KEY)");
+    if (!apiKey) throw new Error("Nincs API kulcs a környezeti változókban (GEMINI_API_KEY)");
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Üzenetek átalakítása az új SDK formátumára
     const contents = messages.map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content || "" }]
     }));
 
-    // @google/genai SDK szerinti helyes hívás és létező modellnév (gemini-2.0-flash)
+    // Helyes hívás az @google/genai SDK-ban
     const responseStream = await ai.models.generateContentStream({
       model: "gemini-2.0-flash",
       contents: contents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
         temperature: 0.2,
-        maxOutputTokens: 4096
+        maxOutputTokens: 4096,
+        tools: [{ googleSearch: {} }] // Az új SDK-ban 'googleSearch' a helyes eszköz név!
       }
     });
 
     const stream = new ReadableStream({
       async start(ctrl) {
         for await (const chunk of responseStream) {
-          const text = chunk.text; // Az új SDK-ban ez egy tulajdonság (property), nem függvény!
-          if (text) ctrl.enqueue(new TextEncoder().encode(text));
+          // chunk.text egy tulajdonság, nem függvény!
+          const text = chunk.text; 
+          if (text) {
+            ctrl.enqueue(new TextEncoder().encode(text));
+          }
         }
         ctrl.close();
       }
