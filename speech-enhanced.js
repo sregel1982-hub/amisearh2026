@@ -1,16 +1,13 @@
-// === AMISEARCH FELOLVASÁS — KÜLÖN FÁJL, NEM ÉRINTI AZ index.html-t ===
+// public/speech-tts.js — AMISEARCH FELTÖLTÉS, NEM MÓDOSÍTJA AZ index.html-t
 let beszeldomas = null;
 
 window.felolvas = function(gomb) {
-  const doboz = gomb.closest(".ai-output")?.dataset?.ttsSource 
-             ? document.querySelector(gomb.closest(".ai-output").dataset.ttsSource)
-             : gomb.closest(".ai-output");
-  
-  const szoveg = doboz?.textContent?.trim() || "";
+  const valaszDoboz = gomb.closest(".ai-output");
+  const szoveg = valaszDoboz?.textContent?.trim() || "";
   if (!szoveg) return;
 
   if (beszeldomas) window.speechSynthesis.cancel();
-  
+
   beszeldomas = new SpeechSynthesisUtterance(szoveg);
   beszeldomas.lang = "hu-HU";
   beszeldomas.rate = 0.9;
@@ -20,12 +17,14 @@ window.felolvas = function(gomb) {
   const leallito = gomb.nextElementSibling;
   if (leallito) leallito.style.display = "inline-flex";
 
-  const vissza = () => {
+  const visszaallit = () => {
     gomb.style.display = "inline-flex";
     if (leallito) leallito.style.display = "none";
     beszeldomas = null;
   };
-  beszeldomas.onend = beszeldomas.oncancel = vissza;
+  beszeldomas.onend = visszaallit;
+  beszeldomas.oncancel = visszaallit;
+
   window.speechSynthesis.speak(beszeldomas);
 };
 
@@ -38,21 +37,15 @@ window.leallit = function() {
   }
 };
 
-// Automatikus betöltés — CSAK EZ A SORT ADD HOZZÁ A SAJÁT FÜGGVÉNYEDHEZ
-window.csillagozdFelAValaszokat = function() {
-  document.querySelectorAll(".ai-output").forEach(elem => {
-    if (!elem.nextElementSibling?.classList.contains("tts-sor")) {
-      const sor = document.createElement("div");
-      sor.className = "tts-sor";
-      sor.style.cssText = "display:flex;gap:0.5rem;margin:0.5rem 0 1rem 0;";
-      sor.innerHTML = `
-        <button class="btn-tts-play" onclick="felolvas(this)" style="padding:0.5rem 1rem;border-radius:0.5rem;border:none;background:#EDE9FE;color:#5A4BD1;cursor:pointer;">🔊 Olvasd fel</button>
-        <button class="btn-tts-stop" onclick="leallit()" style="padding:0.5rem 1rem;border-radius:0.5rem;border:none;background:#FEE2E2;color:#B91C1C;cursor:pointer;display:none;">🔇 Leállítás</button>
-      `;
-      elem.after(sor);
-    }
-  });
-};
+window.ttsGombotAd = function(celElem) {
+  if (!celElem || celElem.nextElementSibling?.classList.contains("tts-sor")) return;
 
-// Ha a meglévő kódodban van függvény ami új válasz után fut — egyszerűen hívd meg:
-// csillagozdFelAValaszokat();
+  const sor = document.createElement("div");
+  sor.className = "tts-sor";
+  sor.style.cssText = "display:flex;gap:0.5rem;margin:0.5rem 0 1rem 0;";
+  sor.innerHTML = `
+    <button class="btn-tts-play" onclick="felolvas(this)" style="padding:0.5rem 1rem;border-radius:0.5rem;border:none;background:#EDE9FE;color:#5A4BD1;cursor:pointer;">🔊 Olvasd fel</button>
+    <button class="btn-tts-stop" onclick="leallit()" style="padding:0.5rem 1rem;border-radius:0.5rem;border:none;background:#FEE2E2;color:#B91C1C;cursor:pointer;display:none;">🔇 Leállítás</button>
+  `;
+  celElem.after(sor);
+};
