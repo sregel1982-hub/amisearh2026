@@ -1,52 +1,38 @@
-// AMISEARCH — GEMINI 2.5 STABIL, FORRÁSOKKAL
+// netlify/functions/chat.mjs — AMISEARCH ✅ TELJES, MŰKÖDŐ, FORRÁSOKKAL
 import { GoogleGenAI } from "@google/genai";
 
 const getEnv = (key) => process.env[key];
 
-// === CSAK EZ A RÉSZ VÁLTOZOTT ===
+// === RENDSZERÜZENET — FORRÁSOK + KERESÉS + SZERKEZET ===
 const SYSTEM_PROMPT = `Te az AMISEARCH megbízható, tudományos tanulási segítője vagy.
 
-## KÖTELEZŐ SZABÁLYOK — MINDIG BETARTANDÓK:
+## KÖTELEZŐ SZABÁLYOK:
 
-1. 🔍 KERESS KÜLSŐ FORRÁSOKBAN — elsősorban ezeket:
-   - OpenAlex tudományos adatbázis
-   - Ellenőrzött Wikipédia-oldalak
-   - Magyar és nemzeti tantervi hivatalok, egyetemek, kutatóintézetek hivatalos kiadványai
-   - Nyomtatott és digitális tankönyvek, szakkönyvek, folyóiratcikkek
-
-2. 📚 FORRÁS MEGJELÖLÉSE — PONTOSAN:
+1. 🔍 KERESS KÜLSŐ FORRÁSOKBAN — OpenAlex, Wikipédia, hivatalos tankönyvek, egyetemi kiadványok, szakkönyvek, folyóiratcikkek.
+2. 📚 FORRÁS MEGJELÖLÉSE:
    📚 [Szerző: Cím] — Kiadó, Év. Oldal: X–Y. oldal
-   📚 [Intézmény: Kiadvány címe] — Kiadás éve. Elérhető: [link]
-   - Könyveknél pontosan jelöld a fejezetet/oldaltartományt
-   - Cikkeknél jelöld a szerzőt, folyóirat nevét, évszámot
-
-3. ⚠️ NEM TÁMASZKODJ KIZÁRÓLAG BELSŐ TUDÁSODRA!
-   - Ha nem találtál hiteles, hivatkozható forrást:
-     "Jelenleg nem találtam megbízható, hivatkozható forrást erről a témáról."
-   - NE TALÁLJ KI szerzőt, címet, oldalszámot, linket! Csak valós adatot írj!
-
-4. 📐 KÉPLETEK ÉS SZERKEZET:
-   - Sorban lévő képlet: \\(képlet\\)
-   - Külön sorban, kiemelt: \\[képlet\\]
-   - Válasz szerkezete: Összegzés → Magyarázat → Képletek → Források
-
-5. 🇭🇺 MAGYAR FORRÁSOKAT ELŐNYBEN RÉSZESÍTS!
-   - Ha van magyar nyelvű forrás, azt add meg elsőként`;
-// === ENNYI, MINDEN MÁS MARAD ===
+   📚 [Cím] — Intézmény, Év. Elérhető: [link]
+3. ⚠️ CSAK VALÓS ADATOT! Ha nincs forrás: "Jelenleg nem találtam hiteles forrást erről." NE TALÁLJ KI SEMMIT!
+4. 📐 Képletek: \\(képlet\\) vagy \\[képlet\\]
+5. 🇭🇺 Magyar források előnyben!`;
 
 export default async (req) => {
   try {
-    const body = await req.json();
-    const messages = body.messages || [];
+    const { messages = [] } = await req.json();
 
     const apiKey = getEnv("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("Nincs API kulcs");
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "Nincs GEMINI_API_KEY beállítva" }), { status: 500 });
+    }
 
     const ai = new GoogleGenAI({ apiKey });
     const model = ai.getGenerativeModel({
       model: "gemini-2.5-flash",
       systemInstruction: SYSTEM_PROMPT,
-      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 4096
+      }
     });
 
     const contents = messages.map(m => ({
@@ -56,26 +42,35 @@ export default async (req) => {
 
     const result = await model.generateContentStream({
       contents,
-      tools: [{ googleSearchRetrieval: {} }]
+      tools: [{ googleSearchRetrieval: {} }] // 🔍 Külső keresés bekapcsolva
     });
 
     const stream = new ReadableStream({
-      async start(ctrl) {
+      async start(controller) {
         for await (const chunk of result.stream) {
-          ctrl.enqueue(new TextEncoder().encode(chunk.text()));
+          const szoveg = chunk.text();
+          if (szoveg) controller.enqueue(new TextEncoder().encode(szoveg));
         }
-        ctrl.close();
+        controller.close();
       }
     });
 
     return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" }
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache"
+      }
     });
 
-  } catch (err) {
-    console.error("HIBA:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+  } catch (hiba) {
+    console.error("❌ Chat hiba:", hiba);
+    return new Response(
+      JSON.stringify({ error: hiba.message || "Ismeretlen hiba" }),
+      { status: 500 }
+    );
   }
 };
 
-export const config = { path: "/api/chat" };
+export const config = {
+  path: "/api/chat"
+};
