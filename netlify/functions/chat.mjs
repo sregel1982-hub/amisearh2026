@@ -1,562 +1,93 @@
-import { marked } from "https://cdn.jsdelivr.net/npm/marked@15.0.6/+esm";
-import katex from "https://cdn.jsdelivr.net/npm/katex@0.16.21/+esm";
-import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.2.4/+esm";
+// netlify/functions/chat.js - AMISEARCH V4.5 FINAL
+import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
+import { checkQuota, incrementUsage } from "./quota.js";
+import { webSearch, imageSearch } from "./search-utils.mjs";
 
-import "https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css";
+const getEnv = (k) => process.env[k] || (typeof Netlify!== "undefined" && Netlify.env.get?.(k));
+const hasGroq =!!getEnv("GROQ_API_KEY");
+const hasGemini =!!getEnv("GEMINI_API_KEY");
+const geminiAi = hasGemini? new GoogleGenAI({ apiKey: getEnv("GEMINI_API_KEY") }) : null;
 
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-});
-
-const API_URL = "/api/chat";
-
-const state = {
-  messages: [],
-  voices: [],
-  isLoading: false,
-};
-
-const elements = {
-  form: document.querySelector("#chat-form"),
-  input: document.querySelector("#user-input"),
-  sendButton: document.querySelector("#send-button"),
-  messages: document.querySelector("#chat-messages"),
-  sourceList: document.querySelector("#source-list"),
-  sourcePanel: document.querySelector("#source-panel"),
-  status: document.querySelector("#status-text"),
-  stopSpeech: document.querySelector("#stop-speech"),
-  forceSources: document.querySelector("#force-sources"),
-};
-
-function setStatus(text = "") {
-  if (elements.status) {
-    elements.status.textContent = text;
-  }
-}
-
-function setLoading(isLoading) {
-  state.isLoading = isLoading;
-
-  if (elements.sendButton) {
-    elements.sendButton.disabled = isLoading;
-    elements.sendButton.textContent = isLoading ? "Válasz készül…" : "Küldés";
-  }
-
-  if (elements.input) {
-    elements.input.disabled = isLoading;
-  }
-}
-
-function scrollToBottom() {
-  requestAnimationFrame(() => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: "smooth",
-    });
-  });
-}
-
-function saveMessages() {
-  try {
-    localStorage.setItem(
-      "ai-chat-history",
-      JSON.stringify(state.messages.slice(-30)),
-    );
-  } catch {
-    // Ha a localStorage nem elérhető, a chat ettől még működik.
-  }
-}
-
-function loadMessages() {
-  try {
-    const saved = localStorage.getItem("ai-chat-history");
-
-    if (!saved) {
-      return;
+function jsonResponse(d, s=200){ return new Response(JSON.stringify(d),{status:s,headers:{"Content-Type":"application/json; charset=utf-8","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization"}}); }
+function corsOptions(){ return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization"}}); }
+function textStreamResponse(gen){
+  const enc=new TextEncoder();
+  return new Response(new ReadableStream({
+    async start(c){
+      try{ for await(const chunk of gen){ if(chunk) c.enqueue(enc.encode(String(chunk).normalize('NFC'))); } c.close(); }
+      catch(e){ c.error(e); }
     }
+  }),{headers:{"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-cache","Access-Control-Allow-Origin":"*"}});
+}
+function cleanText(v,m=70000){ return String(v||"").normalize('NFC').replace(/\r\n/g,"\n").replace(/\r/g,"\n").replace(/[ \t]+/g," ").replace(/\n{5,}/g,"\n\n\n\n").trim().slice(0,m); }
 
-    const parsed = JSON.parse(saved);
-
-    if (Array.isArray(parsed)) {
-      state.messages = parsed;
-    }
-  } catch {
-    state.messages = [];
-  }
+function getSupabaseAdmin(){
+  const url=getEnv("SUPABASE_URL"), key=getEnv("SUPABASE_SERVICE_ROLE_KEY")||getEnv("SERVICE_ROLE_KEY");
+  if(!url||!key) return null; return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+}
+async function getSupabaseUser(req){
+  const h=req.headers.get("authorization")||req.headers.get("Authorization"); if(!h) return null;
+  const t=h.replace("Bearer ","").trim(); if(!t) return null;
+  const sb=createClient(getEnv("SUPABASE_URL"),getEnv("SUPABASE_SERVICE_ROLE_KEY"),{auth:{persistSession:false,autoRefreshToken:false}});
+  try{ const {data,error}=await sb.auth.getUser(t); if(error||!data?.user) return null; return data.user; }catch{ return null; }
+}
+async function loadUserNotesContext(user,inline="",noteId=null){
+  const parts=[]; const inl=cleanText(inline,30000); if(inl) parts.push(`=== FELTÖLTÖTT DOKUMENTUM ===\n${inl}`);
+  const sb=getSupabaseAdmin(); if(!sb||!user?.id) return parts.join("\n\n");
+  try{
+    const col=[]; const {data:j}=await sb.from("jegyzetek").select("id,cim,original_name,text_content,processed").eq("user_id",user.id).order("created_at",{ascending:false}).limit(5);
+    if(Array.isArray(j)) col.push(...j);
+    let a=0; for(const n of col){ if(a>=5) break; const ti=n.cim||n.original_name||"Jegyzet"; const tx=cleanText(n.text_content,12000); if(tx.length>80){ parts.push(`=== JEGYZET: ${ti} ===\n${tx}`); a++; } }
+  }catch{}
+  return parts.join("\n\n");
 }
 
-function createMessage(role, content) {
-  return {
-    id: crypto.randomUUID(),
-    role,
-    content,
-  };
+function buildSystemInstruction({hasImage=false}={}){
+  const base=`You are AMISEARCH educational assistant. Always answer in same language as user. Use Hungarian accents correctly.
+Use markdown: ## headings, - lists, **bold**. Each paragraph separate line, blank line between sections.
+MANDATORY: Headings and bullets on new lines. End with "## Forrásjegyzék"`;
+  if(hasImage) return base+"\n\nFONTOS: Kép már beillesztve a válasz elejére. SOHA ne mondd hogy nem tudsz képet mutatni.";
+  return base;
 }
-
-function escapeLatexPlaceholders(text) {
-  const formulas = [];
-
-  const storeFormula = (formula, displayMode) => {
-    const placeholder = `@@FORMULA_${formulas.length}@@`;
-
-    const html = katex.renderToString(formula.trim(), {
-      displayMode,
-      throwOnError: false,
-      strict: "ignore",
-      trust: false,
-    });
-
-    formulas.push({
-      placeholder,
-      html,
-    });
-
-    return placeholder;
-  };
-
-  let result = String(text || "");
-
-  result = result.replace(/$$([sS]*?)$$/g, (_, formula) => {
-    return storeFormula(formula, true);
-  });
-
-  result = result.replace(/\\[([sS]*?)\\]/g, (_, formula) => {
-    return storeFormula(formula, true);
-  });
-
-  result = result.replace(/\\(([sS]*?)\\)/g, (_, formula) => {
-    return storeFormula(formula, false);
-  });
-
-  result = result.replace(/(^|[^\\$])$([^$
-]+?)$(?!$)/g, (_, before, formula) => {
-    return `${before}${storeFormula(formula, false)}`;
-  });
-
-  return {
-    text: result,
-    formulas,
-  };
+function buildPrompt({message,notesContext,webContext,imageContext,history}){
+  const hist=(Array.isArray(history)?history.slice(-8):[]).map(i=>`${i.role==="assistant"?"AI":"User"}: ${cleanText(i.content,2500)}`).join("\n");
+  return [notesContext?`## NOTES\n${notesContext}\n\n`:"", imageContext?`## FOUND IMAGE\n${imageContext}\n\n`:"", webContext?`## SOURCES\n${webContext}\n\n`:"", hist?`## HISTORY\n${hist}\n\n`:"", `## QUESTION\n${message}`].filter(Boolean).join("");
 }
-
-function renderMarkdownAndLatex(rawText) {
-  const { text, formulas } = escapeLatexPlaceholders(rawText);
-
-  let html = marked.parse(text);
-
-  for (const formula of formulas) {
-    html = html.replaceAll(formula.placeholder, formula.html);
-  }
-
-  return DOMPurify.sanitize(html, {
-    ADD_ATTR: ["target", "rel", "class", "aria-hidden"],
-  });
+function guessLang(t){ return /[őűáéíóúöüŐŰÁÉÍÓÚÖÜ]|\b(és|vagy|hogy|jegyzet|vizsga)\b/i.test(String(t||""))?"hu":"en"; }
+function detectImageIntent(m){ const t=String(m||"").toLowerCase(); return /\b(kép|képet|fotó|mutass|ábra|illusztráció|hogy néz ki)\b/.test(t)||/\b(image|picture|photo|show me|illustration)\b/.test(t); }
+function normalizeImage(r){ if(!r) return null; const u=r.url||r.imageUrl||r.link; if(!u) return null; return {url:u,title:r.title||"Kép",source:r.source||"Wikimedia Commons",sourceUrl:r.sourceUrl||r.pageUrl||""}; }
+async function findImage(msg,lang){
+  try{ const res=await Promise.race([imageSearch(msg.slice(0,200),lang), new Promise(r=>setTimeout(()=>r(null),6000))]); return normalizeImage(res); }catch{ return null; }
 }
+function buildImageMarkdown(img){ if(!img) return ""; return `![${img.title}](${img.url})\n*${img.title} – Forrás: ${img.source}*\n${img.sourceUrl?`Forrás: ${img.source}\n${img.sourceUrl}`:""}\n\n`; }
 
-function cleanTextForSpeech(rawText) {
-  return String(rawText || "")
-    .replace(/```[sS]*?```/g, " kódblokk ")
-    .replace(/$$[sS]*?$$/g, " képlet ")
-    .replace(/\\[[sS]*?\\]/g, " képlet ")
-    .replace(/\\([sS]*?\\)/g, " képlet ")
-    .replace(/(^|[^\\$])$([^$
-]+?)$(?!$)/g, "$1 képlet ")
-    .replace(/[([^]]+)]([^)]+)/g, "$1")
-    .replace(/#{1,6}s+/g, "")
-    .replace(/[*_~>`]/g, "")
-    .replace(/s+/g, " ")
-    .trim();
+async function* geminiChunks(prompt, sys){
+  const s=await geminiAi.models.generateContentStream({model:"gemini-2.5-flash",contents:[{role:"user",parts:[{text:prompt}]}],config:{systemInstruction:sys,temperature:0.4}});
+  for await(const c of s){ const t=typeof c?.text==="function"?c.text():c?.text; if(t) yield t; }
 }
-
-function splitSpeechText(text, maxLength = 220) {
-  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
-  const parts = [];
-  let current = "";
-
-  for (const sentence of sentences) {
-    const candidate = `${current} ${sentence}`.trim();
-
-    if (candidate.length > maxLength && current) {
-      parts.push(current.trim());
-      current = sentence.trim();
-    } else {
-      current = candidate;
-    }
-  }
-
-  if (current.trim()) {
-    parts.push(current.trim());
-  }
-
-  return parts;
+async function* groqChunks(resp){
+  const rd=resp.body.getReader(); const dec=new TextDecoder(); let buf="";
+  while(true){ const {done,value}=await rd.read(); if(done) break; buf+=dec.decode(value,{stream:true}); const ls=buf.split("\n"); buf=ls.pop()||""; for(const l of ls){ const tr=l.trim(); if(!tr||!tr.startsWith("data:")) continue; const d=tr.slice(5).trim(); if(d==="[DONE]") return; try{ const j=JSON.parse(d); const delta=j?.choices?.[0]?.delta?.content; if(delta) yield delta; }catch{} } }
 }
+async function* prependImage(md,inner){ if(md) yield md; for await(const c of inner) yield c; }
 
-function loadVoices() {
-  if (!("speechSynthesis" in window)) {
-    return [];
-  }
-
-  state.voices = window.speechSynthesis.getVoices();
-  return state.voices;
+export default async function handler(req){
+  if(req.method==="OPTIONS") return corsOptions();
+  if(req.method!=="POST") return jsonResponse({error:"Nem engedélyezett metódus"},405);
+  let body; try{ body=await req.json(); }catch{ return jsonResponse({error:"Érvénytelen kérés"},400); }
+  const message=cleanText(body?.message||body?.prompt||"",12000); if(!message) return jsonResponse({error:"Kérdés hiányzik"},400);
+  const user=await getSupabaseUser(req);
+  try{ const q=await checkQuota(user?.id); if(!q.allowed) return jsonResponse({error:q.message||"Limit elérve"},402); }catch{}
+  const history=Array.isArray(body?.history)?body.history:[]; const inline=typeof body?.notes==="string"?body.notes:""; const noteId=body?.noteId||null;
+  let notesContext=""; try{ notesContext=await loadUserNotesContext(user,inline,noteId); }catch{}
+  const lang=guessLang(message);
+  let webContext=""; try{ const sr=await Promise.race([webSearch(message.slice(0,200),lang), new Promise(r=>setTimeout(()=>r(null),4000))]); if(sr?.summary) webContext=`${sr.summary}\n(Forrás: ${sr.source})`; }catch{}
+  let image=null, imageMD=""; if(detectImageIntent(message)){ image=await findImage(message,lang); imageMD=buildImageMarkdown(image); }
+  const sys=buildSystemInstruction({hasImage:!!image});
+  const prompt=buildPrompt({message,notesContext,webContext,imageContext:image?`${image.title} ${image.url} ${image.sourceUrl}`:"",history});
+  incrementUsage(user?.id).catch(()=>{});
+  try{ if(hasGemini) return textStreamResponse(prependImage(imageMD, geminiChunks(prompt,sys))); }catch(e){ console.error(e); }
+  try{ if(hasGroq){ const k=getEnv("GROQ_API_KEY"); const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${k}`},body:JSON.stringify({model:getEnv("GROQ_MODEL")||"llama3-70b-8192",stream:true,temperature:0.4,messages:[{role:"system",content:sys},{role:"user",content:prompt}]})}); if(!r.ok) throw new Error(r.status); return textStreamResponse(prependImage(imageMD, groqChunks(r))); } }catch(e){ console.error(e); }
+  return jsonResponse({error:"AI szolgáltatás nem elérhető"},503);
 }
-
-function getHungarianVoice() {
-  const voices = state.voices.length ? state.voices : loadVoices();
-
-  return (
-    voices.find((voice) => voice.lang?.toLowerCase() === "hu-hu") ||
-    voices.find((voice) => voice.lang?.toLowerCase().startsWith("hu")) ||
-    voices.find((voice) => voice.default) ||
-    voices[0] ||
-    null
-  );
-}
-
-function stopSpeech() {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
-}
-
-async function speakText(rawText) {
-  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-    setStatus("Ebben a böngészőben nem támogatott a felolvasás.");
-    return;
-  }
-
-  stopSpeech();
-
-  const text = cleanTextForSpeech(rawText);
-
-  if (!text) {
-    setStatus("Nincs felolvasható szöveg.");
-    return;
-  }
-
-  const voice = getHungarianVoice();
-  const chunks = splitSpeechText(text);
-
-  setStatus("Felolvasás folyamatban…");
-
-  for (const chunk of chunks) {
-    await new Promise((resolve) => {
-      const utterance = new SpeechSynthesisUtterance(chunk);
-
-      utterance.lang = voice?.lang || "hu-HU";
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      if (voice) {
-        utterance.voice = voice;
-      }
-
-      utterance.onend = resolve;
-      utterance.onerror = resolve;
-
-      window.speechSynthesis.speak(utterance);
-    });
-  }
-
-  setStatus("A felolvasás befejeződött.");
-}
-
-function sourceSearchRecommended(text) {
-  const keywords = [
-    "forrás",
-    "források",
-    "hivatkozás",
-    "kutatás",
-    "tanulmány",
-    "tudományos",
-    "cikk",
-    "bizonyíték",
-    "aktuális",
-    "legújabb",
-    "statisztika",
-    "egészség",
-    "orvosi",
-    "jogi",
-    "törvény",
-    "pénzügyi",
-    "történelmi",
-  ];
-
-  const lowerText = String(text || "").toLocaleLowerCase("hu-HU");
-
-  return keywords.some((word) => lowerText.includes(word));
-}
-
-function createMessageElement(message) {
-  const article = document.createElement("article");
-  article.className = `message ${message.role}`;
-
-  const top = document.createElement("div");
-  top.className = "message-meta";
-
-  const role = document.createElement("span");
-  role.textContent = message.role === "user" ? "Te" : "AI asszisztens";
-
-  const actions = document.createElement("div");
-  actions.className = "message-tools";
-
-  const copyButton = document.createElement("button");
-  copyButton.type = "button";
-  copyButton.textContent = "Másolás";
-
-  copyButton.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(message.content);
-      setStatus("A válasz a vágólapra került.");
-    } catch {
-      setStatus("A másolás nem sikerült.");
-    }
-  });
-
-  actions.appendChild(copyButton);
-
-  if (message.role === "assistant") {
-    const speechButton = document.createElement("button");
-    speechButton.type = "button";
-    speechButton.textContent = "Felolvasás";
-
-    speechButton.addEventListener("click", () => {
-      speakText(message.content);
-    });
-
-    actions.appendChild(speechButton);
-  }
-
-  top.append(role, actions);
-
-  const content = document.createElement("div");
-  content.className = "message-content";
-  content.innerHTML = renderMarkdownAndLatex(message.content);
-
-  content.querySelectorAll("a").forEach((link) => {
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-  });
-
-  article.append(top, content);
-
-  return article;
-}
-
-function renderAllMessages() {
-  elements.messages.innerHTML = "";
-
-  if (!state.messages.length) {
-    elements.messages.innerHTML = `
-      <div class="empty-state">
-        <h2>Üdv a chatben</h2>
-        <p>
-          Kérdezhetsz tananyagokról, kérhetsz LaTeX-képleteket,
-          forrásokat és felolvasást.
-        </p>
-      </div>
-    `;
-
-    return;
-  }
-
-  for (const message of state.messages) {
-    elements.messages.appendChild(createMessageElement(message));
-  }
-
-  scrollToBottom();
-}
-
-function showSources(sources = []) {
-  if (!elements.sourcePanel || !elements.sourceList) {
-    return;
-  }
-
-  if (!sources.length) {
-    elements.sourcePanel.classList.add("hidden");
-    elements.sourceList.innerHTML = "";
-    return;
-  }
-
-  elements.sourcePanel.classList.remove("hidden");
-  elements.sourceList.innerHTML = "";
-
-  for (const source of sources) {
-    const card = document.createElement("article");
-    card.className = "source-card";
-
-    const title = document.createElement("h3");
-    title.textContent = source.title || "Cím nélküli forrás";
-
-    const details = document.createElement("p");
-
-    const authors = Array.isArray(source.authors) && source.authors.length
-      ? source.authors.join(", ")
-      : "Ismeretlen szerző";
-
-    const year = source.year || "n. a.";
-    const journal = source.journal ? ` · ${source.journal}` : "";
-    const citations = source.citedByCount ?? 0;
-
-    details.textContent =
-      `${authors} · ${year}${journal} · Idézettség: ${citations}`;
-
-    card.append(title, details);
-
-    if (source.url) {
-      const link = document.createElement("a");
-      link.href = source.url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = source.doi || source.url;
-
-      card.appendChild(link);
-    }
-
-    elements.sourceList.appendChild(card);
-  }
-}
-
-function createLoadingMessage() {
-  const article = document.createElement("article");
-  article.className = "message assistant loading";
-
-  article.innerHTML = `
-    <div class="message-meta">
-      <span>AI asszisztens</span>
-    </div>
-    <div class="message-content">
-      Válasz és források előkészítése…
-    </div>
-  `;
-
-  elements.messages.appendChild(article);
-
-  return article;
-}
-
-async function sendMessage(userText) {
-  if (!userText || state.isLoading) {
-    return;
-  }
-
-  stopSpeech();
-
-  const userMessage = createMessage("user", userText);
-
-  state.messages.push(userMessage);
-  saveMessages();
-  renderAllMessages();
-
-  elements.input.value = "";
-  setLoading(true);
-
-  const mustUseSources =
-    Boolean(elements.forceSources?.checked) ||
-    sourceSearchRecommended(userText);
-
-  setStatus(
-    mustUseSources
-      ? "Válasz és hiteles források keresése folyamatban…"
-      : "Válasz készítése folyamatban…",
-  );
-
-  const loadingElement = createLoadingMessage();
-  scrollToBottom();
-
-  try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages: state.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
-        forceSources: mustUseSources,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || "Nem sikerült választ kapni a szervertől.");
-    }
-
-    loadingElement.remove();
-
-    const assistantMessage = createMessage(
-      "assistant",
-      data.answer || "Nem érkezett értelmezhető válasz.",
-    );
-
-    state.messages.push(assistantMessage);
-    saveMessages();
-
-    elements.messages.appendChild(createMessageElement(assistantMessage));
-
-    showSources(data.sources || []);
-
-    if (data.usedSourceSearch) {
-      setStatus(`${data.sources?.length || 0} forrás feldolgozva.`);
-    } else {
-      setStatus("A válasz elkészült.");
-    }
-  } catch (error) {
-    console.error(error);
-
-    loadingElement.remove();
-
-    const errorMessage = createMessage(
-      "assistant",
-      `## Hiba történt
-
-${error.message}`,
-    );
-
-    state.messages.push(errorMessage);
-    saveMessages();
-
-    elements.messages.appendChild(createMessageElement(errorMessage));
-
-    setStatus("A válasz létrehozása sikertelen.");
-  } finally {
-    setLoading(false);
-    elements.input.focus();
-    scrollToBottom();
-  }
-}
-
-function initialize() {
-  loadMessages();
-  renderAllMessages();
-
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
-  }
-
-  elements.form?.addEventListener("submit", (event) => {
-    event.preventDefault();
-
-    const text = elements.input.value.trim();
-
-    sendMessage(text);
-  });
-
-  elements.input?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      elements.form.requestSubmit();
-    }
-  });
-
-  elements.stopSpeech?.addEventListener("click", () => {
-    stopSpeech();
-    setStatus("A felolvasás leállítva.");
-  });
-}
-
-initialize();
