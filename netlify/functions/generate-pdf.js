@@ -1,128 +1,100 @@
-// utils/generatePDF.js – AMISEARCH V5 FIX
-// Megtartja: címsorok, bullet lista, félkövér, képek
-
-export function formatForExport(text) {
-  if (!text) return "";
-  let t = String(text).normalize("NFC");
-  // a te hibád itt volt: a • jelek nem kaptak új sort
-  t = t.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  // képek külön sorba
-  t = t.replace(/([^\n])(!\[.*?\]\(.*?\))/g, "$1\n\n$2\n\n");
-  // címsorok külön sorba
-  t = t.replace(/([^\n])(#{1,6}\s+)/g, "$1\n\n$2");
-  t = t.replace(/(#{1,6}[^\n]+)([^\n])/g, "$1\n\n$2");
-  // bullet pontok külön sorba
-  t = t.replace(/([^\n])(\s*[•\-\*]\s+)/g, "$1\n$2");
-  t = t.replace(/([^\n])(\s*\d+\.\s+)/g, "$1\n$2");
+// utils/generatePDF.js V6 - SZÉP PDF, látássérült barát
+export function formatForExport(text){
+  let t = String(text||"").normalize("NFC").replace(/\r/g,"\n");
+  // a te hibád itt volt: a • nem kapott új sort
+  t = t.replace(/\s*•\s*/g, "\n• ");
+  t = t.replace(/([a-záéíóöőúüű)])([A-ZÁÉÍÓÖŐÚÜ])/g, "$1\n\n$2");
   t = t.replace(/\n{3,}/g, "\n\n");
   return t.trim();
 }
 
-function mdToHtmlBlocks(md) {
-  const clean = formatForExport(md);
-  const lines = clean.split("\n");
-  let html = "";
-  let inList = false;
+function toBeautifulHtml(raw){
+  const txt = formatForExport(raw);
+  const parts = txt.split("\n").map(s=>s.trim()).filter(Boolean);
 
-  const flushList = () => {
-    if (inList) { html += "</ul>\n"; inList = false; }
+  let html = "";
+  let buffer = "";
+
+  const flushPara = () => {
+    if(buffer){
+      html += `<p>${buffer.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")}</p>`;
+      buffer="";
+    }
   };
 
-  for (let raw of lines) {
-    const line = raw.trim();
-    if (!line) { flushList(); continue; }
-
-    // KÉP:![alt](url)
-    const imgMatch = line.match(/!\[(.*?)\]\((.*?)\)/);
-    if (imgMatch) {
-      flushList();
-      const alt = imgMatch[1].replace(/"/g, "&quot;");
-      const url = imgMatch[2].trim();
-      html += `<figure class="amis-img"><img src="${url}" alt="${alt}" crossorigin="anonymous"><figcaption>${alt}</figcaption></figure>\n`;
+  for(let line of parts){
+    // KÉP![...](url)
+    const img = line.match(/!\[(.*?)\]\((.*?)\)/);
+    if(img){
+      flushPara();
+      html += `<figure><img src="${img[2]}" alt="${img[1]}"><figcaption>${img[1]}</figcaption></figure>`;
       continue;
     }
-
-    // CÍMSOR ## vagy ###
-    if (/^#{2,3}\s+/.test(line)) {
-      flushList();
-      const level = line.startsWith("###")? "h3" : "h2";
-      const text = line.replace(/^#{2,3}\s+/, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      html += `<${level}>${text}</${level}>\n`;
+    // SZEKCIÓ cím, ha tartalmaz :: vagy nagybetűs és rövid
+    if(/^.{3,60}:$/.test(line) || /^(Történelmi|Kulturális|Egyéb|Forrás|Irány)/i.test(line) && line.length<80 &&!line.startsWith("•")){
+      flushPara();
+      html += `<h3>${line.replace(/:$/,"")}</h3>`;
       continue;
     }
-
-    // BULLET: • vagy - vagy *
-    if (/^[•\-\*]\s+/.test(line)) {
-      if (!inList) { html += "<ul>\n"; inList = true; }
-      const text = line.replace(/^[•\-\*]\s+/, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      html += `<li>${text}</li>\n`;
+    // BULLET
+    if(line.startsWith("•")){
+      flushPara();
+      const content = line.slice(1).trim();
+      const colon = content.indexOf(":");
+      if(colon>2 && colon<80){
+        const title = content.slice(0,colon).trim();
+        const desc = content.slice(colon+1).trim();
+        html += `<div class="card"><strong>${title}:</strong> ${desc.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")}</div>`;
+      } else {
+        html += `<div class="card">${content.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")}</div>`;
+      }
       continue;
     }
-
-    // Számozott lista
-    if (/^\d+\.\s+/.test(line)) {
-      if (!inList) { html += "<ul>\n"; inList = true; }
-      const text = line.replace(/^\d+\.\s+/, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      html += `<li>${text}</li>\n`;
-      continue;
-    }
-
-    // Sima bekezdés
-    flushList();
-    const text = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    html += `<p>${text}</p>\n`;
+    // Sima szöveg – gyűjtjük bekezdésbe
+    buffer += (buffer?" ":"") + line;
+    if(buffer.length>300){ flushPara(); }
   }
-  flushList();
+  flushPara();
   return html;
 }
 
-export default async function generatePDF(content, title = "AMISEARCH válasz") {
-  const bodyHtml = mdToHtmlBlocks(content);
+export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
+  const body = toBeautifulHtml(content);
 
-  const fullHtml = `<!DOCTYPE html><html lang="hu"><head><meta charset="UTF-8"><title>${title}</title>
+  // Linkek szépítése – a nyers https://...-eket kattinthatóvá tesszük, de nem hagyjuk egybe
+  const withLinks = body.replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
+
+  const html = `<!DOCTYPE html><html lang="hu"><head><meta charset="UTF-8"><title>${filename}</title>
 <style>
-  @page{margin:1.8cm;} body{font-family:"Segoe UI",Arial,sans-serif;line-height:1.65;color:#1a1a1a;font-size:11.5pt;max-width:780px;margin:0 auto;word-break:break-word;}
-  h2{color:#4f46e5;font-size:16pt;margin:22px 0 8px 0;padding:0;border:none;}
-  h3{color:#3730a3;font-size:13pt;margin:18px 0 6px 0;}
-  p{margin:0 0 10px 0;}
-  ul{margin:6px 0 14px 20px;padding:0;}
-  li{margin-bottom:5px;}
-  strong{font-weight:700;}
- .amis-img{margin:16px 0;text-align:center;page-break-inside:avoid;}
- .amis-img img{max-width:100%;max-height:360px;border-radius:8px;display:block;margin:0 auto;}
- .amis-img figcaption{font-size:8pt;color:#6b7280;margin-top:4px;}
- .header{border-bottom:3px solid #e11d48;padding-bottom:8px;margin-bottom:16px;}
- .header h1{margin:0;color:#e11d48;font-size:18pt;}
- .meta{color:#6b7280;font-size:9pt;margin-bottom:18px;}
- .footer{margin-top:28px;border-top:1px solid #e5e7eb;padding-top:8px;font-size:8pt;color:#9ca3af;}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+  @page{margin:1.6cm 1.8cm;}
+  body{font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1e293b;line-height:1.75;font-size:11pt;max-width:750px;margin:0 auto;background:#fff;}
+ .top{ background:linear-gradient(135deg,#e11d48,#be123c); color:white; padding:18px 22px; border-radius:14px; margin-bottom:18px;}
+ .top h1{margin:0;font-size:18px;letter-spacing:0.5px;}.top small{opacity:0.9;}
+  h2{color:#be123c;font-size:16pt;margin:26px 0 10px 0;border-bottom:2px solid #ffe4e6;padding-bottom:6px;}
+  h3{color:#4f46e5;font-size:12.5pt;margin:22px 0 8px 0;background:#eef2ff;padding:6px 10px;border-radius:8px;border-left:4px solid #4f46e5;}
+  p{margin:8px 0 12px 0;text-align:justify;}
+ .card{ background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #e11d48; border-radius:10px; padding:10px 12px; margin:10px 0; page-break-inside:avoid;}
+ .card strong{color:#881337;}
+  figure{margin:18px 0;text-align:center;page-break-inside:avoid;} figure img{max-width:100%;max-height:380px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);} figcaption{font-size:8.5pt;color:#64748b;margin-top:6px;}
+  a{color:#4f46e5;word-break:break-all;text-decoration:none;border-bottom:1px dotted #a5b4fc;}
+ .meta{color:#94a3b8;font-size:8.5pt;margin-bottom:14px;}
+ .footer{margin-top:30px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:8pt;color:#94a3b8;text-align:center;}
 </style></head><body>
-<div class="header"><h1>AMISEARCH</h1><div style="font-size:9pt;color:#6b7280;">AMISEARCH tanulási segédlet</div></div>
-<h2 style="color:#be123c;">${title}</h2>
-<div class="meta">${new Date().toLocaleString("hu-HU")}</div>
-${bodyHtml}
-<div class="footer">amisearch.org – AI Tutor válasz</div>
+<div class="top"><h1>AMISEARCH</h1><small>AMISEARCH tanulási segédlet – AI Tutor válasz</small></div>
+<div class="meta">${new Date().toLocaleString("hu-HU")} • ${filename}</div>
+${withLinks}
+<div class="footer">amisearch.org • generálva: ${new Date().toLocaleDateString("hu-HU")}</div>
 </body></html>`;
 
-  // HTML blobot adunk vissza, a böngésző Print → Save as PDF-ként tökéletesen megtartja a struktúrát
-  // A régi jsPDF-es megoldásod tömörítette össze, ezért cseréljük erre
-  return new Blob([fullHtml], { type: "text/html;charset=utf-8" });
-}
-
-// Ez a függvény hívódik a te "Letöltés PDF" gombodból – most már struktúrát tart
-export async function downloadAsPdfFile(content, filename = "amisearch-valasz") {
-  const blob = await generatePDF(content, filename);
+  const blob = new Blob([html],{type:"text/html;charset=utf-8"});
   const url = URL.createObjectURL(blob);
-  const w = window.open(url, "_blank");
-  if (w) {
-    // Kis késleltetés, hogy a képek betöltsenek, utána a felhasználó nyomja a Mentés PDF-ként-et
-    w.onload = () => {
-      setTimeout(() => w.print(), 800);
-    };
+  const win = window.open(url,"_blank");
+  if(win){
+    win.onload=()=>{ setTimeout(()=>win.print(),900); };
   } else {
-    // Ha pop-up blokkolva, letöltjük HTML-ként ami PDF-ként nyitható
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.html`;
-    a.click();
+    const a=document.createElement("a"); a.href=url; a.download=filename+".html"; a.click();
   }
 }
+
+export default downloadAsPdfFile;
