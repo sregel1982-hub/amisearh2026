@@ -1,4 +1,4 @@
-// AMISEARCH — GEMINI 2.0 STABIL, TISZTA ESM
+// AMISEARCH — GEMINI 2.5 FLASH MEGFELELŐ SDK HASZNÁLATTAL
 import { GoogleGenAI } from "@google/genai";
 
 const getEnv = (key) => process.env[key];
@@ -17,32 +17,33 @@ export default async (req) => {
     const messages = body.messages || [];
 
     const apiKey = getEnv("GEMINI_API_KEY");
-    if (!apiKey) throw new Error("Nincs API kulcs a környezeti változókban (GEMINI_API_KEY)");
+    if (!apiKey) throw new Error("Nincs GEMINI_API_KEY beállítva!");
 
     const ai = new GoogleGenAI({ apiKey });
 
+    // Üzenetek konvertálása az új SDK formátumára
     const contents = messages.map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content || "" }]
     }));
 
-    // Helyes hívás az @google/genai SDK-ban
+    // Helyes hívás a Gemini 2.5 Flash-hez: ai.models.generateContentStream
     const responseStream = await ai.models.generateContentStream({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: contents,
       config: {
         systemInstruction: SYSTEM_PROMPT,
         temperature: 0.2,
         maxOutputTokens: 4096,
-        tools: [{ googleSearch: {} }] // Az új SDK-ban 'googleSearch' a helyes eszköz név!
+        tools: [{ googleSearch: {} }] // Google Keresés engedélyezése az új SDK-ban
       }
     });
 
     const stream = new ReadableStream({
       async start(ctrl) {
         for await (const chunk of responseStream) {
-          // chunk.text egy tulajdonság, nem függvény!
-          const text = chunk.text; 
+          // FONTOS: chunk.text itt mező (property), NEM függvény!
+          const text = chunk.text;
           if (text) {
             ctrl.enqueue(new TextEncoder().encode(text));
           }
