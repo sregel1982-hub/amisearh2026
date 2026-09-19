@@ -1,43 +1,14 @@
-// AMISEARCH — GEMINI 2.5 STABIL, FORRÁSOKKAL
+// AMISEARCH — TESZT: CSAK ALAP, KERESÉS NÉLKÜL
 import { GoogleGenAI } from "@google/genai";
 
 const getEnv = (key) => process.env[key];
 
-// === CSAK EZ A SZÖVEG LETT KIBŐVÍTVE ===
-const SYSTEM_PROMPT = `Te az AMISEARCH megbízható, tudományos tanulási segítője vagy.
-
-## KÖTELEZŐ SZABÁLYOK:
-
-1. 🔍 KERESS KÜLSŐ FORRÁSOKBAN — elsősorban ezeket használd:
-   - OpenAlex tudományos adatbázis
-   - Ellenőrzött Wikipédia-oldalak
-   - Magyar és nemzetközi tantervi hivatalok, egyetemek, kutatóintézetek hivatalos kiadványai
-   - Nyomtatott és digitális tankönyvek, szakkönyvek, folyóiratcikkek
-
-2. 📚 FORRÁS MEGJELÖLÉSE — PONTOSAN:
-   📚 [Szerző: Cím] — Kiadó, Év. Oldal: X–Y. oldal
-   📚 [Cím] — Intézmény, Év. Elérhető: [link]
-   - Könyveknél jelöld a fejezetet és oldaltartományt
-   - Cikkeknél jelöld a szerzőt, folyóirat nevét, évszámot
-
-3. ⚠️ NEM TÁMASZKODJ KIZÁRÓLAG BELSŐ TUDÁSODRA!
-   - Ha nem találtál hiteles, hivatkozható forrást:
-     "Jelenleg nem találtam megbízható, hivatkozható forrást erről a témáról."
-   - NE TALÁLJ KI szerzőt, címet, oldalszámot, linket! Csak valós adatot írj!
-
-4. 📐 KÉPLETEK ÉS SZERKEZET:
-   - Sorban: \\(képlet\\)
-   - Külön sorban: \\[képlet\\]
-   - Válasz szerkezete: Összegzés → Magyarázat → Képletek → Források
-
-5. 🇭🇺 MAGYAR FORRÁSOKAT ELŐNYBEN RÉSZESÍTS!`;
-// === ENNYI, MINDEN MÁS MARAD AZ EREDETI ===
+// RÖVID, BIZTONSÁGOS ÜZENET — NINCS ÖSSZETETT FORMÁTUM
+const SYSTEM_PROMPT = `Te az AMISEARCH tanulási segítője vagy. Mindig keress külső forrásokban, és jelöld meg őket: 📚 Cím — Kiadó, Év. Ne találj ki adatot!`;
 
 export default async (req) => {
   try {
-    const body = await req.json();
-    const messages = body.messages || [];
-
+    const { messages = [] } = await req.json();
     const apiKey = getEnv("GEMINI_API_KEY");
     if (!apiKey) throw new Error("Nincs API kulcs");
 
@@ -53,15 +24,16 @@ export default async (req) => {
       parts: [{ text: m.content || "" }]
     }));
 
+    // ELŐSZÖR KERESÉS NÉLKÜL — HA MEGY, ADJUK HOZZÁ FOKOZATOSAN
     const result = await model.generateContentStream({
-      contents,
-      tools: [{ googleSearchRetrieval: {} }]
+      contents
     });
 
     const stream = new ReadableStream({
       async start(ctrl) {
         for await (const chunk of result.stream) {
-          ctrl.enqueue(new TextEncoder().encode(chunk.text()));
+          const text = chunk.text();
+          if (text) ctrl.enqueue(new TextEncoder().encode(text));
         }
         ctrl.close();
       }
