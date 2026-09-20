@@ -25,13 +25,24 @@ export default async (req) => {
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const web = await webSearch(message, "hu");
+    const web = await webSearch(message, "hu").catch(() => ({ isTask: false, summary: "", sources: [] }));
 
     let imgMd = "";
-    if (/kép|fotó|templom|korona|pécs|ford|felvilágosodás|image|photo/i.test(message)) {
+    const wantsImage = /(?:k[eé]p(?:et|et)?|fot[oó](?:t|kat)?|illusztr[aá]ci[oó](?:t|k)?|diagram(?:ot|ok)?|image|photo|picture|illustration)/i.test(message)
+      && /(?:keress|keresd|mutass|mutasd|adj|tal[aá]lj|k[eé]rek|szeretn[eé]k|show|find|search|give|need|want)/i.test(message);
+    if (wantsImage) {
       try {
         const img = await imageSearch(message);
-        if (img?.url) imgMd = `![${(img.title || "Kép").replace(/\]/g, "")}](${img.url})\n*Forrás: ${img.source} – ${img.sourceUrl}*\n\n`;
+        if (img?.url) {
+          const title = (img.title || "Kép").replace(/[\[\]]/g, "");
+          const source = img.source || "Wikimedia Commons";
+          const sourceUrl = img.sourceUrl || img.url;
+          imgMd = `
+
+![${title}](${img.url})
+
+\n\n**${title}**  \nForrás: ${source}  \n[Forrás megnyitása](${sourceUrl})\n\n`;
+        }
       } catch {}
     }
 
@@ -52,7 +63,11 @@ A végén: ## Forrásjegyzék valódi URL-ekkel, soha ne írd hogy "belső adatb
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: message }] }],
-      config: { systemInstruction: system }
+      config: {
+        systemInstruction: system,
+        temperature: 0.15,
+        maxOutputTokens: 2048
+      }
     });
 
     const enc = new TextEncoder();
