@@ -17,6 +17,10 @@ export default async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const message = (body.message || "").toString().slice(0, 4000);
+    // A frontend elküldi a feltöltött jegyzet szövegét (notes) és a beszélgetés előzményét (history) is –
+    // eddig ez figyelmen kívül lett hagyva, most bevonjuk a kontextusba.
+    const notes = (body.notes || "").toString().slice(0, 12000);
+    const history = Array.isArray(body.history) ? body.history.slice(-8) : [];
     if (!message) {
       return new Response(JSON.stringify({ error: "Üres kérdés" }), {
         status: 400,
@@ -46,28 +50,35 @@ export default async (req) => {
       } catch {}
     }
 
+    const notesBlock = notes ? `\n\nA FELHASZNÁLÓ SAJÁT FELTÖLTÖTT JEGYZETE (ezt vedd figyelembe, ha releváns a kérdésre):\n"""\n${notes}\n"""` : "";
+
     let system = "";
     if (web.isTask) {
       system = `Te AMISEARCH matektanár vagy. FELADATOT kérnek, nem lexikális forrást.
 GENERÁLJ egy kétismeretlenes egyenletrendszer feladatot, oldd meg lépésről lépésre.
 Formázás: ## Feladat, ## Megoldás, ## Ellenőrzés.
-NE mondd hogy "források nem tartalmaznak", mert ez generált feladat.`;
+NE mondd hogy "források nem tartalmaznak", mert ez generált feladat.${notesBlock}`;
     } else if (wantsImage) {
       system = `Te AMISEARCH vagy. Magyarul, tagoltan válaszolj.
 Használj ## alcímeket külön sorban, üres sor a bekezdések közt, - lista, **félkövér**.
 ${imgMd ? "Egy kép már be van illesztve a válasz elejére, erre NE hivatkozz úgy, hogy \"nem tudok képet mutatni\" — a kép már ott van, csak folytasd a szöveges magyarázatot a témáról." : "Nem sikerült képet találni ehhez a témához, ezt jelezd röviden, majd válaszolj szövegesen a kérdésre."}
 TALÁLT FORRÁSOK: ${web.summary || "nincs"}
-A végén: ## Forrásjegyzék valódi URL-ekkel, soha ne írd hogy "belső adatbázis".`;
+A végén: ## Forrásjegyzék valódi URL-ekkel, soha ne írd hogy "belső adatbázis".${notesBlock}`;
     } else {
       system = `Te AMISEARCH vagy. Magyarul, tagoltan válaszolj.
 Használj ## alcímeket külön sorban, üres sor a bekezdések közt, - lista, **félkövér**.
 TALÁLT FORRÁSOK: ${web.summary || "nincs"}
-A végén: ## Forrásjegyzék valódi URL-ekkel, soha ne írd hogy "belső adatbázis".`;
+A végén: ## Forrásjegyzék valódi URL-ekkel, soha ne írd hogy "belső adatbázis".${notesBlock}`;
     }
+
+    // Előzmény beépítése a promptba, hogy a followup kérdések is működjenek
+    const historyText = history.length
+      ? history.map(m => `${m.role === "assistant" ? "AI" : "Felhasználó"}: ${m.content || ""}`).join("\n") + "\n\n"
+      : "";
 
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: message }] }],
+      contents: [{ role: "user", parts: [{ text: historyText + "Kérdés: " + message }] }],
       config: {
         systemInstruction: system,
         temperature: 0.15,
