@@ -1,20 +1,17 @@
-// utils/generatePDF.js V11 — BÁRMELYIK törtet felismeri: 1/2, 3/6, \frac{1}{2}
+// utils/generatePDF.js V12 — MINDEN tört formátumot felismer
 export function formatForExport(text){
   let t = String(text||"").normalize("NFC").replace(/\r/g,"\n");
   
   // 1. Felsorolás jelek új sora
   t = t.replace(/[ \t]*[-•][ \t]*/g, "\n• ");
   
-  // 2. Egyszerű tört (szám/szám) köré új sor
-  t = t.replace(/([+\-]?\s*\d+\s*\/\s*\d+)/g, "\n$1\n");
+  // 2. Törtek köré új sor
+  t = t.replace(/(\d+\s+\d+\s*\/\s*\d+|[+\-]?\s*\d+\s*\/\s*\d+|\(\d+\)\s*\/\s*\(\d+\)|\\frac\{[^}]+\}\{[^}]+\})/g, "\n$1\n");
   
   // 3. Mondat végén nagybetűs kezdet → új bekezdés
   t = t.replace(/([.!?])\s+([A-ZÁÉÍÓÖŐÚŰA-Z])/g, "$1\n\n$2");
   
-  // 4. LaTeX tört köré új sor
-  t = t.replace(/(\\frac\{[^}]+\}\{[^}]+\})/g, "\n$1\n");
-  
-  // 5. Tiszta sortörések
+  // 4. Tiszta sortörések
   t = t.replace(/\n{3,}/g, "\n\n");
   
   return t.trim();
@@ -34,25 +31,36 @@ function toBeautifulHtml(raw){
     }
   };
 
-  // ✅ KIFEJEZETTEN MINDEN formátumot felismerő függvény
+  // ===== MINDEN TÖRT FORMÁTUM FELDOLGOZÁSA =====
   function processLatexInText(text){
     if(!text) return "";
     let res = text;
 
-    // 1. LEGGYAKORIBB: egyszerű szám/szám, előjellel vagy anélkül
-    // pl: 1/2, - 1/2, +3/4, 5/6 B
+    // 1. Vegyes tört: 3 1/4
+    res = res.replace(
+      /(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
+      (_, egesz, szam, nev) => `${egész} <span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
+    );
+
+    // 2. Egyszerű tört: 1/2, - 3/4, +5/6
     res = res.replace(
       /([+\-]?\s*)(\d+)\s*\/\s*(\d+)/g,
       (_, jel, szam, nev) => `${jel||""}<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
     );
 
-    // 2. Zárójeles (szám)/(szám)
+    // 3. Zárójeles tört: (1)/(4), (13)/(4)
     res = res.replace(
       /\((\d+)\)\s*\/\s*\((\d+)\)/g,
       (_, szam, nev) => `<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
     );
 
-    // 3. Szabályos LaTeX \frac
+    // 4. LaTeX szóközökkel és $-jelekkel: $ \frac{13}{4} $
+    res = res.replace(
+      /\$\s*\\frac\{([^}]+)\}\{([^}]+)\}\s*\$/g,
+      (_, szam, nev) => `<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
+    );
+
+    // 5. Tiszta LaTeX: \frac{13}{4}
     res = res.replace(
       /\\frac\{([^}]+)\}\{([^}]+)\}/g,
       (_, szam, nev) => `<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
@@ -60,42 +68,61 @@ function toBeautifulHtml(raw){
 
     // Szimbólumok
     res = res
-      .replace(/\\infty/g, "∞")
-      .replace(/\\in/g, "∈")
+      .replace(/\\cdot/g, "·")
+      .replace(/\\div/g, "÷")
       .replace(/\\ge/g, "≥")
       .replace(/\\le/g, "≤")
-      .replace(/\\div/g, "÷")
-      .replace(/\\cdot/g, "·")
+      .replace(/\\infty/g, "∞")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
     return res;
   }
 
+  // ===== KÜLÖN SORBAN ÁLLÓ KÉPLETEK =====
+  const vanTort = (line) => 
+    /^\s*\d+\s+\d+\s*\/\s*\d+\s*$/.test(line) ||    // 3 1/4
+    /^\s*[+\-]?\s*\d+\s*\/\s*\d+\s*$/.test(line) || // 1/2
+    /^\s*\(\d+\)\s*\/\s*\(\d+\)\s*$/.test(line) || // (1)/(4)
+    line.includes("\\frac");
+
   for(let line of parts){
-    // Külön sorban álló tört — bármilyen formátum
-    const vanTort = /^\s*[+\-]?\s*\d+\s*\/\s*\d+\s*$/.test(line) || line.includes("\\frac");
-    if(vanTort){
+    if(vanTort(line)){
       flushPara();
       let display = line
         .replace(/^\\\[|\\\]$/g, "")
         .replace(/^\$\$|\$\$$/g, "");
-      
-      // Nagyított, középre igazított tört
+
+      // Vegyes szám
+      display = display.replace(
+        /(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
+        (_, egesz, szam, nev) => `${egész} <div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
+      );
+
+      // Egyszerű tört
       display = display.replace(
         /([+\-]?\s*)(\d+)\s*\/\s*(\d+)/g,
         (_, jel, szam, nev) => `${jel||""}<div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
       );
+
+      // Zárójeles
+      display = display.replace(
+        /\((\d+)\)\s*\/\s*\((\d+)\)/g,
+        (_, szam, nev) => `<div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
+      );
+
+      // LaTeX $ \frac{...} $
+      display = display.replace(
+        /\$\s*\\frac\{([^}]+)\}\{([^}]+)\}\s*\$/g,
+        (_, szam, nev) => `<div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
+      );
+
+      // Tiszta LaTeX
       display = display.replace(
         /\\frac\{([^}]+)\}\{([^}]+)\}/g,
         (_, szam, nev) => `<div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
       );
-      display = display
-        .replace(/\\infty/g, "∞")
-        .replace(/\\in/g, "∈")
-        .replace(/\\ge/g, "≥")
-        .replace(/\\le/g, "≤")
-        .replace(/\\div/g, "÷")
-        .replace(/\\cdot/g, "·");
+
+      display = display.replace(/\\cdot/g, "·").replace(/\\div/g, "÷");
       
       html += `<div class="math-block">${display}</div>`;
       continue;
@@ -159,6 +186,8 @@ function toBeautifulHtml(raw){
 }
 
 export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
+  console.log('[AMISEARCH] PDF generálás indul...'); // Ha ez nem látszik → rossz fájl fut!
+  
   const body = toBeautifulHtml(content);
   const withLinks = body.replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
 
@@ -168,7 +197,7 @@ export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
   @page{margin:1.6cm 1.8cm;}
   body{font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1e293b;line-height:1.75;font-size:11pt;max-width:750px;margin:0 auto;background:#fff;}
   
-  /* TÖRT STÍLUSOK — vízszintes vonal */
+  /* === TÖRT STÍLUSOK — vízszintes vonal === */
   .frac {
     display: inline-flex;
     flex-direction: column;
@@ -177,7 +206,7 @@ export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
     margin: 0 0.2em;
     font-size: 0.9em;
   }
-  .frac .num, .frac .den { padding: 0 0.25em; }
+  .frac .num, .frac .den { padding: 0 0.25em; text-align:center; }
   .frac .bar { border-bottom: 1px solid #1e293b; width: 100%; }
 
   .frac-display {
@@ -185,7 +214,7 @@ export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
     flex-direction: column;
     align-items: center;
     margin: 0.8em auto;
-    font-size: 1.1em;
+    font-size: 1.2em;
   }
   .frac-display .num { padding: 0 0.4em; }
   .frac-display .bar {
@@ -197,7 +226,7 @@ export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
   .math-block {
     text-align: center;
     margin: 1em 0;
-    padding: 0.5em 0;
+    padding: 1em 0;
     background: #f8fafc;
     border-radius: 8px;
   }
@@ -230,4 +259,3 @@ ${withLinks}
 }
 
 export default downloadAsPdfFile;
-    
