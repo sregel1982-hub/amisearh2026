@@ -1,4 +1,4 @@
-// netlify/functions/chat.mjs - V5.3 - Javított streaming és kép-elválasztás
+// netlify/functions/chat.mjs - V5.4 - isTask nem kényszerít matekra
 import { imageSearch, webSearch } from "./search-utils.mjs";
 import { GoogleGenAI } from "@google/genai";
 
@@ -42,20 +42,38 @@ export default async (req) => {
           const title = (img.title || "Kép").replace(/[\[\]]/g, "");
           const source = img.source || "Wikimedia Commons";
           const sourceUrl = img.sourceUrl || img.url;
-          // Különálló blokk képpel és vízszintes elválasztó vonallal (---)
-          imgMd = `![${title}](${img.url})\n\n**${title}**  \n*Forrás:* [${source}](${sourceUrl})\n\n---\n\n`;
+          imgMd = `![\( {title}]( \){img.url})\n\n**\( {title}**  \n*Forrás:* [ \){source}](${sourceUrl})\n\n---\n\n`;
         }
       } catch {}
     }
 
-    const notesBlock = notes ? `\n\nA FELHASZNÁLÓ SAJÁT FELTÖLTÖTT JEGYZETE:\n"""\n${notes}\n"""` : "";
+    const notesBlock = notes
+      ? `\n\nA FELHASZNÁLÓ SAJÁT FELTÖLTÖTT JEGYZETE:\n"""\n${notes}\n"""`
+      : "";
+
+    // Matek-e a kérés? (csak akkor kényszerítünk matek formátumot, ha tényleg az)
+    const isMathTopic = /(?:matek|matematika|egyenlet|egyenletrendszer|derivál|integrál|tört|százalék|geometria|algebra|számítás|függvény|határérték|egyenlőtlenség)/i.test(message);
 
     let system = "";
     if (web.isTask) {
-      system = `Te AMISEARCH matektanár vagy. FELADATOT kérnek, nem lexikális forrást.
-GENERÁLJ egy kétismeretlenes egyenletrendszer feladatot, oldd meg lépésről lépésre.
-Formázás: ## Feladat, ## Megoldás, ## Ellenőrzés.
-NE mondd hogy "források nem tartalmaznak", mert ez generált feladat.${notesBlock}`;
+      // JAVÍTÁS: ne generálj mindig kétismeretlenes egyenletrendszert!
+      // Kövesd a felhasználó témáját (történelem, biológia, matek, stb.)
+      system = `Te AMISEARCH vagy. Feladatot / mintafeladatot / vizsgafeladatsort kérnek.
+
+KÖTELEZŐ SZABÁLYOK:
+1. Kövesd PONTOSAN a felhasználó kérését: témát, nehézséget, feladatszámot, feladattípusokat.
+2. Ha a téma NEM matematika (pl. történelem, biológia, földrajz, irodalom), NE generálj egyenletrendszert és NE írj matekpéldát. A megadott témából készíts feladatokat.
+3. Ha a téma matematika VAGY a felhasználó kifejezetten matekot kér: használj LaTeX formázást (\( ... \) vagy \[ ... \]), a törteket írd \\frac{a}{b} vagy a/b formában, lépésről lépésre oldj meg.
+4. Ha VIZSGALAPOT / vizsgaszimulátort kérnek:
+   - Legyen fejléc: cím (a téma neve), Név: ________, Osztály/Csoport: ________, Dátum: ________, Időtartam, Elérhető pontszám.
+   - Változatos feladattípusok: rövid válasz, igaz/hamis, feleletválasztós, kifejtős.
+   - Minden feladatnál tüntesd fel a pontszámot.
+   - Megoldókulcsot CSAK akkor adj, ha a felhasználó kérte.
+5. Formázás: ## alcímek, rendezett Markdown, üres sor a bekezdések között.
+6. NE mondd, hogy "a források nem tartalmaznak" – generált feladat ez.
+
+${isMathTopic ? "A kérés matematikai jellegű – a megoldások legyenek részletesek, LaTeX-szel." : "A kérés NEM (vagy nem feltétlenül) matematikai – a témához igazodj."}
+${notesBlock}`;
     } else if (wantsImage) {
       system = `Te AMISEARCH vagy. Magyarul, tagoltan válaszolj.
 Használj ## alcímeket külön sorban, üres sor a bekezdések közt, - lista, **félkövér**.
@@ -73,7 +91,6 @@ A végén: ## Forrásjegyzék valódi URL-ekkel.${notesBlock}`;
       ? history.map(m => `${m.role === "assistant" ? "AI" : "Felhasználó"}: ${m.content || ""}`).join("\n") + "\n\n"
       : "";
 
-    // 2048-ról megemelve 4096-ra, hogy ne vágja le a hosszabb válaszokat
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: historyText + "Kérdés: " + message }] }],
