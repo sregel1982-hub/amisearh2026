@@ -1,11 +1,22 @@
-// V6.0 - Szélesebb forráskör: Wikipedia, OpenAlex, Semantic Scholar, Crossref,
-// Open Library (könyvek), DuckDuckGo + kép: Wikimedia Commons, Openverse, Pixabay
+// V6.1 - Jobb képkeresés (nem könyvborító) + releváns források
 const IS_TASK = /(feladat|egyenlet|példa|generálj|készíts|oldj meg|gyakorló|teszt|kvíz|feladatsor)/i;
 
 function translate(q) {
-  const map = { "felvilágosodás": "Age of Enlightenment", "templom": "church", "korona": "Holy Crown of Hungary", "ford t": "Ford Model T" };
-  const low = q.toLowerCase();
-  for (const k in map) { if (low.includes(k)) return map[k]; }
+  const map = {
+    felvilágosodás: 'Age of Enlightenment',
+    templom: 'church',
+    korona: 'Holy Crown of Hungary',
+    'ford t': 'Ford Model T',
+    ló: 'horse',
+    lovak: 'horses',
+    kutya: 'dog',
+    macska: 'cat',
+  };
+  const low = String(q || '').toLowerCase().trim();
+  if (map[low]) return map[low];
+  for (const k in map) {
+    if (low.includes(k)) return map[k];
+  }
   return q;
 }
 
@@ -21,104 +32,275 @@ function cleanImageQuery(q) {
     .trim() || q;
 }
 
+/** Könyvborító / scrap szűrés cím és URL alapján */
+function looksLikeBookCover(title, url) {
+  const t = String(title || '').toLowerCase();
+  const u = String(url || '').toLowerCase();
+  return (
+    /cover|book|borító|könyv|isbn|paperback|hardcover|edition|kiadás|textbook/.test(t) ||
+    /openlibrary|covers\.openlibrary|bookcover|goodreads|amazon\.com\/images/.test(u)
+  );
+}
+
 async function searchCommons(term) {
   try {
-    const r = await fetch(`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1000&format=json&origin=*`);
+    // filetype:bitmap + -book -cover → inkább fotó
+    const q = `${term} filetype:bitmap -book -cover -scan`;
+    const r = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=1200&format=json&origin=*`
+    );
     const d = await r.json();
     const pages = Object.values(d?.query?.pages || {});
-    const p = pages.find(page => page?.imageinfo?.[0]?.url);
-    const info = p?.imageinfo?.[0];
-    return info ? {
-      url: info.thumburl || info.url,
-      title: (p.title || 'Kép').replace(/^File:/, ''),
-      source: "Wikimedia Commons",
-      sourceUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`
-    } : null;
-  } catch { return null; }
+    for (const p of pages) {
+      const info = p?.imageinfo?.[0];
+      if (!info?.url) continue;
+      const title = (p.title || 'Kép').replace(/^File:/, '');
+      const mime = (info.mime || '').toLowerCase();
+      if (mime && !mime.startsWith('image/')) continue;
+      if (looksLikeBookCover(title, info.url)) continue;
+      return {
+        url: info.thumburl || info.url,
+        title,
+        source: 'Wikimedia Commons',
+        sourceUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
+      };
+    }
+    // fallback: egyszerű keresés
+    const r2 = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(term)}&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=1200&format=json&origin=*`
+    );
+    const d2 = await r2.json();
+    for (const p of Object.values(d2?.query?.pages || {})) {
+      const info = p?.imageinfo?.[0];
+      if (!info?.url) continue;
+      const title = (p.title || 'Kép').replace(/^File:/, '');
+      if (looksLikeBookCover(title, info.url)) continue;
+      return {
+        url: info.thumburl || info.url,
+        title,
+        source: 'Wikimedia Commons',
+        sourceUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-// Openverse: kulcs nélkül elérhető, szabadon felhasználható (CC) képek aggregátora
 async function searchOpenverse(term) {
   try {
-    const r = await fetch(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(term)}&page_size=5`);
+    // category=photograph → ne illusztráció / borító
+    const r = await fetch(
+      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(term)}&page_size=10&category=photograph&mature=false`
+    );
     const d = await r.json();
-    const item = (d?.results || []).find(x => x?.url);
-    return item ? {
-      url: item.thumbnail || item.url,
-      title: item.title || 'Kép',
-      source: item.source ? `Openverse (${item.source})` : "Openverse",
-      sourceUrl: item.foreign_landing_url || item.url
-    } : null;
-  } catch { return null; }
+    for (const item of d?.results || []) {
+      if (!item?.url) continue;
+      if (looksLikeBookCover(item.title, item.url) || looksLikeBookCover(item.title, item.foreign_landing_url)) continue;
+      return {
+        url: item.thumbnail || item.url,
+        title: item.title || 'Kép',
+        source: item.source ? `Openverse (${item.source})` : 'Openverse',
+        sourceUrl: item.foreign_landing_url || item.url,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-// Pixabay: csak akkor fut, ha a PIXABAY_API_KEY Netlify env var be van állítva
 async function searchPixabay(term) {
   const key = process.env.PIXABAY_API_KEY;
   if (!key) return null;
   try {
-    const r = await fetch(`https://pixabay.com/api/?key=${key}&q=${encodeURIComponent(term)}&image_type=photo&safesearch=true&per_page=5`);
+    const r = await fetch(
+      `https://pixabay.com/api/?key=\( {key}&q= \){encodeURIComponent(term)}&image_type=photo&safesearch=true&per_page=8`
+    );
     const d = await r.json();
     const hit = (d?.hits || [])[0];
-    return hit ? {
+    if (!hit) return null;
+    return {
       url: hit.webformatURL,
       title: hit.tags || 'Kép',
-      source: "Pixabay",
-      sourceUrl: hit.pageURL
-    } : null;
-  } catch { return null; }
+      source: 'Pixabay',
+      sourceUrl: hit.pageURL,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function imageSearch(q) {
-  const term = translate(cleanImageQuery(q));
-  // Sorban próbálkozunk: Wikimedia Commons -> Openverse -> Pixabay (ha van kulcs)
-  return (await searchCommons(term)) || (await searchOpenverse(term)) || (await searchPixabay(term));
+  const cleaned = cleanImageQuery(q);
+  const termHu = cleaned;
+  const termEn = translate(cleaned);
+  // Először angol fotó (jobb találati arány), aztán magyar, aztán Openverse, Pixabay
+  return (
+    (await searchCommons(termEn)) ||
+    (await searchCommons(termHu)) ||
+    (await searchOpenverse(termEn)) ||
+    (await searchOpenverse(termHu)) ||
+    (await searchPixabay(termEn)) ||
+    (await searchPixabay(termHu))
+  );
+}
+
+/** Relevancia: a forrás cím/összefoglaló érintse a lekérdezés kulcsszavait */
+function isRelevantSource(item, query) {
+  if (!item) return false;
+  const q = String(query || '').toLowerCase();
+  const stop = new Set(['egy', 'egyik', 'valami', 'kell', 'kérek', 'mutass', 'the', 'and', 'for', 'with']);
+  const keys = q
+    .split(/[^a-záéíóöőúüűa-z0-9]+/i)
+    .map((w) => w.toLowerCase())
+    .filter((w) => w.length > 2 && !stop.has(w));
+  if (!keys.length) return true;
+  const blob = `${item.title || ''} ${item.summary || ''}`.toLowerCase();
+  // legalább 1 kulcsszó egyezzen, VAGY a fordított angol alak
+  const en = translate(query).toLowerCase();
+  if (en && en !== q && blob.includes(en.split(/\s+/)[0])) return true;
+  return keys.some((k) => blob.includes(k));
 }
 
 export async function webSearch(q, lang) {
-  // HA FELADAT -> NE keress tudományos cikkekben!
-  if (IS_TASK.test(q)) { return { isTask: true, summary: "", sources: [] }; }
+  if (IS_TASK.test(q)) {
+    return { isTask: true, summary: '', sources: [] };
+  }
+
+  // Tiszta képkérésnél NE töltsük tele Open Library / cikkekkel
+  const isPureImage =
+    /(?:kép|fotó|illusztr|ábra|image|photo|picture)/i.test(q) &&
+    /(?:mutass|keress|adj|show|find|need|want|kérek)/i.test(q);
 
   const tq = translate(q);
 
-  // EGYÉBKÉNT széles forráskörben keres: lexikon, tudományos, szakfolyóirat, könyv, általános web
   const jobs = [
     fetch(`https://hu.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(d => d.extract ? { title: d.title, summary: d.extract.slice(0, 500), url: d.content_urls.desktop.page, source: "Wikipedia HU" } : null)
+      .then((r) => r.json())
+      .then((d) =>
+        d.extract
+          ? {
+              title: d.title,
+              summary: d.extract.slice(0, 500),
+              url: d.content_urls?.desktop?.page,
+              source: 'Wikipedia HU',
+            }
+          : null
+      )
       .catch(() => null),
 
     fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(tq)}`)
-      .then(r => r.json())
-      .then(d => d.extract ? { title: d.title, summary: d.extract.slice(0, 500), url: d.content_urls.desktop.page, source: "Wikipedia EN" } : null)
-      .catch(() => null),
-
-    fetch(`https://api.openalex.org/works?search=${encodeURIComponent(tq)}&per-page=1`)
-      .then(r => r.json())
-      .then(d => { const w = d.results?.[0]; return w ? { title: w.display_name, summary: (w.abstract_inverted_index ? Object.keys(w.abstract_inverted_index).slice(0, 30).join(" ") : "").slice(0, 400), url: w.id, source: "OpenAlex" } : null; })
-      .catch(() => null),
-
-    fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(tq)}&limit=1&fields=title,abstract,url`)
-      .then(r => r.json())
-      .then(d => { const w = d?.data?.[0]; return w ? { title: w.title, summary: (w.abstract || '').slice(0, 400), url: w.url, source: "Semantic Scholar" } : null; })
-      .catch(() => null),
-
-    fetch(`https://api.crossref.org/works?query=${encodeURIComponent(tq)}&rows=1`)
-      .then(r => r.json())
-      .then(d => { const w = d?.message?.items?.[0]; if (!w) return null; const title = Array.isArray(w.title) ? w.title[0] : w.title; const journal = Array.isArray(w['container-title']) ? w['container-title'][0] : ''; return title ? { title, summary: journal || 'Szakfolyóirat cikk', url: w.URL, source: "Crossref (szakfolyóirat)" } : null; })
-      .catch(() => null),
-
-    fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(tq)}&limit=1`)
-      .then(r => r.json())
-      .then(d => { const w = d?.docs?.[0]; return w ? { title: w.title, summary: (w.author_name || []).join(', ') || 'Online könyv', url: `https://openlibrary.org${w.key}`, source: "Open Library (könyv)" } : null; })
+      .then((r) => r.json())
+      .then((d) =>
+        d.extract
+          ? {
+              title: d.title,
+              summary: d.extract.slice(0, 500),
+              url: d.content_urls?.desktop?.page,
+              source: 'Wikipedia EN',
+            }
+          : null
+      )
       .catch(() => null),
 
     fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`)
-      .then(r => r.json())
-      .then(d => d.AbstractText ? { title: d.Heading || q, summary: d.AbstractText.slice(0, 500), url: d.AbstractURL, source: "DuckDuckGo" } : null)
-      .catch(() => null)
+      .then((r) => r.json())
+      .then((d) =>
+        d.AbstractText
+          ? {
+              title: d.Heading || q,
+              summary: d.AbstractText.slice(0, 500),
+              url: d.AbstractURL,
+              source: 'DuckDuckGo',
+            }
+          : null
+      )
+      .catch(() => null),
   ];
 
-  const res = (await Promise.all(jobs)).filter(Boolean);
-  return { isTask: false, summary: res.map(r => `[${r.source}] ${r.title}: ${r.summary}`).join("\n"), sources: res };
+  // Csak nem-kép kérdéseknél: szakmai források + könyv
+  if (!isPureImage) {
+    jobs.push(
+      fetch(`https://api.openalex.org/works?search=${encodeURIComponent(tq)}&per-page=2`)
+        .then((r) => r.json())
+        .then((d) => {
+          const w = d.results?.[0];
+          return w
+            ? {
+                title: w.display_name,
+                summary: (w.abstract_inverted_index
+                  ? Object.keys(w.abstract_inverted_index).slice(0, 30).join(' ')
+                  : ''
+                ).slice(0, 400),
+                url: w.id,
+                source: 'OpenAlex',
+              }
+            : null;
+        })
+        .catch(() => null),
+
+      fetch(
+        `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(tq)}&limit=1&fields=title,abstract,url`
+      )
+        .then((r) => r.json())
+        .then((d) => {
+          const w = d?.data?.[0];
+          return w
+            ? {
+                title: w.title,
+                summary: (w.abstract || '').slice(0, 400),
+                url: w.url,
+                source: 'Semantic Scholar',
+              }
+            : null;
+        })
+        .catch(() => null),
+
+      fetch(`https://api.crossref.org/works?query=${encodeURIComponent(tq)}&rows=1`)
+        .then((r) => r.json())
+        .then((d) => {
+          const w = d?.message?.items?.[0];
+          if (!w) return null;
+          const title = Array.isArray(w.title) ? w.title[0] : w.title;
+          const journal = Array.isArray(w['container-title']) ? w['container-title'][0] : '';
+          return title
+            ? {
+                title,
+                summary: journal || 'Szakfolyóirat cikk',
+                url: w.URL,
+                source: 'Crossref (szakfolyóirat)',
+              }
+            : null;
+        })
+        .catch(() => null),
+
+      fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(tq)}&limit=1`)
+        .then((r) => r.json())
+        .then((d) => {
+          const w = d?.docs?.[0];
+          return w
+            ? {
+                title: w.title,
+                summary: (w.author_name || []).join(', ') || 'Online könyv',
+                url: `https://openlibrary.org${w.key}`,
+                source: 'Open Library (könyv)',
+              }
+            : null;
+        })
+        .catch(() => null)
+    );
+  }
+
+  const raw = (await Promise.all(jobs)).filter(Boolean);
+  const res = raw.filter((item) => isRelevantSource(item, q));
+  // Ha a szűrés mindent kidobott, legalább Wikipedia / DDG maradjon
+  const finalList = res.length ? res : raw.slice(0, 3);
+
+  return {
+    isTask: false,
+    summary: finalList.map((r) => `[${r.source}] ${r.title}: ${r.summary}`).join('\n'),
+    sources: finalList,
+  };
 }
