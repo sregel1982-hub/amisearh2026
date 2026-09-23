@@ -1,5 +1,5 @@
-// AMISEARCH PDF export
-// Kék feladatblokkok, zöld megoldásblokkok
+// AMISEARCH PDF export – teljes, önálló javítás
+// Az index.html már ezt a fájlt tölti be: /pdf-export-fixed.js
 // Az index.html módosítása nem szükséges.
 
 (function () {
@@ -83,8 +83,8 @@
   function isStepHeading(line) {
     const value = String(line || '').trim();
 
-    return /^(?:\d+[.)]\s+)?(?:lépés|lepes)\b/i.test(value)
-      && value.length < 100;
+    return /^(?:\d+[.)]\s+)?(?:lépés|lepes)\b/i.test(value) &&
+      value.length < 100;
   }
 
   function isListLine(line) {
@@ -323,6 +323,7 @@
       margin: 0;
       font-size: 19pt;
       line-height: 1.15;
+      letter-spacing: 0.2px;
     }
 
     .top small {
@@ -566,13 +567,52 @@
   function readElementText(selector) {
     const element = document.querySelector(selector);
 
+    return element
+      ? (element.innerText || element.textContent || '').trim()
+      : '';
+  }
+
+  function renderedElementHtml(selector) {
+    const element = document.querySelector(selector);
+
     if (!element) return '';
 
-    return (
-      element.innerText ||
-      element.textContent ||
-      ''
-    ).trim();
+    const clone = element.cloneNode(true);
+
+    clone
+      .querySelectorAll(
+        '[data-ai-dl-toolbar], #practiceToolbar, #examToolbar'
+      )
+      .forEach(function (node) {
+        node.remove();
+      });
+
+    clone
+      .querySelectorAll('h1, h2, h3, h4, h5, h6')
+      .forEach(function (heading) {
+        const type = headingType(heading.textContent || '');
+
+        heading.classList.remove(
+          'section-heading',
+          'task-heading',
+          'solution-heading',
+          'step-heading'
+        );
+
+        if (type === 'task') {
+          heading.classList.add('task-heading');
+        } else if (type === 'solution') {
+          heading.classList.add('solution-heading');
+        } else if (type === 'general') {
+          heading.classList.add('section-heading');
+        } else if (isStepHeading(heading.textContent || '')) {
+          heading.classList.add('step-heading');
+        } else {
+          heading.classList.add('section-heading');
+        }
+      });
+
+    return clone.innerHTML.trim();
   }
 
   window.downloadAiAnswerPdf = function (button) {
@@ -586,46 +626,39 @@
     if (!bubble) return;
 
     const clone = bubble.cloneNode(true);
-    const toolbar = clone.querySelector('[data-ai-dl-toolbar]');
 
-    if (toolbar) {
-      toolbar.remove();
-    }
+    clone.querySelector('[data-ai-dl-toolbar]')?.remove();
 
-    const raw = (
-      clone.innerText ||
-      clone.textContent ||
-      ''
-    ).trim();
+    const html = clone.innerHTML.trim();
 
-    if (raw) {
+    if (html) {
       openStyledPrintWindow(
         'AI válasz',
-        toBeautifulHtml(raw)
+        html
       );
     }
   };
 
   window.downloadPracticePdf = function (topicName) {
-    const raw = readElementText('#practiceContent');
+    const html = renderedElementHtml('#practiceContent');
 
-    if (raw) {
+    if (html) {
       openStyledPrintWindow(
         (topicName || 'Feladatok').replace(/_/g, ' ') +
         ' — Feladatok',
-        toBeautifulHtml(raw)
+        html
       );
     }
   };
 
   window.downloadExamPdf = function (topicName) {
-    const raw = readElementText('#examContent');
+    const html = renderedElementHtml('#examContent');
 
-    if (raw) {
+    if (html) {
       openStyledPrintWindow(
         (topicName || 'Vizsgafeladatsor').replace(/_/g, ' ') +
         ' — Vizsgafeladatsor',
-        toBeautifulHtml(raw)
+        html
       );
     }
   };
