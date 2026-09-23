@@ -303,4 +303,4 @@ export async function webSearch(q, lang) {
     summary: finalList.map((r) => `[${r.source}] ${r.title}: ${r.summary}`).join('\n'),
     sources: finalList,
   };
-}
+    }
