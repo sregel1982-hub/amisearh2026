@@ -116,7 +116,7 @@ async function searchPixabay(term) {
   if (!key) return null;
   try {
     const r = await fetch(
-      `https://pixabay.com/api/?key=\( {key}&q= \){encodeURIComponent(term)}&image_type=photo&safesearch=true&per_page=8`
+      `https://pixabay.com/api/?key=${key}&q=${encodeURIComponent(term)}&image_type=photo&safesearch=true&per_page=8`
     );
     const d = await r.json();
     const hit = (d?.hits || [])[0];
@@ -151,17 +151,31 @@ export async function imageSearch(q) {
 function isRelevantSource(item, query) {
   if (!item) return false;
   const q = String(query || '').toLowerCase();
-  const stop = new Set(['egy', 'egyik', 'valami', 'kell', 'kérek', 'mutass', 'the', 'and', 'for', 'with']);
+  const stop = new Set(['egy', 'egyik', 'valami', 'kell', 'kérek', 'mutass', 'the', 'and', 'for', 'with', 'age', 'kor', 'kora', 'korban']);
   const keys = q
     .split(/[^a-záéíóöőúüűa-z0-9]+/i)
     .map((w) => w.toLowerCase())
     .filter((w) => w.length > 2 && !stop.has(w));
   if (!keys.length) return true;
-  const blob = `${item.title || ''} ${item.summary || ''}`.toLowerCase();
-  // legalább 1 kulcsszó egyezzen, VAGY a fordított angol alak
+
+  const title = String(item.title || '').toLowerCase();
+  const summary = String(item.summary || '').toLowerCase();
+
+  // A cím sokkal erősebb jel, mint az összefoglaló: ha a cím tartalmaz egy
+  // kulcsszót, a forrás valóban a keresett témáról szól.
+  if (keys.some((k) => title.includes(k))) return true;
+
+  // Ha csak az összefoglalóban van egyezés (pl. egy másik témájú cikk
+  // mellékesen említi a keresett szót), az önmagában nem elég — legalább
+  // két különböző kulcsszónak kell egyeznie, hogy tényleg a témáról szóljon.
+  const summaryHits = keys.filter((k) => summary.includes(k)).length;
+  if (summaryHits >= 2) return true;
+
+  // Fordított angol alak külön ellenőrzése a címben (nem az összefoglalóban)
   const en = translate(query).toLowerCase();
-  if (en && en !== q && blob.includes(en.split(/\s+/)[0])) return true;
-  return keys.some((k) => blob.includes(k));
+  if (en && en !== q && title.includes(en.split(/\s+/)[0])) return true;
+
+  return false;
 }
 
 export async function webSearch(q, lang) {
@@ -176,7 +190,7 @@ export async function webSearch(q, lang) {
 
   const tq = translate(q);
 
-  const jobs = [
+  const generalJobs = [
     fetch(`https://hu.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`)
       .then((r) => r.json())
       .then((d) =>
@@ -221,8 +235,9 @@ export async function webSearch(q, lang) {
   ];
 
   // Csak nem-kép kérdéseknél: szakmai források + könyv
+  const academicJobs = [];
   if (!isPureImage) {
-    jobs.push(
+    academicJobs.push(
       fetch(`https://api.openalex.org/works?search=${encodeURIComponent(tq)}&per-page=2`)
         .then((r) => r.json())
         .then((d) => {
@@ -293,14 +308,20 @@ export async function webSearch(q, lang) {
     );
   }
 
-  const raw = (await Promise.all(jobs)).filter(Boolean);
-  const res = raw.filter((item) => isRelevantSource(item, q));
-  // Ha a szűrés mindent kidobott, legalább Wikipedia / DDG maradjon
-  const finalList = res.length ? res : raw.slice(0, 3);
+  // Az általános (Wikipédia / DuckDuckGo) találatok eleve a keresett
+  // címhez tartoznak, ezeket mindig megtartjuk. A szakmai/könyv találatok
+  // (OpenAlex, Semantic Scholar, Crossref, Open Library) csak akkor
+  // maradnak bent, ha a relevancia-szűrő valóban a témához köti őket —
+  // itt NINCS fallback visszatöltés, hogy ne kerüljön be véletlenszerű,
+  // más témájú cikk csak azért, mert egy szó mellékesen egyezett.
+  const generalRaw = (await Promise.all(generalJobs)).filter(Boolean);
+  const academicRaw = (await Promise.all(academicJobs)).filter(Boolean);
+  const relevantAcademic = academicRaw.filter((item) => isRelevantSource(item, q));
+  const finalList = [...generalRaw, ...relevantAcademic];
 
   return {
     isTask: false,
     summary: finalList.map((r) => `[${r.source}] ${r.title}: ${r.summary}`).join('\n'),
     sources: finalList,
   };
-    }
+                                                    }
