@@ -300,8 +300,11 @@
       font-family: Inter, "Segoe UI", Arial, sans-serif;
       font-size: 10.8pt;
       line-height: 1.55;
+      width: calc(100% - 36px);
       max-width: 820px;
       margin: 0 auto;
+      padding: 0 18px 28px;
+      overflow-wrap: anywhere;
     }
 
     .top {
@@ -482,6 +485,12 @@
     }
 
     @media print {
+      body {
+        width: auto;
+        max-width: none;
+        padding: 0;
+      }
+
       .top,
       .task-heading,
       .solution-heading,
@@ -517,7 +526,9 @@
       '<meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<title>' + escapeHtml(title) + '</title>' +
+      '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">' +
       '<style>' + STYLE + '</style>' +
+      '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"><\/script>' +
       '</head>' +
       '<body>' +
       '<header class="top">' +
@@ -535,28 +546,26 @@
       '<footer class="footer">amisearch.org</footer>' +
       '<script>' +
       '(function(){' +
-      'function renderMath(){' +
-      'if(window.katex){' +
+      'function r(){' +
+      'if(!window.katex){setTimeout(r,100);return;}' +
       'document.querySelectorAll(".math-placeholder").forEach(function(n){' +
       'try{' +
       'window.katex.render(' +
-      'decodeURIComponent(n.dataset.formula || ""),n,' +
-      '{displayMode:n.classList.contains("math-display"),throwOnError:false}' +
+      'decodeURIComponent(n.dataset.formula||""),' +
+      'n,' +
+      '{displayMode:n.classList.contains("math-display"),' +
+      'throwOnError:false,' +
+      'strict:false}' +
       ');' +
       '}catch(e){' +
-      'n.textContent=decodeURIComponent(n.dataset.formula || "");' +
+      'n.textContent=decodeURIComponent(n.dataset.formula||"");' +
       '}' +
       '});' +
       'setTimeout(function(){window.focus();window.print();},350);' +
-      '}else{' +
-      'setTimeout(renderMath,100);' +
       '}' +
-      '}' +
-      'renderMath();' +
+      'r();' +
       '})();' +
-      '<\\/script>' +
-      '<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js">' +
-      '<\\/script>' +
+      '<\/script>' +
       '</body>' +
       '</html>'
     );
@@ -586,6 +595,84 @@
       .forEach(function (node) {
         node.remove();
       });
+
+    const walker = document.createTreeWalker(
+      clone,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function (node) {
+          if (!node.nodeValue || !node.nodeValue.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (
+            node.parentElement &&
+            node.parentElement.closest('script,style,.katex')
+          ) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          return /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]/.test(
+            node.nodeValue
+          )
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+
+    const mathTextNodes = [];
+
+    while (walker.nextNode()) {
+      mathTextNodes.push(walker.currentNode);
+    }
+
+    mathTextNodes.forEach(function (node) {
+      const match = node.nodeValue.match(
+        /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\])/
+      );
+
+      if (!match) return;
+
+      const formula = match[1]
+        .replace(/^\$\$|\$\$$/g, '')
+        .replace(/^\\\[|\\\]$/g, '')
+        .trim();
+
+      const placeholder = clone.ownerDocument.createElement('span');
+
+      placeholder.className = 'math-placeholder math-display';
+
+      placeholder.setAttribute(
+        'data-formula',
+        encodeURIComponent(formula)
+      );
+
+      const fragment =
+        clone.ownerDocument.createDocumentFragment();
+
+      if (match.index > 0) {
+        fragment.appendChild(
+          clone.ownerDocument.createTextNode(
+            node.nodeValue.slice(0, match.index)
+          )
+        );
+      }
+
+      fragment.appendChild(placeholder);
+
+      const after = node.nodeValue.slice(
+        match.index + match[1].length
+      );
+
+      if (after) {
+        fragment.appendChild(
+          clone.ownerDocument.createTextNode(after)
+        );
+      }
+
+      node.parentNode.replaceChild(fragment, node);
+    });
 
     clone
       .querySelectorAll('h1, h2, h3, h4, h5, h6')
