@@ -1,359 +1,752 @@
-// utils/generatePDF.js V13 — TELJES LaTeX + KIEMELT CÍMSOROK
-export function formatForExport(text){
-  let t = String(text||"").normalize("NFC").replace(/\r/g,"\n");
+// utils/generatePDF.js  
+// Netlify-kompatibilis, böngészőoldali PDF-nyomtatás  
+// KaTeX képletek + tantárgyfüggetlen, szép A4-es tördelés  
   
-  // 1. Felsorolás jelek új sora
-  t = t.replace(/[ \t]*[-•][ \t]*/g, "\n• ");
+function escapeHtml(value) {  
+  return String(value ?? "")  
+    .replace(/&/g, "&amp;")  
+    .replace(/</g, "&lt;")  
+    .replace(/>/g, "&gt;")  
+    .replace(/"/g, "&quot;")  
+    .replace(/'/g, "&#039;");  
+}  
   
-  // 2. LaTeX blokkok és törtek új sora
-  t = t.replace(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$\n]+\$|\\frac\{[^}]+\}\{[^}]+\}|\d+\s+\d+\s*\/\s*\d+|[+\-]?\s*\d+\s*\/\s*\d+)/g, "\n$1\n");
+function escapeAttribute(value) {  
+  return escapeHtml(value).replace(/`/g, "&#096;");  
+}  
   
-  // 3. Címsorok felismerése és új sorba emelése
-  t = t.replace(/(^|\n)(\d+\.\s+Lépés|Megoldás|Ellenőrzés|Összefoglalás|Feladat|Adatok|Eredmény|Bizonyítás|Definíció|Tétel|Tulajdonságok)\b/g, "$1\n### $2");
+function safeUrl(value) {  
+  const url = String(value || "").trim();  
   
-  // 4. Mondat végén nagybetűs kezdet → új bekezdés
-  t = t.replace(/([.!?])\s+([A-ZÁÉÍÓÖŐÚŰA-Z])/g, "$1\n\n$2");
+  if (/^https?:\/\//i.test(url)) {  
+    return escapeAttribute(url);  
+  }  
   
-  // 5. Tiszta sortörések
-  t = t.replace(/\n{3,}/g, "\n\n");
+  return "";  
+}  
   
-  return t.trim();
-}
-
-function toBeautifulHtml(raw){
-  const txt = formatForExport(raw);
-  const parts = txt.split("\n").map(s=>s.trim()).filter(Boolean);
-
-  let html = "";
-  let buffer = "";
-
-  const flushPara = () => {
-    if(buffer){
-      html += `<p>${processLatexInText(buffer)}</p>`;
-      buffer = "";
-    }
-  };
-
-  // ===== LaTeX ÉS MATEMATIKAI KIFEJEZÉSEK FELDOLGOZÁSA =====
-  function processLatexInText(text){
-    if(!text) return "";
-    let res = text;
-
-    // 1. Vegyes tört: 3 1/4
-    res = res.replace(
-      /(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
-      (_, egesz, szam, nev) => `${egesz} <span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
-    );
-
-    // 2. Egyszerű tört: 1/2, - 3/4
-    res = res.replace(
-      /([+\-]?\s*)(\d+)\s*\/\s*(\d+)/g,
-      (_, jel, szam, nev) => `${jel||""}<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
-    );
-
-    // 3. Zárójeles tört: (1)/(4)
-    res = res.replace(
-      /\((\d+)\)\s*\/\s*\((\d+)\)/g,
-      (_, szam, nev) => `<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
-    );
-
-    // 4. LaTeX — soron belüli: $ \frac{13}{4} $, $x_1$
-    res = res.replace(
-      /\$([^$]+)\$/g,
-      (_, formula) => processLatexInline(formula)
-    );
-
-    // 5. Tiszta \frac
-    res = res.replace(
-      /\\frac\{([^}]+)\}\{([^}]+)\}/g,
-      (_, szam, nev) => `<span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
-    );
-
-    // Szimbólumok és indexek
-    res = processLatexSymbols(res);
-    res = res.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-
-    return res;
-  }
-
-  // LaTeX szimbólumok, indexek, hatványok feldolgozása
-  function processLatexSymbols(str){
-    return str
-      .replace(/_([a-zA-Z0-9])/g, "<sub>$1</sub>")          // x_1 → x₁
-      .replace(/_\{([^}]+)\}/g, "<sub>$1</sub>")           // x_{12} → x₁₂
-      .replace(/\^([a-zA-Z0-9])/g, "<sup>$1</sup>")        // x^2 → x²
-      .replace(/\^\{([^}]+)\}/g, "<sup>$1</sup>")          // x^{2+y} → x²⁺ʸ
-      .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")              // √
-      .replace(/\\sqrt/g, "√")
-      .replace(/\\cdot/g, "·")
-      .replace(/\\times/g, "×")
-      .replace(/\\div/g, "÷")
-      .replace(/\\pm/g, "±")
-      .replace(/\\mp/g, "∓")
-      .replace(/\\ge/g, "≥")
-      .replace(/\\le/g, "≤")
-      .replace(/\\neq/g, "≠")
-      .replace(/\\approx/g, "≈")
-      .replace(/\\infty/g, "∞")
-      .replace(/\\sum/g, "∑")
-      .replace(/\\prod/g, "∏")
-      .replace(/\\int/g, "∫")
-      .replace(/\\partial/g, "∂")
-      .replace(/\\alpha/g, "α")
-      .replace(/\\beta/g, "β")
-      .replace(/\\gamma/g, "γ")
-      .replace(/\\delta/g, "δ")
-      .replace(/\\Delta/g, "Δ")
-      .replace(/\\pi/g, "π")
-      .replace(/\\theta/g, "θ")
-      .replace(/\\lambda/g, "λ")
-      .replace(/\\mu/g, "μ")
-      .replace(/\\rho/g, "ρ")
-      .replace(/\\sigma/g, "σ")
-      .replace(/\\tau/g, "τ")
-      .replace(/\\phi/g, "φ")
-      .replace(/\\psi/g, "ψ")
-      .replace(/\\omega/g, "ω")
-      .replace(/\\Omega/g, "Ω")
-      .replace(/\\to/g, "→")
-      .replace(/\\rightarrow/g, "→")
-      .replace(/\\Rightarrow/g, "⇒")
-      .replace(/\\Leftrightarrow/g, "⇔")
-      .replace(/\\in/g, "∈")
-      .replace(/\\subset/g, "⊂")
-      .replace(/\\cup/g, "∪")
-      .replace(/\\cap/g, "∩")
-      .replace(/\\mathbb\{R\}/g, "ℝ")
-      .replace(/\\mathbb\{N\}/g, "ℕ")
-      .replace(/\\mathbb\{Z\}/g, "ℤ")
-      .replace(/\\mathbb\{Q\}/g, "ℚ")
-      .replace(/\\mathbb\{C\}/g, "ℂ");
-  }
-
-  // Soron belüli LaTeX részletes feldolgozása
-  function processLatexInline(formula){
-    let f = formula;
-    // Tört
-    f = f.replace(
-      /\\frac\{([^}]+)\}\{([^}]+)\}/g,
-      (_, sz, n) => `<span class="frac"><span class="num">${sz}</span><span class="bar">─</span><span class="den">${n}</span></span>`
-    );
-    // Szimbólumok
-    f = processLatexSymbols(f);
-    return `<span class="math-inline">${f}</span>`;
-  }
-
-  // ===== KÜLÖN SORBAN ÁLLÓ MATEMATIKAI KÉPLETEK =====
-  function isMathBlock(line){
-    return (
-      line.startsWith("$$") ||
-      line.startsWith("\\[") ||
-      line.startsWith("\\begin") ||
-      line.includes("\\frac") ||
-      line.includes("\\sqrt") ||
-      line.includes("\\sum") ||
-      line.includes("\\int") ||
-      /^\s*[+\-]?\s*\d+\s*\/\s*\d+\s*$/.test(line) ||
-      /^\s*\d+\s+\d+\s*\/\s*\d+\s*$/.test(line)
-    );
-  }
-
-  for(let line of parts){
-    // ===== CÍMSOROK — KIEMELT, ELKÜLÖNÜLŐ =====
-    if(line.startsWith("### ")){
-      flushPara();
-      const cim = line.replace(/^###\s+/, "");
-      html += `<h2 class="section-heading">${cim}</h2>`;
-      continue;
-    }
-    if(/^(Feladat|Megoldás|Ellenőrzés|Összefoglalás|Adatok|Eredmény|Bizonyítás|Definíció|Tétel)\s*:?$/.test(line)){
-      flushPara();
-      html += `<h2 class="section-heading">${line.replace(/:$/,"")}</h2>`;
-      continue;
-    }
-    if(/^\d+\.\s+[A-ZÁÉÍÓÖŐÚŰ]/.test(line) && line.length < 50){
-      flushPara();
-      html += `<h3 class="step-heading">${line}</h3>`;
-      continue;
-    }
-
-    // ===== MATEMATIKAI BLOKKOK =====
-    if(isMathBlock(line)){
-      flushPara();
-      let display = line
-        .replace(/^\$\$|\$\$$/g, "")
-        .replace(/^\\\[|\\\]$/g, "")
-        .replace(/^\\\(|\\\)$/g, "");
-
-      // Vegyes szám
-      display = display.replace(
-        /(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
-        (_, egesz, szam, nev) => `${egesz} <div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
-      );
-      // Egyszerű tört
-      display = display.replace(
-        /([+\-]?\s*)(\d+)\s*\/\s*(\d+)/g,
-        (_, jel, szam, nev) => `${jel||""}<div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
-      );
-      // LaTeX tört
-      display = display.replace(
-        /\\frac\{([^}]+)\}\{([^}]+)\}/g,
-        (_, szam, nev) => `<div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
-      );
-      // Szimbólumok
-      display = processLatexSymbols(display);
-      
-      html += `<div class="math-block">${display}</div>`;
-      continue;
-    }
-
-    // ===== KÉP =====
-    const img = line.match(/!\[(.*?)\]\((.*?)\)/);
-    if(img){
-      flushPara();
-      html += `<figure><img src="${img[2]}" alt="${img[1]}"><figcaption>${img[1]}</figcaption></figure>`;
-      continue;
-    }
-
-    // ===== FELSOROLÁS =====
-    if(line.startsWith("•")){
-      flushPara();
-      const content = line.slice(1).trim();
-      const kettospont = content.indexOf(":");
-      if(kettospont > 2 && kettospont < 80){
-        const cim = content.slice(0,kettospont).trim();
-        const szoveg = content.slice(kettospont+1).trim();
-        html += `<div class="card"><strong>${processLatexInText(cim)}:</strong> ${processLatexInText(szoveg)}</div>`;
-      } else {
-        html += `<div class="card">${processLatexInText(content)}</div>`;
-      }
-      continue;
-    }
-
-    // ===== SZÖVEG =====
-    if(line.length > 0){
-      if(buffer.length === 0) {
-        buffer = line;
-      } else {
-        const ujBekezdes = 
-          (/^[A-ZÁÉÍÓÖŐÚŰA-Z][a-záéíóöőúüű]{2,15}$/.test(line) && line.length < 20) ||
-          buffer.length > 250;
-        if(ujBekezdes){
-          flushPara();
-          buffer = line;
-        } else {
-          buffer += " " + line;
-        }
-      }
-    }
-  }
-  flushPara();
-  return html;
-}
-
-export async function downloadAsPdfFile(content, filename="amisearch-valasz"){
-  console.log('[AMISEARCH] PDF generálás indul...');
+function normalizeText(text) {  
+  return String(text || "")  
+    .normalize("NFC")  
+    .replace(/\r\n/g, "\n")  
+    .replace(/\r/g, "\n")  
+    .replace(/[ \t]+\n/g, "\n")  
+    .replace(/\n{3,}/g, "\n\n")  
+    .trim();  
+}  
   
-  const body = toBeautifulHtml(content);
-  const withLinks = body.replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
-
-  const html = `<!DOCTYPE html><html lang="hu"><head><meta charset="UTF-8"><title>${filename}</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-  @page{margin:1.8cm 2cm;}
-  body{font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1e293b;line-height:1.8;font-size:11pt;max-width:750px;margin:0 auto;background:#fff;}
+function formatForExport(text) {  
+  let value = normalizeText(text);  
   
-  /* === CÍMSOROK — KIEMELT, ELKÜLÖNÜLŐ === */
-  .section-heading {
-    color: #1e40af;
-    font-size: 14pt;
-    font-weight: 700;
-    margin: 28px 0 12px 0;
-    padding: 10px 16px;
-    background: linear-gradient(90deg, #dbeafe, transparent);
-    border-left: 5px solid #3b82f6;
-    border-radius: 0 8px 8px 0;
-    border-bottom: 2px solid #bfdbfe;
-  }
-  .step-heading {
-    color: #4f46e5;
-    font-size: 12pt;
-    font-weight: 600;
-    margin: 20px 0 8px 0;
-    padding-bottom: 4px;
-    border-bottom: 2px solid #c7d2fe;
-    display: inline-block;
-  }
-
-  /* === TÖRT STÍLUSOK === */
-  .math-inline {
-    padding: 0 4px;
-    background: #f0f9ff;
-    border-radius: 4px;
-  }
-  .frac {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    vertical-align: middle;
-    margin: 0 0.2em;
-    font-size: 0.9em;
-  }
-  .frac .num, .frac .den { padding: 0 0.25em; text-align:center; }
-  .frac .bar { border-bottom: 1px solid #1e293b; width: 100%; }
-
-  .frac-display {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 1em auto;
-    font-size: 1.3em;
-  }
-  .frac-display .num { padding: 0 0.4em; }
-  .frac-display .bar {
-    border-bottom: 2px solid #4f46e5;
-    width: 6em;
-  }
-  .frac-display .den { padding: 0 0.4em; }
-
-  .math-block {
-    text-align: center;
-    margin: 1.2em 0;
-    padding: 1.2em;
-    background: #f8fafc;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-  }
-
-  /* Többi stílus */
-  .top{ background:linear-gradient(135deg,#e11d48,#be123c); color:white; padding:20px 24px; border-radius:14px; margin-bottom:20px;}
-  .top h1{margin:0;font-size:18px;letter-spacing:0.5px;}
-  .top small{opacity:0.9;}
-  p{margin:0 0 0.9em 0;text-align:justify;line-height:1.8;}
-  .card{ background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #e11d48; border-radius:10px; padding:12px 14px; margin:0.8em 0; page-break-inside:avoid;}
-  .card strong{color:#881337;}
-  a{color:#4f46e5;word-break:break-all;text-decoration:none;border-bottom:1px dotted #a5b4fc;}
-  .meta{color:#94a3b8;font-size:8.5pt;margin-bottom:16px;}
-  .footer{margin-top:40px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:8pt;color:#94a3b8;text-align:center;}
+  // Csak a sor elején levő kötőjelet tekintjük felsorolásnak.  
+  value = value.replace(  
+    /(^|\n)[ \t]*[-•][ \t]+/g,  
+    "$1• "  
+  );  
   
-  /* Alsó- és felső index */
-  sub, sup { font-size: 0.75em; }
-</style></head><body>
-<div class="top"><h1>AMISEARCH</h1><small>Matematika · Analízis · Deriválás · Teljes megoldások</small></div>
-<div class="meta">${new Date().toLocaleString("hu-HU")} • ${filename}</div>
-${withLinks}
-<div class="footer">amisearch.org • Tanulj hatékonyabban</div>
-</body></html>`;
-
-  const blob = new Blob([html],{type:"text/html;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url,"_blank");
-  if(win){
-    win.onload=()=>{ setTimeout(()=>win.print(),900); };
-  } else {
-    const a=document.createElement("a"); a.href=url; a.download=filename+".html"; a.click();
-  }
-}
-
-export default downloadAsPdfFile;
-
+  // Kiemelt címsorok előkészítése.  
+  value = value.replace(  
+    /(^|\n)[ \t]*(Feladat|Megoldás|Ellenőrzés|Összefoglalás|Adatok|Eredmény|Bizonyítás|Definíció|Tétel|Tulajdonságok)\s*:?[ \t]*/gi,  
+    "$1### $2\n"  
+  );  
+  
+  return value.trim();  
+}  
+  
+function isHeading(line) {  
+  return /^(Feladat|Megoldás|Ellenőrzés|Összefoglalás|Adatok|Eredmény|Bizonyítás|Definíció|Tétel|Tulajdonságok)\s*:?\s*$/i.test(  
+    line  
+  );  
+}  
+  
+function isStepHeading(line) {  
+  return /^\d+\.\s+[A-ZÁÉÍÓÖŐÚÜŰ]/.test(line) && line.length < 90;  
+}  
+  
+function isMathBlock(line) {  
+  const value = line.trim();  
+  
+  return (  
+    value.startsWith("$$") ||  
+    value.startsWith("\\[") ||  
+    value.endsWith("$$") ||  
+    value.endsWith("\\]") ||  
+    value.includes("\\begin{") ||  
+    value.includes("\\frac") ||  
+    value.includes("\\sqrt") ||  
+    value.includes("\\sum") ||  
+    value.includes("\\int") ||  
+    value.includes("\\cdot") ||  
+    /^\s*[+\-]?\s*\d+\s*\/\s*\d+\s*$/.test(value) ||  
+    /^\s*\d+\s+\d+\s*\/\s*\d+\s*$/.test(value)  
+  );  
+}  
+  
+function cleanMathDelimiters(value) {  
+  return String(value || "")  
+    .replace(/^\s*\$\$\s*/, "")  
+    .replace(/\s*\$\$\s*$/, "")  
+    .replace(/^\s*\\\[\s*/, "")  
+    .replace(/\s*\\\]\s*$/, "")  
+    .trim();  
+}  
+  
+function renderInlineText(value) {  
+  let text = String(value || "");  
+  
+  // Képek feldolgozása még escape-elés előtt.  
+  const imageTokens = [];  
+  
+  text = text.replace(  
+    /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/gi,  
+    (_, alt, url) => {  
+      const safeImage = safeUrl(url);  
+  
+      if (!safeImage) {  
+        return escapeHtml(alt);  
+      }  
+  
+      const token = `@@IMAGE_${imageTokens.length}@@`;  
+  
+      imageTokens.push(  
+        `<figure class="inline-figure">  
+          <img src="${safeImage}" alt="${escapeAttribute(alt)}">  
+          <figcaption>${escapeHtml(alt)}</figcaption>  
+        </figure>`  
+      );  
+  
+      return token;  
+    }  
+  );  
+  
+  // A LaTeX-képleteket védeni kell escape-elés előtt.  
+  const mathTokens = [];  
+  
+  text = text.replace(  
+    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+\$)/g,  
+    (match) => {  
+      const display =  
+        match.startsWith("$$") ||  
+        match.startsWith("\\[");  
+  
+      const formula = match  
+        .replace(/^\$\$|\$\$$/g, "")  
+        .replace(/^\\\[|\\\]$/g, "")  
+        .replace(/^\\\(|\\\)$/g, "")  
+        .replace(/^\$|\$$/g, "")  
+        .trim();  
+  
+      const token = `@@MATH_${mathTokens.length}@@`;  
+  
+      mathTokens.push({  
+        token,  
+        formula,  
+        display  
+      });  
+  
+      return token;  
+    }  
+  );  
+  
+  let result = escapeHtml(text);  
+  
+  // Markdown félkövér.  
+  result = result.replace(  
+    /\*\*(.+?)\*\*/g,  
+    "<strong>$1</strong>"  
+  );  
+  
+  // Egyszerű inline tört, csak olyan esetben, amikor nincs LaTeX.  
+  result = result.replace(  
+    /(^|[^\w])([+\-]?\d+)\s*\/\s*(\d+)(?![\w])/g,  
+    (_, before, numerator, denominator) => {  
+      return `${before}  
+        <span class="simple-fraction">  
+          <span>${numerator}</span>  
+          <span>${denominator}</span>  
+        </span>`;  
+    }  
+  );  
+  
+  // A védett matematikai helyek visszahelyezése.  
+  mathTokens.forEach(({ token, formula, display }) => {  
+    const className = display  
+      ? "math-placeholder math-display"  
+      : "math-placeholder math-inline";  
+  
+    const encodedFormula = encodeURIComponent(formula);  
+  
+    result = result.replace(  
+      token,  
+      `<span  
+        class="${className}"  
+        data-formula="${encodedFormula}"  
+      ></span>`  
+    );  
+  });  
+  
+  // Képek visszahelyezése.  
+  imageTokens.forEach((imageHtml, index) => {  
+    result = result.replace(`@@IMAGE_${index}@@`, imageHtml);  
+  });  
+  
+  return result;  
+}  
+  
+function createHtmlFromText(rawText) {  
+  const text = formatForExport(rawText);  
+  const lines = text.split("\n");  
+  
+  let html = "";  
+  let paragraph = [];  
+  let listItems = [];  
+  
+  function flushParagraph() {  
+    if (!paragraph.length) return;  
+  
+    const content = paragraph.join(" ").trim();  
+  
+    if (content) {  
+      html += `<p>${renderInlineText(content)}</p>`;  
+    }  
+  
+    paragraph = [];  
+  }  
+  
+  function flushList() {  
+    if (!listItems.length) return;  
+  
+    html += `  
+      <ul class="answer-list">  
+        ${listItems  
+          .map((item) => `<li>${renderInlineText(item)}</li>`)  
+          .join("")}  
+      </ul>  
+    `;  
+  
+    listItems = [];  
+  }  
+  
+  for (let index = 0; index < lines.length; index += 1) {  
+    const line = lines[index].trim();  
+  
+    if (!line) {  
+      flushParagraph();  
+      flushList();  
+      continue;  
+    }  
+  
+    // ### Címsor  
+    if (line.startsWith("### ")) {  
+      flushParagraph();  
+      flushList();  
+  
+      const title = line.replace(/^###\s*/, "").trim();  
+  
+      html += `  
+        <h2 class="section-heading">  
+          ${renderInlineText(title)}  
+        </h2>  
+      `;  
+  
+      continue;  
+    }  
+  
+    // Klasszikus címsor  
+    if (isHeading(line)) {  
+      flushParagraph();  
+      flushList();  
+  
+      html += `  
+        <h2 class="section-heading">  
+          ${renderInlineText(line.replace(/:$/, ""))}  
+        </h2>  
+      `;  
+  
+      continue;  
+    }  
+  
+    // Lépés / alpont  
+    if (isStepHeading(line)) {  
+      flushParagraph();  
+      flushList();  
+  
+      html += `  
+        <h3 class="step-heading">  
+          ${renderInlineText(line)}  
+        </h3>  
+      `;  
+  
+      continue;  
+    }  
+  
+    // Felsorolás  
+    if (line.startsWith("•")) {  
+      flushParagraph();  
+  
+      listItems.push(line.replace(/^•\s*/, ""));  
+      continue;  
+    }  
+  
+    // Különálló matematikai blokk  
+    if (isMathBlock(line)) {  
+      flushParagraph();  
+      flushList();  
+  
+      const formula = cleanMathDelimiters(line);  
+      const encodedFormula = encodeURIComponent(formula);  
+  
+      html += `  
+        <div class="math-block">  
+          <span  
+            class="math-placeholder math-display"  
+            data-formula="${encodedFormula}"  
+          ></span>  
+        </div>  
+      `;  
+  
+      continue;  
+    }  
+  
+    // Hosszú szövegek kezelése.  
+    paragraph.push(line);  
+  
+    if (paragraph.join(" ").length > 700) {  
+      flushParagraph();  
+    }  
+  }  
+  
+  flushParagraph();  
+  flushList();  
+  
+  return html;  
+}  
+  
+function createStyles() {  
+  return `  
+    :root {  
+      --blue: #2563eb;  
+      --blue-dark: #1e3a8a;  
+      --blue-light: #dbeafe;  
+      --green: #059669;  
+      --green-light: #ecfdf5;  
+      --red: #e11d48;  
+      --gray-50: #f8fafc;  
+      --gray-100: #f1f5f9;  
+      --gray-200: #e2e8f0;  
+      --gray-600: #475569;  
+      --gray-800: #1e293b;  
+    }  
+  
+    * {  
+      box-sizing: border-box;  
+    }  
+  
+    html,  
+    body {  
+      margin: 0;  
+      padding: 0;  
+      background: #ffffff;  
+    }  
+  
+    body {  
+      color: var(--gray-800);  
+      font-family:  
+        Inter,  
+        "Segoe UI",  
+        Roboto,  
+        Arial,  
+        sans-serif;  
+      font-size: 11pt;  
+      line-height: 1.65;  
+      max-width: 820px;  
+      margin: 0 auto;  
+      padding: 24px;  
+    }  
+  
+    .top {  
+      color: #ffffff;  
+      background:  
+        linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #1e3a8a 100%);  
+      border-radius: 18px;  
+      padding: 24px 28px;  
+      margin-bottom: 22px;  
+      box-shadow: 0 8px 22px rgba(30, 64, 175, .18);  
+    }  
+  
+    .top h1 {  
+      margin: 0;  
+      font-size: 22pt;  
+      line-height: 1.2;  
+      letter-spacing: .3px;  
+    }  
+  
+    .top small {  
+      display: block;  
+      margin-top: 8px;  
+      font-size: 10pt;  
+      opacity: .92;  
+    }  
+  
+    .meta {  
+      color: #64748b;  
+      font-size: 8.5pt;  
+      margin: 0 2px 22px;  
+    }  
+  
+    p {  
+      margin: 0 0 13px;  
+      text-align: left;  
+    }  
+  
+    .section-heading {  
+      color: var(--blue-dark);  
+      font-size: 15pt;  
+      line-height: 1.3;  
+      margin: 28px 0 14px;  
+      padding: 11px 16px;  
+      background: linear-gradient(90deg, var(--blue-light), transparent);  
+      border-left: 5px solid var(--blue);  
+      border-bottom: 1px solid #bfdbfe;  
+      border-radius: 0 10px 10px 0;  
+      page-break-after: avoid;  
+      break-after: avoid;  
+    }  
+  
+    .step-heading {  
+      color: #4338ca;  
+      font-size: 12.5pt;  
+      margin: 20px 0 9px;  
+      padding-bottom: 5px;  
+      border-bottom: 2px solid #c7d2fe;  
+      page-break-after: avoid;  
+      break-after: avoid;  
+    }  
+  
+    .answer-list {  
+      margin: 10px 0 16px;  
+      padding: 0;  
+      list-style: none;  
+    }  
+  
+    .answer-list li {  
+      margin: 8px 0;  
+      padding: 11px 14px 11px 38px;  
+      background: var(--gray-50);  
+      border: 1px solid var(--gray-200);  
+      border-left: 4px solid var(--green);  
+      border-radius: 10px;  
+      position: relative;  
+      page-break-inside: avoid;  
+      break-inside: avoid;  
+    }  
+  
+    .answer-list li::before {  
+      content: "✓";  
+      position: absolute;  
+      left: 13px;  
+      color: var(--green);  
+      font-weight: 700;  
+    }  
+  
+    .inline-figure {  
+      margin: 16px auto;  
+      text-align: center;  
+      page-break-inside: avoid;  
+      break-inside: avoid;  
+    }  
+  
+    .inline-figure img {  
+      max-width: 100%;  
+      max-height: 440px;  
+      border-radius: 10px;  
+      border: 1px solid var(--gray-200);  
+    }  
+  
+    .inline-figure figcaption {  
+      color: var(--gray-600);  
+      font-size: 9pt;  
+      margin-top: 5px;  
+    }  
+  
+    .math-block {  
+      text-align: center;  
+      margin: 18px 0;  
+      padding: 18px;  
+      background: #f8fafc;  
+      border: 1px solid var(--gray-200);  
+      border-radius: 12px;  
+      page-break-inside: avoid;  
+      break-inside: avoid;  
+      overflow-x: auto;  
+    }  
+  
+    .math-inline {  
+      margin: 0 2px;  
+    }  
+  
+    .simple-fraction {  
+      display: inline-flex;  
+      vertical-align: middle;  
+      flex-direction: column;  
+      align-items: center;  
+      line-height: 1.05;  
+      margin: 0 3px;  
+    }  
+  
+    .simple-fraction span:first-child {  
+      padding: 0 4px 2px;  
+      border-bottom: 1px solid currentColor;  
+    }  
+  
+    .simple-fraction span:last-child {  
+      padding: 2px 4px 0;  
+    }  
+  
+    .katex-display {  
+      margin: .5em 0 !important;  
+      overflow-x: auto;  
+      overflow-y: hidden;  
+    }  
+  
+    a {  
+      color: #4338ca;  
+      overflow-wrap: anywhere;  
+    }  
+  
+    .footer {  
+      color: #94a3b8;  
+      font-size: 8pt;  
+      text-align: center;  
+      margin-top: 42px;  
+      padding-top: 13px;  
+      border-top: 1px solid var(--gray-200);  
+    }  
+  
+    @media print {  
+      @page {  
+        size: A4;  
+        margin: 16mm 17mm;  
+      }  
+  
+      html,  
+      body {  
+        background: #ffffff;  
+      }  
+  
+      body {  
+        max-width: none;  
+        padding: 0;  
+        font-size: 10.5pt;  
+      }  
+  
+      .top {  
+        print-color-adjust: exact;  
+        -webkit-print-color-adjust: exact;  
+        box-shadow: none;  
+      }  
+  
+      .section-heading,  
+      .answer-list li,  
+      .math-block {  
+        print-color-adjust: exact;  
+        -webkit-print-color-adjust: exact;  
+      }  
+  
+      h1,  
+      h2,  
+      h3 {  
+        page-break-after: avoid;  
+        break-after: avoid;  
+      }  
+  
+      p,  
+      li {  
+        orphans: 3;  
+        widows: 3;  
+      }  
+  
+      a {  
+        color: inherit;  
+        text-decoration: none;  
+      }  
+    }  
+  `;  
+}  
+  
+function createDocumentHtml({  
+  body,  
+  filename,  
+  subject,  
+  grade  
+}) {  
+  const subjectText = [  
+    subject || "Tananyag",  
+    grade ? `${grade}. évfolyam` : "",  
+    "teljes megoldás"  
+  ]  
+    .filter(Boolean)  
+    .join(" · ");  
+  
+  const safeFilename = escapeHtml(filename);  
+  const safeSubject = escapeHtml(subjectText);  
+  const date = escapeHtml(  
+    new Date().toLocaleString("hu-HU")  
+  );  
+  
+  return `<!DOCTYPE html>  
+<html lang="hu">  
+<head>  
+  <meta charset="UTF-8">  
+  <meta  
+    name="viewport"  
+    content="width=device-width, initial-scale=1"  
+  >  
+  <title>${safeFilename}</title>  
+  
+  <link  
+    rel="stylesheet"  
+    href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"  
+  >  
+  
+  <style>  
+    ${createStyles()}  
+  </style>  
+</head>  
+  
+<body>  
+  <header class="top">  
+    <h1>AMISEARCH</h1>  
+    <small>${safeSubject}</small>  
+  </header>  
+  
+  <div class="meta">  
+    ${date} · ${safeFilename}  
+  </div>  
+  
+  <main>  
+    ${body}  
+  </main>  
+  
+  <footer class="footer">  
+    amisearch.org · Tanulj hatékonyabban  
+  </footer>  
+  
+  <script  
+    src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"  
+  ></script>  
+  
+  <script>  
+    (function () {  
+      function renderMath() {  
+        if (!window.katex) {  
+          setTimeout(renderMath, 100);  
+          return;  
+        }  
+  
+        var nodes = document.querySelectorAll(  
+          ".math-placeholder"  
+        );  
+  
+        nodes.forEach(function (node) {  
+          var encoded = node.getAttribute("data-formula") || "";  
+          var formula = "";  
+  
+          try {  
+            formula = decodeURIComponent(encoded);  
+          } catch (error) {  
+            formula = encoded;  
+          }  
+  
+          try {  
+            window.katex.render(formula, node, {  
+              displayMode: node.classList.contains("math-display"),  
+              throwOnError: false,  
+              trust: false,  
+              strict: false  
+            });  
+          } catch (error) {  
+            node.textContent = formula;  
+            node.classList.add("math-error");  
+          }  
+        });  
+  
+        document.documentElement.setAttribute(  
+          "data-math-ready",  
+          "true"  
+        );  
+  
+        if (document.fonts && document.fonts.ready) {  
+          document.fonts.ready.then(function () {  
+            setTimeout(function () {  
+              window.focus();  
+              window.print();  
+            }, 350);  
+          });  
+        } else {  
+          setTimeout(function () {  
+            window.focus();  
+            window.print();  
+          }, 600);  
+        }  
+      }  
+  
+      renderMath();  
+    })();  
+  </script>  
+</body>  
+</html>`;  
+}  
+  
+export async function downloadAsPdfFile(  
+  content,  
+  filename = "amisearch-valasz",  
+  subject = "Tananyag",  
+  grade = ""  
+) {  
+  console.log("[AMISEARCH] PDF-nyomtatás indul...");  
+  
+  const body = createHtmlFromText(content);  
+  
+  const html = createDocumentHtml({  
+    body,  
+    filename,  
+    subject,  
+    grade  
+  });  
+  
+  const blob = new Blob(  
+    [html],  
+    { type: "text/html;charset=utf-8" }  
+  );  
+  
+  const url = URL.createObjectURL(blob);  
+  const win = window.open(url, "_blank");  
+  
+  if (!win) {  
+    const link = document.createElement("a");  
+  
+    link.href = url;  
+    link.download = `${filename}.html`;  
+    document.body.appendChild(link);  
+    link.click();  
+    link.remove();  
+  
+    setTimeout(() => URL.revokeObjectURL(url), 5000);  
+    return;  
+  }  
+  
+  // Biztonsági tartalék, ha a CDN vagy a nyomtatási esemény lassan töltődik.  
+  setTimeout(() => {  
+    try {  
+      if (win && !win.closed) {  
+        win.focus();  
+      }  
+    } catch (error) {  
+      console.warn("A PDF-ablak nem fókuszálható.", error);  
+    }  
+  }, 1200);  
+}  
+  
+export default downloadAsPdfFile;  
+          
