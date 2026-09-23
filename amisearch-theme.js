@@ -14,17 +14,35 @@
     return window.currentLang === 'en' ? 'en' : 'hu';
   }
 
+  /* --- TTS / FELOLVASÓ FUNKCIÓK --- */
+  window.speakText = function (text) {
+    if (!('speechSynthesis' in window)) {
+      alert('A böngésződ nem támogatja a szövegfelolvasást.');
+      return;
+    }
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+    const clean = cleanText(text);
+    if (!clean) return;
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = currentLang() === 'hu' ? 'hu-HU' : 'en-US';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+  };
+
   function latexToPlain(value) {
     let text = String(value || '');
 
-    // Többszörös \frac kezelés (belső → külső)
     for (let i = 0; i < 8; i += 1) {
       text = text.replace(/\\dfrac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
       text = text.replace(/\\tfrac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
       text = text.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
     }
 
-    // Gyök, hatvány, index, operátorok, görög betűk
     text = text
       .replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g, '($2)^(1/$1)')
       .replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
@@ -69,45 +87,25 @@
       .replace(/\\hat\s*\{([^{}]*)\}/g, '$1̂')
       .replace(/\\bar\s*\{([^{}]*)\}/g, '$1̄');
 
-    // Unicode szuper- és alsó indexek
-    const SUPER = {
-      '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵',
-      '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻',
-      '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ', 'i': 'ⁱ'
-    };
-    const SUB = {
-      '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅',
-      '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋',
-      '=': '₌', '(': '₍', ')': '₎', 'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ',
-      'x': 'ₓ', 'i': 'ᵢ', 'n': 'ₙ', 'm': 'ₘ', 't': 'ₜ'
-    };
+    const SUPER = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾', 'n': 'ⁿ', 'i': 'ⁱ' };
+    const SUB = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎', 'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'i': 'ᵢ', 'n': 'ₙ', 'm': 'ₘ', 't': 'ₜ' };
 
-    function toSuper(s) {
-      return String(s).split('').map((c) => SUPER[c] || c).join('');
-    }
-    function toSub(s) {
-      return String(s).split('').map((c) => SUB[c] || c).join('');
-    }
+    function toSuper(s) { return String(s).split('').map((c) => SUPER[c] || c).join(''); }
+    function toSub(s) { return String(s).split('').map((c) => SUB[c] || c).join(''); }
 
-    // ^{...} és _{...}
     text = text.replace(/\^\{([^{}]+)\}/g, (_, exp) => {
       const clean = exp.replace(/\s+/g, '');
-      if (/^[0-9+\-()n]+$/.test(clean)) return toSuper(clean);
-      return '^(' + exp + ')';
+      return /^[0-9+\-()n]+$/.test(clean) ? toSuper(clean) : '^(' + exp + ')';
     });
     text = text.replace(/_\{([^{}]+)\}/g, (_, sub) => {
       const clean = sub.replace(/\s+/g, '');
-      if (/^[0-9+\-()a-z]+$/i.test(clean)) return toSub(clean);
-      return '_(' + sub + ')';
+      return /^[0-9+\-()a-z]+$/i.test(clean) ? toSub(clean) : '_(' + sub + ')';
     });
 
-    // Egy karakteres ^2, _n
     text = text.replace(/\^([0-9n+\-])/g, (_, c) => SUPER[c] || ('^' + c));
     text = text.replace(/_([0-9a-z])/gi, (_, c) => SUB[c.toLowerCase()] || ('_' + c));
 
-    // Maradék LaTeX parancsok és zárójelek tisztítása
-    // FONTOS: a sortöréseket (\n) megtartjuk
-    text = text
+    return text
       .replace(/\\[a-zA-Z]+/g, '')
       .replace(/[{}]/g, '')
       .replace(/[^\S\n]+/g, ' ')
@@ -117,8 +115,6 @@
       .replace(/\s*([·÷±≤≥≠≈→←⇒⇔])\s*/g, ' $1 ')
       .replace(/\s{2,}/g, ' ')
       .trim();
-
-    return text;
   }
 
   function cleanText(value) {
@@ -132,15 +128,6 @@
       .replace(/\s+([.,;:!?])/g, '$1')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
-  }
-
-  function escapeXml(value) {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
   }
 
   function sanitizeFilename(name) {
@@ -160,7 +147,7 @@
         if (testFn && testFn()) return resolve();
         const existing = document.querySelector('script[src^="' + src.split('?')[0] + '"]');
         if (existing) {
-          const done = () => (!testFn || testFn()) ? resolve() : reject(new Error('A könyvtár betöltődött, de nem érhető el: ' + src));
+          const done = () => (!testFn || testFn()) ? resolve() : reject(new Error('Nem érhető el: ' + src));
           existing.addEventListener('load', done, { once: true });
           existing.addEventListener('error', () => reject(new Error('Nem tölthető be: ' + src)), { once: true });
           setTimeout(done, 350);
@@ -169,7 +156,7 @@
         const script = document.createElement('script');
         script.src = src;
         script.async = true;
-        script.onload = () => (!testFn || testFn()) ? resolve() : reject(new Error('A könyvtár betöltődött, de nem érhető el: ' + src));
+        script.onload = () => (!testFn || testFn()) ? resolve() : reject(new Error('Nem érhető el: ' + src));
         script.onerror = () => reject(new Error('Nem tölthető be: ' + src));
         document.head.appendChild(script);
       } catch (e) {
@@ -193,10 +180,6 @@
     }
   }
 
-  async function ensureDocx() {
-    await loadScriptOnce('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js', () => !!window.docx);
-  }
-
   function removeExportControls(root) {
     if (!root || !root.querySelectorAll) return;
     root.querySelectorAll('[data-ai-dl-toolbar], #practiceToolbar, #examToolbar, .no-print, .pdf-hide').forEach((el) => el.remove());
@@ -208,23 +191,12 @@
 
   function normalizeMathForExport(root) {
     if (!root || !root.querySelectorAll) return;
-
     root.querySelectorAll('.katex').forEach((el) => {
       const annotation = el.querySelector('annotation[encoding="application/x-tex"], annotation');
-      let latex = '';
-      if (annotation) latex = annotation.textContent || '';
-      if (!latex) latex = el.getAttribute('data-latex') || '';
-
-      let plain = '';
-      if (latex) {
-        plain = latexToPlain(latex);
-      } else {
-        plain = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
-      }
-
+      let latex = annotation ? annotation.textContent || '' : el.getAttribute('data-latex') || '';
+      let plain = latex ? latexToPlain(latex) : (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
       el.replaceWith(document.createTextNode(plain ? ' ' + plain + ' ' : ' '));
     });
-
     root.querySelectorAll('.katex-html, .katex-mathml, math, annotation, [aria-hidden="true"]').forEach((el) => el.remove());
   }
 
@@ -235,7 +207,6 @@
     normalizeMathForExport(clone);
     clone.querySelectorAll('script, style, noscript, svg, canvas').forEach((el) => el.remove());
     clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
-    // Bővített blokk-szelektor: div/tr is sortörést kap
     clone.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,section,article,div,tr').forEach((el) => {
       if (el.tagName === 'LI') el.prepend('• ');
       el.appendChild(document.createTextNode('\n'));
@@ -248,23 +219,52 @@
     return (first || fallback || BRAND + ' dokumentum').slice(0, 120);
   }
 
-  function textToPdfContent(text) {
+  /* --- STÍLUSOS PDF BLOKK FORMÁZÓ (GROK 3. KÉP ALAPJÁN) --- */
+  function textToStructuredPdfContent(text) {
     const content = [];
-    for (const raw of cleanText(text).split('\n')) {
+    const lines = cleanText(text).split('\n');
+
+    lines.forEach((raw) => {
       const line = raw.trim();
-      if (!line) {
-        content.push({ text: ' ', margin: [0, 2, 0, 2] });
-      } else if (/^#{1,6}\s+/.test(line)) {
-        const level = (line.match(/^#+/) || ['#'])[0].length;
-        content.push({ text: line.replace(/^#{1,6}\s+/, ''), style: level <= 2 ? 'sectionHeader' : 'subHeader', margin: [0, 11, 0, 5] });
-      } else if (/^(\d+[.)]|[-*•])\s+/.test(line)) {
-        content.push({ text: line.replace(/^[-*]\s+/, '• '), style: 'body', margin: [14, 2, 0, 3] });
-      } else if (/^[-–—]{3,}$/.test(line)) {
-        content.push({ canvas: [{ type: 'line', x1: 0, y1: 4, x2: 511, y2: 4, lineWidth: 0.5, lineColor: '#E5E7EB' }], margin: [0, 6, 0, 6] });
-      } else {
-        content.push({ text: line, style: 'body', margin: [0, 2, 0, 4] });
+      if (!line) return;
+
+      // Feladat fejléc / Blokk (Kék kiemelősáv)
+      if (/^(\d+\.\s*Feladat|Feladat|Task)/i.test(line) || /^#{1,3}\s+/.test(line)) {
+        const titleText = line.replace(/^#{1,6}\s+/, '');
+        content.push({
+          table: {
+            widths: ['*'],
+            body: [[
+              { text: titleText, fillColor: '#2563EB', color: '#FFFFFF', bold: true, fontSize: 12, margin: [8, 6, 8, 6] }
+            ]]
+          },
+          layout: 'noBorders',
+          margin: [0, 10, 0, 6]
+        });
       }
-    }
+      // Megoldás fejléc (Zöld kiemelősáv)
+      else if (/^Megoldás|Solution/i.test(line)) {
+        content.push({
+          table: {
+            widths: ['*'],
+            body: [[
+              { text: line, fillColor: '#059669', color: '#FFFFFF', bold: true, fontSize: 12, margin: [8, 6, 8, 6] }
+            ]]
+          },
+          layout: 'noBorders',
+          margin: [0, 10, 0, 6]
+        });
+      }
+      // Lista elemek
+      else if (/^([a-z]\)|•|\d+\.)\s+/i.test(line)) {
+        content.push({ text: line, style: 'body', bold: /^[a-z]\)/i.test(line), margin: [10, 2, 0, 3] });
+      }
+      // Normál szöveg / lépések
+      else {
+        content.push({ text: line, style: 'body', margin: [0, 3, 0, 3] });
+      }
+    });
+
     return content;
   }
 
@@ -273,112 +273,62 @@
     const lang = currentLang();
     const clean = cleanText(text);
     const title = cleanText(opts?.title || extractTitleLine(clean, BRAND));
-    const subtitle = cleanText(opts?.subtitle || (lang === 'hu' ? 'Tanulási segédlet' : 'Study document'));
+    const subtitle = cleanText(opts?.subtitle || (lang === 'hu' ? 'Feladatok, megoldások és magyarázatok' : 'Tasks, solutions and explanations'));
     const filename = sanitizeFilename(opts?.filename || title) + '.pdf';
-    const themeName = localStorage.getItem('amisearch-theme') || 'purple';
-    const theme = themes[themeName] || themes.purple;
 
     const docDefinition = {
       pageSize: 'A4',
-      pageMargins: [56, 92, 56, 58],
-      info: { title: title, author: BRAND, subject: subtitle, creator: BRAND },
-      defaultStyle: { font: 'Roboto', fontSize: 10.5, lineHeight: 1.35, color: '#111827' },
+      pageMargins: [40, 80, 40, 40],
+      info: { title: title, author: BRAND, subject: subtitle },
+      defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.35, color: '#1F2937' },
       header: function () {
         return {
-          margin: [56, 22, 56, 0],
+          margin: [40, 15, 40, 0],
           stack: [
-            { canvas: [{ type: 'rect', x: 0, y: 0, w: 483, h: 52, r: 10, color: theme.dark }] },
-            { text: BRAND, color: '#FFFFFF', bold: true, fontSize: 18, absolutePosition: { x: 76, y: 35 } },
-            { text: subtitle, color: '#F8FAFC', fontSize: 9, absolutePosition: { x: 76, y: 58 } }
+            {
+              table: {
+                widths: ['*'],
+                body: [[
+                  {
+                    fillColor: '#2563EB',
+                    margin: [12, 10, 12, 10],
+                    stack: [
+                      { text: BRAND, color: '#FFFFFF', bold: true, fontSize: 16 },
+                      { text: subtitle, color: '#DBEAFE', fontSize: 9, margin: [0, 2, 0, 0] }
+                    ]
+                  }
+                ]]
+              },
+              layout: 'noBorders'
+            }
           ]
         };
       },
       footer: function (currentPage, pageCount) {
-        return { columns: [
-          { text: 'amisearch.org', color: '#6B7280', fontSize: 8, margin: [56, 16, 0, 0] },
-          { text: currentPage + ' / ' + pageCount, alignment: 'right', color: '#6B7280', fontSize: 8, margin: [0, 16, 56, 0] }
-        ] };
+        return {
+          columns: [
+            { text: 'amisearch.org', color: '#9CA3AF', fontSize: 8, margin: [40, 10, 0, 0] },
+            { text: currentPage + ' / ' + pageCount, alignment: 'right', color: '#9CA3AF', fontSize: 8, margin: [0, 10, 40, 0] }
+          ]
+        };
       },
       content: [
-        { text: title, style: 'title', margin: [0, 0, 0, 8] },
-        { text: new Date().toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-US'), style: 'meta', margin: [0, 0, 0, 14] },
-        ...textToPdfContent(clean)
+        { text: title, style: 'mainTitle', margin: [0, 0, 0, 4] },
+        { text: new Date().toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-US'), style: 'meta', margin: [0, 0, 0, 12] },
+        ...textToStructuredPdfContent(clean)
       ],
       styles: {
-        title: { fontSize: 20, bold: true, color: theme.dark },
-        sectionHeader: { fontSize: 15, bold: true, color: theme.primary },
-        subHeader: { fontSize: 13, bold: true, color: '#111827' },
-        body: { fontSize: 10.5, lineHeight: 1.35, color: '#111827' },
+        mainTitle: { fontSize: 18, bold: true, color: '#111827' },
+        body: { fontSize: 10, lineHeight: 1.35, color: '#1F2937' },
         meta: { fontSize: 8.5, color: '#6B7280' }
       }
     };
+
     window.pdfMake.createPdf(docDefinition).download(filename);
   }
 
-  function docxPara(text, options) {
-    const d = window.docx;
-    return new d.Paragraph(Object.assign({ children: [new d.TextRun({ text: cleanText(text), size: 22 })], spacing: { after: 90 } }, options || {}));
-  }
-
-  function textToDocxParagraphs(text) {
-    const d = window.docx;
-    const paragraphs = [];
-    for (const raw of cleanText(text).split('\n')) {
-      const line = raw.trim();
-      if (!line) {
-        paragraphs.push(new d.Paragraph({ text: '', spacing: { after: 120 } }));
-      } else if (/^#{1,6}\s+/.test(line)) {
-        paragraphs.push(new d.Paragraph({ children: [new d.TextRun({ text: line.replace(/^#{1,6}\s+/, ''), bold: true, color: '2563EB', size: 28 })], spacing: { before: 220, after: 100 } }));
-      } else if (/^(\d+[.)]|[-*•])\s+/.test(line)) {
-        paragraphs.push(new d.Paragraph({ children: [new d.TextRun({ text: line.replace(/^[-*]\s+/, '• '), size: 22 })], indent: { left: 360 }, spacing: { after: 80 } }));
-      } else {
-        paragraphs.push(docxPara(line));
-      }
-    }
-    return paragraphs;
-  }
-
-  async function exportTextToDocx(text, opts) {
-    await ensureDocx();
-    const d = window.docx;
-    const clean = cleanText(text);
-    const title = cleanText(opts?.title || extractTitleLine(clean, BRAND));
-    const filename = sanitizeFilename(opts?.filename || title) + '.docx';
-    const themeName = localStorage.getItem('amisearch-theme') || 'purple';
-    const theme = themes[themeName] || themes.purple;
-    const primary = theme.primary.replace('#', '').toUpperCase();
-    const dark = theme.dark.replace('#', '').toUpperCase();
-
-    const doc = new d.Document({
-      creator: BRAND,
-      title: title,
-      description: BRAND + ' export',
-      sections: [{
-        properties: { page: { margin: { top: 900, right: 950, bottom: 850, left: 950 } } },
-        children: [
-          new d.Paragraph({ children: [new d.TextRun({ text: BRAND, bold: true, color: primary, size: 36 })], spacing: { after: 100 } }),
-          new d.Paragraph({ children: [new d.TextRun({ text: title, bold: true, color: dark, size: 30 })], spacing: { after: 100 } }),
-          new d.Paragraph({ children: [new d.TextRun({ text: new Date().toLocaleString(currentLang() === 'hu' ? 'hu-HU' : 'en-US'), color: '6B7280', size: 18 })], spacing: { after: 240 } }),
-          ...textToDocxParagraphs(clean)
-        ]
-      }]
-    });
-    const blob = await d.Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
   function findAiBubbleFrom(btn) {
-    if (typeof window._findAiBubbleFrom === 'function') {
-      try { const found = window._findAiBubbleFrom(btn); if (found) return found; } catch (_) {}
-    }
-    return btn?.closest?.('.ai-message, .chat-message, .message, .prose, [data-ai-bubble]') || btn?.parentElement?.closest?.('div') || btn?.parentElement || null;
+    return btn?.closest?.('.ai-message, .chat-message, .message, .prose, [data-ai-bubble], .bg-white') || btn?.parentElement || null;
   }
 
   function installStructuredExports() {
@@ -386,143 +336,60 @@
       const bubble = findAiBubbleFrom(btn);
       if (!bubble) return;
       const q = btn?.getAttribute?.('data-q') || 'ai-valasz';
-      try { await exportTextToPdf(elementToText(bubble), { title: currentLang() === 'hu' ? 'AI válasz' : 'AI answer', subtitle: currentLang() === 'hu' ? BRAND + ' tanulási segédlet' : BRAND + ' study document', filename: q }); }
-      catch (e) { console.error('[amisearch] AI PDF export hiba:', e); alert('PDF generálás hiba: ' + (e?.message || e)); }
-    };
-
-    window.downloadAiAnswerWord = async function (btn) {
-      const bubble = findAiBubbleFrom(btn);
-      if (!bubble) return;
-      const q = btn?.getAttribute?.('data-q') || 'ai-valasz';
-      try { await exportTextToDocx(elementToText(bubble), { title: currentLang() === 'hu' ? 'AI válasz' : 'AI answer', filename: q }); }
-      catch (e) { console.error('[amisearch] AI Word export hiba:', e); alert('Word generálás hiba: ' + (e?.message || e)); }
+      try {
+        await exportTextToPdf(elementToText(bubble), {
+          title: currentLang() === 'hu' ? 'AI válasz' : 'AI answer',
+          subtitle: BRAND + ' tanulási segédlet',
+          filename: q
+        });
+      } catch (e) {
+        console.error('[amisearch] AI PDF export hiba:', e);
+        alert('PDF generálás hiba: ' + (e?.message || e));
+      }
     };
 
     window.downloadPracticePdf = async function (topicName) {
       const target = document.getElementById('practiceContent');
       if (!target) return;
       const topic = cleanText(String(topicName || (currentLang() === 'hu' ? 'Feladatsor' : 'Practice sheet')).replace(/_/g, ' '));
-      try { await exportTextToPdf(elementToText(target), { title: topic + (currentLang() === 'hu' ? ' — Feladatok' : ' — Tasks'), subtitle: currentLang() === 'hu' ? 'Feladatok, megoldások és magyarázatok' : 'Tasks, solutions and explanations', filename: topic + '-feladatok' }); }
-      catch (e) { console.error('[amisearch] Practice PDF export hiba:', e); alert('PDF generálás hiba: ' + (e?.message || e)); }
-    };
-
-    window.downloadPracticeWord = async function (topicName) {
-      const target = document.getElementById('practiceContent');
-      if (!target) return;
-      const topic = cleanText(String(topicName || (currentLang() === 'hu' ? 'Feladatsor' : 'Practice sheet')).replace(/_/g, ' '));
-      try { await exportTextToDocx(elementToText(target), { title: topic + (currentLang() === 'hu' ? ' — Feladatok' : ' — Tasks'), filename: topic + '-feladatok' }); }
-      catch (e) { console.error('[amisearch] Practice Word export hiba:', e); alert('Word generálás hiba: ' + (e?.message || e)); }
+      try {
+        await exportTextToPdf(elementToText(target), {
+          title: topic + (currentLang() === 'hu' ? ' — Feladatok' : ' — Tasks'),
+          subtitle: 'Feladatok, megoldások és magyarázatok',
+          filename: topic + '-feladatok'
+        });
+      } catch (e) {
+        console.error('[amisearch] Practice PDF export hiba:', e);
+        alert('PDF generálás hiba: ' + (e?.message || e));
+      }
     };
 
     window.downloadExamPdf = async function (topicName) {
       const target = document.getElementById('examContent');
       if (!target) return;
       const topic = cleanText(String(topicName || (currentLang() === 'hu' ? 'Vizsgaszimulátor' : 'Exam simulator')).replace(/_/g, ' '));
-      try { await exportTextToPdf(elementToText(target), { title: topic, subtitle: currentLang() === 'hu' ? 'Vizsgaszimulátor feladatsor' : 'Exam simulator sheet', filename: topic + '-vizsga' }); }
-      catch (e) { console.error('[amisearch] Exam PDF export hiba:', e); alert('PDF generálás hiba: ' + (e?.message || e)); }
+      try {
+        await exportTextToPdf(elementToText(target), {
+          title: topic,
+          subtitle: 'Vizsgaszimulátor feladatsor',
+          filename: topic + '-vizsga'
+        });
+      } catch (e) {
+        console.error('[amisearch] Exam PDF export hiba:', e);
+        alert('PDF generálás hiba: ' + (e?.message || e));
+      }
     };
 
-    window.downloadExamWord = async function (topicName) {
-      const target = document.getElementById('examContent');
-      if (!target) return;
-      const topic = cleanText(String(topicName || (currentLang() === 'hu' ? 'Vizsgaszimulátor' : 'Exam simulator')).replace(/_/g, ' '));
-      try { await exportTextToDocx(elementToText(target), { title: topic, filename: topic + '-vizsga' }); }
-      catch (e) { console.error('[amisearch] Exam Word export hiba:', e); alert('Word generálás hiba: ' + (e?.message || e)); }
+    // Felolvasó indítása a válasznál
+    window.readAiAnswer = function (btn) {
+      const bubble = findAiBubbleFrom(btn);
+      if (bubble) window.speakText(elementToText(bubble));
     };
-  }
-
-  function applyTheme(name) {
-    const themeName = themes[name] ? name : 'purple';
-    const theme = themes[themeName];
-    document.documentElement.style.setProperty('--am-primary', theme.primary);
-    document.documentElement.style.setProperty('--am-primary-dark', theme.dark);
-    document.documentElement.style.setProperty('--am-accent', theme.accent);
-    document.documentElement.style.setProperty('--am-primary-soft', theme.soft);
-    document.documentElement.style.setProperty('--amisearch-primary', theme.primary);
-    document.documentElement.style.setProperty('--amisearch-primary-hover', theme.dark);
-    document.documentElement.style.setProperty('--amisearch-primary-light', theme.soft);
-
-    let style = document.getElementById('amisearch-dynamic-theme');
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'amisearch-dynamic-theme';
-      document.head.appendChild(style);
-    }
-    style.textContent = `
-      .btn-primary,
-      button[type="submit"],
-      .bg-\\[#6C5CE7\\], .bg-purple-600, .bg-indigo-600 {
-        background: ${theme.primary} !important;
-        background-color: ${theme.primary} !important;
-      }
-      .btn-primary:hover,
-      button[type="submit"]:hover,
-      .hover\\:bg-\\[#5A4BD1\\]:hover, .hover\\:bg-purple-700:hover, .hover\\:bg-indigo-700:hover {
-        background: ${theme.dark} !important;
-        background-color: ${theme.dark} !important;
-      }
-      .text-\\[#6C5CE7\\], .text-purple-600, .text-indigo-600,
-      a.text-\\[#6C5CE7\\], button.text-\\[#6C5CE7\\] {
-        color: ${theme.primary} !important;
-      }
-      .hover\\:text-\\[#6C5CE7\\]:hover, .hover\\:text-purple-600:hover, .hover\\:text-indigo-600:hover {
-        color: ${theme.primary} !important;
-      }
-      .border-\\[#6C5CE7\\], .border-purple-600, .border-indigo-600 {
-        border-color: ${theme.primary} !important;
-      }
-      .focus\\:border-\\[#6C5CE7\\]:focus {
-        border-color: ${theme.primary} !important;
-      }
-      .bg-purple-50, .bg-indigo-50, .bg-purple-100, .bg-indigo-100 {
-        background-color: ${theme.soft} !important;
-      }
-      .from-\\[#6C5CE7\\] { --tw-gradient-from: ${theme.primary} var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(108 92 231 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-      .to-\\[#A29BFE\\] { --tw-gradient-to: ${theme.accent} var(--tw-gradient-to-position) !important; }
-      .gradient-text {
-        background: linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%) !important;
-        -webkit-background-clip: text !important;
-        background-clip: text !important;
-      }
-      .theme-swatch[data-active="true"] {
-        outline: 3px solid ${theme.ring} !important;
-        outline-offset: 3px !important;
-        transform: translateY(-1px) !important;
-      }
-      #themePicker { bottom: 8rem !important; z-index: 40 !important; }
-    `;
-
-    try { localStorage.setItem('amisearch-theme', themeName); } catch (_) {}
-    document.querySelectorAll('.theme-swatch, #themeSwatches button, #amisearch-picker button[data-theme]').forEach((button) => {
-      button.dataset.active = button.dataset.theme === themeName ? 'true' : 'false';
-    });
-  }
-
-  function updatePickerLanguage() {
-    const lang = currentLang();
-    const panelTitle = document.querySelector('#themePickerPanel [data-hu][data-en]');
-    if (panelTitle) panelTitle.textContent = panelTitle.getAttribute(lang === 'hu' ? 'data-hu' : 'data-en') || panelTitle.textContent;
-    document.querySelectorAll('#themeSwatches button[data-theme]').forEach((button) => {
-      const theme = themes[button.dataset.theme] || themes.purple;
-      const name = lang === 'hu' ? theme.label : theme.en;
-      button.setAttribute('aria-label', (lang === 'hu' ? 'Téma kiválasztása: ' : 'Choose theme: ') + name);
-      button.title = name;
-    });
   }
 
   function init() {
-    window.amisearchThemes = Object.assign({}, window.amisearchThemes || {}, themes);
-    window.setAmisearchTheme = applyTheme;
-    window.changeSiteTheme = applyTheme;
     window.amisearchExportTextToPdf = exportTextToPdf;
-    window.amisearchExportTextToDocx = exportTextToDocx;
     installStructuredExports();
-    setTimeout(installStructuredExports, 0);
-    setTimeout(installStructuredExports, 500);
-    setTimeout(installStructuredExports, 1500);
-    applyTheme(localStorage.getItem('amisearch-theme') || 'purple');
-    updatePickerLanguage();
-    setInterval(updatePickerLanguage, 1500);
   }
 
   if (document.readyState === 'loading') {
@@ -531,3 +398,4 @@
     init();
   }
 })();
+      
