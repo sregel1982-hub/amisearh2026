@@ -1,191 +1,190 @@
-// ===== AMISEARCH APP.JS - V7.1 =====
-// - téma választó
-// - practice PDF / Word letöltés
-// - NEM írja felül a generatePractice AI-t
-// - speech-tts.js automatikus betöltése (Felolvasás gomb, index.html nélkül)
+'use strict';
 
-const themes = {
-  purple:  { primary: "#6C5CE7", hover: "#5A4BD1", light: "#EFEEFF", name: "🟣 Purple" },
-  blue:    { primary: "#3B82F6", hover: "#2563EB", light: "#DBEAFE", name: "🔵 Blue" },
-  emerald: { primary: "#10B981", hover: "#059669", light: "#D1FAE5", name: "🟢 Green" },
-  orange:  { primary: "#F59E0B", hover: "#D97706", light: "#FEF3C7", name: "🟠 Orange" },
-  pink:    { primary: "#EC4899", hover: "#DB2777", light: "#FCE7F3", name: "🔴 Pink" },
-};
+/**
+ * public/app.js
+ * ---------------------------------------------------------------------------
+ * A felület logikája:
+ *   1. Kérdezz  -> POST /api/answer  (Gemini elsodleges, Grok tartalek: a szerveren)
+ *   2. Markdown -> HTML (marked), majd KaTeX auto-render -> IGAZI tortek a kepernyon
+ *   3. kepkereses -> az /api/answer mar visszaadja a kepeket (Google CSE / Wikimedia)
+ *   4. PDF letoltese -> POST /api/pdf (a szerver LaTeX-szel fordit) -> Blob letoltes
+ *
+ * Miért igy: a bongeszo-oldali HTML->PDF konverterek elrontjak a KaTeX-et,
+ * ezert a PDF-et a szerver allitja elo igazi TeX-motorral.
+ * ---------------------------------------------------------------------------
+ */
 
-function initThemePicker() {
-  if (document.getElementById("theme-picker")) return;
+(function () {
+  const el = (id) => document.getElementById(id);
+  const state = { markdown: '', images: [], sources: [] };
 
-  const picker = document.createElement("div");
-  picker.id = "theme-picker";
-  picker.style.cssText =
-    "position:fixed;bottom:20px;right:20px;z-index:10000;background:white;padding:15px;" +
-    "border-radius:50px;display:flex;gap:8px;box-shadow:0 8px 25px rgba(0,0,0,0.15);border:2px solid #eee;";
+  /* --------------------------------------------------- KaTeX beallitasok */
 
-  Object.entries(themes).forEach(function (entry) {
-    const key = entry[0];
-    const theme = entry[1];
-    const circle = document.createElement("button");
-    circle.type = "button";
-    circle.title = theme.name;
-    circle.style.cssText =
-      "width:35px;height:35px;border-radius:50%;background:" +
-      theme.primary +
-      ";cursor:pointer;border:3px solid white;";
-    circle.textContent = theme.name.charAt(0);
-    circle.onclick = function () {
-      applyTheme(key);
-    };
-    picker.appendChild(circle);
-  });
+  const KATEX_OPTIONS = {
+    delimiters: [
+      { left: '$$', right: '$$', display: true },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '$', right: '$', display: false },
+      { left: '\\(', right: '\\)', display: false },
+    ],
+    throwOnError: false,
+    errorColor: '#DC2626',
+    macros: { '\\RR': '\\mathbb{R}', '\\NN': '\\mathbb{N}', '\\ZZ': '\\mathbb{Z}' },
+  };
 
-  document.body.appendChild(picker);
-  applyTheme(localStorage.getItem("amisearch-theme") || "purple");
-}
+  marked.setOptions({ breaks: true, gfm: true });
 
-function applyTheme(name) {
-  const t = themes[name];
-  if (!t) return;
-
-  let st = document.getElementById("dynamic-theme-style");
-  if (!st) {
-    st = document.createElement("style");
-    st.id = "dynamic-theme-style";
-    document.head.appendChild(st);
+  function setStatus(message, kind) {
+    const box = el('status');
+    if (!message) { box.hidden = true; box.textContent = ''; return; }
+    box.hidden = false;
+    box.className = 'status' + (kind ? ' ' + kind : '');
+    box.textContent = message;
   }
 
-  st.innerHTML =
-    ":root{--primary:" +
-    t.primary +
-    "!important}" +
-    ".btn-primary,button[type=\"submit\"]{background:" +
-    t.primary +
-    "!important}" +
-    "a{color:" +
-    t.primary +
-    "!important}";
-
-  localStorage.setItem("amisearch-theme", name);
-}
-
-function isImageRequest(txt) {
-  const q = String(txt || "").toLowerCase();
-  return /kép|képet|képek|fotó|fotót|rajz|illusztr|ábra|image|photo|picture|illustration/.test(q);
-}
-
-function guardImagePrompt(q) {
-  let subject = String(q || "")
-    .replace(/kép kellene egy|képet kérek|rajzolj egy|mutass egy|mutass|keress|show me|find/gi, "")
-    .trim();
-  const lower = String(q || "").toLowerCase();
-  const wantsHuman = /ember|portré|személy|person|portrait|human/.test(lower);
-  if (!wantsHuman) {
-    return (
-      subject +
-      ", photorealistic photo, real animal or object, not a book cover, not illustration of a cover, high detail, 4k"
-    );
-  }
-  return subject + ", photorealistic, high detail, 4k";
-}
-
-// ---- Practice panel: csak letöltés (generálást az index.html AI-s generatePractice végzi) ----
-
-window.downloadPracticeAsPDF = async function () {
-  if (!window.html2pdf) {
-    await new Promise(function (res) {
-      const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-      s.onload = res;
-      document.head.appendChild(s);
+  /** Markdown + LaTeX -> HTML, KaTeX-csel. */
+  function renderInto(container, markdown) {
+    container.innerHTML = marked.parse(markdown || '');
+    renderMathInElement(container, KATEX_OPTIONS);
+    container.querySelectorAll('h2').forEach((h) => {
+      if (/(megold|megfejt|eredm|solution|answer|válasz)/i.test(h.textContent || '')) h.classList.add('sol');
     });
   }
 
-  const el = document.getElementById("practiceOutput");
-  if (!el) return;
+  function showImages(items) {
+    const box = el('images');
+    if (!items || !items.length) { box.innerHTML = ''; return; }
+    box.innerHTML = items.map((item) => {
+      const caption = [item.title, item.credit, item.license].filter(Boolean).join(' — ');
+      const safeCaption = caption.replace(/[<>&]/g, '');
+      return '<figure>'
+        + '<img src="' + item.imageUrl + '" alt="' + safeCaption + '" loading="lazy" '
+        + 'onerror="this.closest(\'figure\').style.display=\'none\'">'
+        + '<figcaption>' + safeCaption + '</figcaption></figure>';
+    }).join('');
+  }
 
-  const clone = el.cloneNode(true);
-  clone.style.padding = "20px";
-  clone.style.background = "white";
+  function showSources(list) {
+    const box = el('sources');
+    if (!list || !list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<h3>Források</h3><ol>'
+      + list.map((s) => '<li><a href="' + s.url + '" target="_blank" rel="noopener">'
+          + (s.title || s.url).replace(/[<>&]/g, '') + '</a></li>').join('')
+      + '</ol>';
+  }
 
-  const header = document.createElement("div");
-  header.innerHTML =
-    '<div style="text-align:center;color:#6C5CE7;font-weight:700;font-size:20px;' +
-    'border-bottom:2px solid #6C5CE7;padding-bottom:8px;margin-bottom:15px;">AMISEARCH • amisearch.org</div>';
-  clone.prepend(header);
+  /* --------------------------------------------------------------- kerdes */
 
-  const opt = {
-    margin: [15, 12, 15, 12],
-    filename: "AMISEARCH-" + Date.now() + ".pdf",
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff" },
-    jsPDF: { unit: "mm", format: "a4" },
-  };
+  async function ask() {
+    const question = el('question').value.trim();
+    if (!question) { setStatus('Írj be egy kérdést.', 'error'); return; }
 
-  html2pdf().set(opt).from(clone).save();
-};
+    const buttons = [el('ask'), el('pdf')];
+    buttons.forEach((b) => { b.disabled = true; });
+    setStatus('A modell dolgozik… (Gemini, hiba esetén Grok)');
+    el('answer').innerHTML = '';
+    el('answer').classList.remove('empty');
+    el('images').innerHTML = '';
+    el('sources').innerHTML = '';
 
-window.downloadPracticeAsWord = async function () {
-  const topic = (document.getElementById("practiceTopicInput") &&
-    document.getElementById("practiceTopicInput").value) || "Feladatok";
-  const content =
-    (document.getElementById("practiceOutput") &&
-      document.getElementById("practiceOutput").innerText) || "Feladatok";
+    try {
+      const res = await fetch('/api/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          images: el('withImages').checked,
+          imageCount: 3,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.details || data.error || ('HTTP ' + res.status));
 
-  const html =
-    "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body><h1>" +
-    topic +
-    "</h1><div>" +
-    String(content).replace(/\n/g, "<br>") +
-    "</div></body></html>";
+      state.markdown = data.answer || '';
+      state.images = data.images || [];
+      state.sources = data.sources || [];
 
-  const blob = new Blob([html], { type: "application/msword" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = topic + ".doc";
-  a.click();
-  URL.revokeObjectURL(url);
-};
+      renderInto(el('answer'), state.markdown);
+      showSources(state.sources);
+      showImages(state.images);
 
-// Opcionális: képkérés jelölése a body-ban (a chat.mjs nem függ tőle)
-(function () {
-  const orig = window.fetch.bind(window);
-  window.fetch = async function (input, init) {
-    const url = typeof input === "string" ? input : input && input.url;
-    if (url && url.indexOf("/.netlify/functions/") !== -1 && init && init.body) {
-      try {
-        const body = JSON.parse(init.body);
-        const q = body.message || body.query || body.prompt || body.content || "";
-        if (isImageRequest(q)) {
-          body.safePrompt = guardImagePrompt(q);
-          body.isImageRequest = true;
-          init = Object.assign({}, init, { body: JSON.stringify(body) });
-        }
-      } catch (e) {}
+      el('texOut').textContent = state.markdown;
+      if (el('showTex').checked) el('texCard').hidden = false;
+
+      const notes = [];
+      notes.push('Válasz: ' + (data.provider || '?') + (data.model ? ' (' + data.model + ')' : ''));
+      if (data.warnings && data.warnings.length) notes.push('Matek-ellenőr: ' + data.warnings.join(' '));
+      if (data.imageErrors && data.imageErrors.length && !state.images.length) notes.push(data.imageErrors.join(' '));
+      setStatus(notes.join(' • '), (data.warnings && data.warnings.length) ? '' : 'ok');
+    } catch (error) {
+      setStatus('Hiba: ' + (error && error.message ? error.message : 'ismeretlen'), 'error');
+    } finally {
+      buttons.forEach((b) => { b.disabled = false; });
     }
-    return orig(input, init);
-  };
-})();
+  }
 
-function boot() {
-  initThemePicker();
-  // NE írd felül: window.generatePractice
-  // Az index.html AI-s generatePractice / generateExamSimulator marad.
-}
+  /* ------------------------------------------------------------------ PDF */
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", boot);
-} else {
-  boot();
-}
+  async function downloadPdf() {
+    if (!state.markdown) { setStatus('Előbb kérdezz, hogy legyen mit PDF-be tenni.', 'error'); return; }
+    const btn = el('pdf');
+    btn.disabled = true;
+    setStatus('A szerver fordítja a PDF-et (xelatex/pdflatex)…');
 
-// Felolvasás: speech-tts.js betöltése index.html nélkül
-(function loadSpeechTts() {
-  if (document.querySelector('script[data-amisearch-tts]')) return;
-  const s = document.createElement("script");
-  s.src = "/speech-tts.js?v=2";
-  s.defer = true;
-  s.setAttribute("data-amisearch-tts", "1");
-  document.head.appendChild(s);
-})();
+    try {
+      const res = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          markdown: state.markdown,
+          meta: {
+            title: 'AMISEARCH',
+            subtitle: 'AI válasz',
+            date: new Date().toLocaleString('hu-HU', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit', second: '2-digit'
+            })
+          },
+          images: state.images,
+        }),
+      });
 
-console.log("✅ AMISEARCH APP.JS V7.1 – theme, PDF/Word, speech-tts loader, generatePractice érintetlen");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error([data.error, data.details].filter(Boolean).join(' — ') || ('HTTP ' + res.status));
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'amiseach-' + Date.now() + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      setStatus('A PDF elkészült és letöltődött. Motor: ' + (res.headers.get('X-AMISEARCH-Engine') || 'TeX'), 'ok');
+    } catch (error) {
+      setStatus('A PDF nem készült el: ' + (error && error.message ? error.message : 'ismeretlen'), 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* --------------------------------------------------------------- indulás */
+
+  function init() {
+    el('ask').addEventListener('click', ask);
+    el('pdf').addEventListener('click', downloadPdf);
+    el('showTex').addEventListener('change', (e) => { el('texCard').hidden = !e.target.checked; });
+    el('question').addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') ask();
+    });
+    window.addEventListener('load', () => {
+      if (typeof renderMathInElement === 'function') renderInto(el('answer'), el('answer').textContent);
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+}());
