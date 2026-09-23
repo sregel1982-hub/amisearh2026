@@ -42,7 +42,7 @@ function toBeautifulHtml(raw){
     // 1. Vegyes tört: 3 1/4
     res = res.replace(
       /(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
-      (_, egesz, szam, nev) => `${egész} <span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
+      (_, egesz, szam, nev) => `${egesz} <span class="frac"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></span>`
     );
 
     // 2. Egyszerű tört: 1/2, - 3/4
@@ -188,7 +188,7 @@ function toBeautifulHtml(raw){
       // Vegyes szám
       display = display.replace(
         /(\d+)\s+(\d+)\s*\/\s*(\d+)/g,
-        (_, egesz, szam, nev) => `${egész} <div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
+        (_, egesz, szam, nev) => `${egesz} <div class="frac-display"><span class="num">${szam}</span><span class="bar">─</span><span class="den">${nev}</span></div>`
       );
       // Egyszerű tört
       display = display.replace(
@@ -356,4 +356,4 @@ ${withLinks}
 }
 
 export default downloadAsPdfFile;
-      
+
