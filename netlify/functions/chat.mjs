@@ -92,6 +92,24 @@ export default async function handler(req) {
       }
     );
 
+    var isWorksheetRequest =
+      /(?:vizsga|vizsgaszimulátor|feladatsor|feladatlap|gyakorlófeladat|mintafeladat|exam|worksheet|practice)/i.test(
+        message
+      );
+    var sourcesMd = "";
+    if (!wantsImage && !isWorksheetRequest && Array.isArray(web.sources) && web.sources.length) {
+      sourcesMd =
+        "\n\n## Források\n" +
+        web.sources
+          .filter(function (s) { return s && s.url; })
+          .slice(0, 5)
+          .map(function (s, index) {
+            var title = String(s.title || "Forrás " + (index + 1)).replace(/[\[\]]/g, "");
+            return (index + 1) + ". [" + title + "](" + String(s.url) + ")";
+          })
+          .join("\n");
+    }
+
     // ===== KÉP — csak + összefűzés =====
     var imgMd = "";
     if (wantsImage) {
@@ -187,7 +205,9 @@ export default async function handler(req) {
       config: {
         systemInstruction: system,
         temperature: 0.2,
-        maxOutputTokens: 4096,
+        // A hosszú vizsgaszimulátor-feladatsorokhoz a 4096 token kevés volt,
+        // ezért a Gemini gyakran a feladatlap közepe vagy vége előtt lezárt.
+        maxOutputTokens: 8192,
       },
     });
 
@@ -198,6 +218,7 @@ export default async function handler(req) {
         for await (var ch of stream) {
           if (ch.text) c.enqueue(enc.encode(ch.text));
         }
+        if (sourcesMd) c.enqueue(enc.encode(sourcesMd));
         c.close();
       },
     });
