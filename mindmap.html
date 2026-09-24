@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@0.17.0"></script>
 
@@ -953,35 +954,69 @@ function drawCustomGraph(edges) {
 async function drawGraphWithAI(txt) {
   showLoading(t('generating'));
   const lang = currentLang === 'hu' ? 'magyar' : 'English';
-  const prompt = `Rajzolj SVG-t (viewBox="0 0 500 400") a következőről ${lang} nyelven: "${txt}". 
-Csak a tiszta SVG kódot add vissza, DOCTYPE és html tag nélkül. Fehér/világos háttér, Poppins betűtípus, oktatási célú, szép, részletes ábra.`;
+  const prompt = `Készíts oktatási célú kapcsolati vagy folyamatábra-adatot ${lang} nyelven erről: "${txt}".
+KIZÁRÓLAG érvényes JSON-t adj vissza, Markdown-kódblokk és magyarázat nélkül.
+Formátum: {"title":"...","nodes":[{"id":"n1","label":"...","group":"..."}],"edges":[{"from":"n1","to":"n2","label":"..."}]}
+Legfeljebb 12 node legyen. Az id kizárólag angol betűből és számból álljon (például n1, n2). Minden edge meglévő node-id-ra mutasson. Ha nincs egyértelmű sorrend, készíts logikus ok-okozati vagy hierarchikus kapcsolatokat.`;
   try {
     const res = await callGemini(prompt);
-    const svgMatch = res.match(/<svg[\s\S]*<\/svg>/i);
-    if (svgMatch) {
-      document.getElementById('graphContainer').classList.remove('hidden');
-      const container = document.getElementById('graphContainer');
-      container.innerHTML = svgMatch[0].replace(/<script[\s\S]*?<\/script>/gi, '');
-      const newSvg = container.querySelector('svg');
-      if (newSvg) {
-        newSvg.setAttribute('width', '100%');
-        newSvg.setAttribute('height', 'auto');
-        newSvg.setAttribute('id', 'graphSvg');
-        newSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-        if (!newSvg.getAttribute('viewBox')) newSvg.setAttribute('viewBox', '0 0 500 400');
-        newSvg.style.display = 'block';
-        newSvg.style.maxWidth = '100%';
-        newSvg.style.margin = '0 auto';
-      }
-      setInfo('AI által generált ábra: ' + txt);
-    } else {
-      drawGenericGraph(txt);
-    }
+    const graph = parseGraphJson(res, txt);
+    drawD3Graph(graph);
   } catch(e) {
-    console.warn('AI SVG generation failed:', e);
-    drawGenericGraph(txt);
+    console.warn('AI D3 graph generation failed:', e);
+    drawD3Graph(makeFallbackGraph(txt));
   }
   finally { hideLoading(); }
+}
+
+function parseGraphJson(raw, topic) {
+  const text = String(raw || '').replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('Az AI nem JSON-adatot küldött.');
+  const data = JSON.parse(text.slice(start, end + 1));
+  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+  const ids = new Set();
+  const cleanNodes = nodes.slice(0, 12).map((n, i) => {
+    const id = String(n.id || `n${i + 1}`).replace(/[^A-Za-z0-9_-]/g, '') || `n${i + 1}`;
+    ids.add(id);
+    return { id, label: String(n.label || id).replace(/[<>]/g, '').slice(0, 70), group: String(n.group || 'default') };
+  });
+  if (cleanNodes.length < 2) throw new Error('Kevés diagramcsúcs érkezett.');
+  const edges = (Array.isArray(data.edges) ? data.edges : []).map(e => ({
+    source: String(e.from || e.source || ''), target: String(e.to || e.target || ''), label: String(e.label || '').slice(0, 30)
+  })).filter(e => ids.has(e.source) && ids.has(e.target) && e.source !== e.target).slice(0, 24);
+  return { title: String(data.title || topic).slice(0, 100), nodes: cleanNodes, edges };
+}
+
+function makeFallbackGraph(topic) {
+  const labels = String(topic || 'Téma').split(/[,;\n]|\s+és\s+|\s+majd\s+/i).map(s => s.trim()).filter(Boolean).slice(0, 6);
+  const names = labels.length > 1 ? labels : ['Kezdet', 'Folyamat', 'Eredmény'];
+  return { title: topic || 'Ábra', nodes: names.map((label, i) => ({ id: `n${i + 1}`, label, group: 'default' })), edges: names.slice(1).map((_, i) => ({ source: `n${i + 1}`, target: `n${i + 2}`, label: '' })) };
+}
+
+function drawD3Graph(graph) {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const svg = document.getElementById('graphSvg');
+  svg.innerHTML = '';
+  svg.setAttribute('viewBox', '0 0 900 560');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.style.width = '100%'; svg.style.height = 'auto'; svg.style.display = 'block';
+  if (!window.d3) { drawGenericGraph(graph.title); return; }
+  const d3svg = d3.select(svg);
+  d3svg.append('rect').attr('width', 900).attr('height', 560).attr('rx', 18).attr('fill', '#f8fafc');
+  d3svg.append('text').attr('x', 450).attr('y', 42).attr('text-anchor', 'middle').attr('font-size', 22).attr('font-weight', 700).attr('fill', '#1e3a5f').text(graph.title);
+  const defs = d3svg.append('defs');
+  defs.append('marker').attr('id', 'd3-arrow').attr('viewBox', '0 -5 10 10').attr('refX', 28).attr('refY', 0).attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto').append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', '#94a3b8');
+  const links = graph.edges.map(e => ({ ...e, source: graph.nodes.find(n => n.id === e.source), target: graph.nodes.find(n => n.id === e.target) })).filter(e => e.source && e.target);
+  const link = d3svg.append('g').selectAll('line').data(links).join('line').attr('stroke', '#94a3b8').attr('stroke-width', 2).attr('marker-end', 'url(#d3-arrow)');
+  const node = d3svg.append('g').selectAll('g').data(graph.nodes).join('g').call(d3.drag().on('start', (event, d) => { if (!event.active) simulation.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; }).on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; }).on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+  node.append('circle').attr('r', 30).attr('fill', (d, i) => ['#6C5CE7', '#2563eb', '#059669', '#d97706'][i % 4]).attr('stroke', '#fff').attr('stroke-width', 3);
+  node.append('text').attr('text-anchor', 'middle').attr('dy', 5).attr('fill', '#fff').attr('font-weight', 700).text((d, i) => i + 1);
+  node.append('title').text(d => d.label);
+  const simulation = d3.forceSimulation(graph.nodes).force('link', d3.forceLink(links).id(d => d.id).distance(150)).force('charge', d3.forceManyBody().strength(-420)).force('center', d3.forceCenter(450, 290)).force('collide', d3.forceCollide(55)).on('tick', () => { link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y); node.attr('transform', d => `translate(${Math.max(45, Math.min(855, d.x))},${Math.max(90, Math.min(500, d.y))})`); });
+  node.append('text').attr('y', 52).attr('text-anchor', 'middle').attr('font-size', 12).attr('fill', '#1e3a5f').text(d => d.label.length > 30 ? d.label.slice(0, 29) + '…' : d.label);
+  setInfo('D3.js ábra | ' + graph.nodes.length + ' csúcs | ' + links.length + ' kapcsolat');
 }
 
 function drawGenericGraph(topic) {
