@@ -972,7 +972,7 @@ Csak a tiszta SVG kódot add vissza, DOCTYPE és html tag nélkül. Fehér/vilá
   finally { hideLoading(); }
 }
 
-// ===================== MERMAID (try/catch védelemmel) =====================
+// ===================== MERMAID (tisztítás + több diagramtípus) =====================
 try {
   mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
 } catch(e) {
@@ -981,17 +981,81 @@ try {
 
 const defaultMermaid = `flowchart TD\n    A[Kezdet] --> B{Feltétel}\n    B -->|Igen| C[Ág 1]\n    B -->|Nem| D[Ág 2]\n    C --> E[Vége]\n    D --> E`;
 
+function cleanMermaidCode(raw) {
+  let code = String(raw || '')
+    .replace(/```(?:mermaid)?/gi, '')
+    .replace(/```/g, '')
+    .replace(/[“”„”]/g, '"')
+    .replace(/\u00a0/g, ' ')
+    .trim();
+
+  const start = code.search(/(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|quadrantChart|xychart-beta|mindmap)\b/i);
+  if (start > 0) code = code.slice(start);
+
+  const lines = code.split(/\r?\n/).map(line => line.trimEnd());
+  const header = lines.find(line => /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|quadrantChart|xychart-beta|mindmap)\b/i.test(line.trim()));
+  if (!header) return defaultMermaid;
+
+  const type = header.trim().split(/\s+/)[0].toLowerCase();
+  const isFlow = type === 'flowchart' || type === 'graph';
+  const output = [header.trim()];
+
+  for (const original of lines.slice(lines.indexOf(header) + 1)) {
+    let line = original.trim();
+    if (!line || line.startsWith('%%')) continue;
+    line = line.replace(/[<>]/g, '').replace(/\u0000/g, '');
+
+    // Az AI gyakran visszaad magyarázó Markdown-sort is; azt nem engedjük a kódba.
+    if (/^(Here is|Íme|Mermaid|diagram:|```)/i.test(line)) continue;
+
+    if (isFlow) {
+      // Biztonságos, egyszerű ASCII node-azonosítók és idézőjeles címkék.
+      line = line.replace(/([A-Za-z][A-Za-z0-9_-]*)\[([^\]\n]*)\]/g, (_, id, label) => {
+        const safe = label.replace(/["`]/g, '').replace(/[{}]/g, '').trim();
+        return id + '["' + safe + '"]';
+      });
+      line = line.replace(/([A-Za-z][A-Za-z0-9_-]*)\{([^}\n]*)\}/g, (_, id, label) => {
+        const safe = label.replace(/["`]/g, '').replace(/[{}]/g, '').trim();
+        return id + '{"' + safe + '"}';
+      });
+      line = line.replace(/\|([^|\n]+)\|/g, (_, label) => '|' + label.replace(/["`]/g, '').trim() + '|');
+    }
+    output.push(line);
+  }
+
+  return output.join('\n').trim() || defaultMermaid;
+}
+
+function fallbackMermaid(topic) {
+  const words = String(topic || 'Téma')
+    .replace(/^(készíts|rajzolj|mutasd|ábra|folyamatábra)\s+/i, '')
+    .split(/[,;\n]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  const labels = words.length ? words : ['Kezdet', 'Feldolgozás', 'Eredmény'];
+  const lines = ['flowchart TD'];
+  labels.forEach((label, i) => {
+    const id = String.fromCharCode(65 + i);
+    lines.push('  ' + id + '["' + label.replace(/["`\[\]{}]/g, '') + '"]');
+    if (i > 0) lines.push('  ' + String.fromCharCode(64 + i) + ' --> ' + id);
+  });
+  return lines.join('\n');
+}
+
 async function generateMermaidFromTopic() {
   const topic = document.getElementById('mermaidCode').value.trim();
   if (!topic) return;
-  if (/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|gantt|pie)/i.test(topic)) { renderMermaidDirect(); return; }
+  if (/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|quadrantChart|xychart-beta|mindmap)/i.test(topic)) { renderMermaidDirect(); return; }
   showLoading(t('generating'));
   const lang = currentLang === 'hu' ? 'magyar' : 'English';
-  const prompt = `Készíts Mermaid.js flowchart diagramot ${lang} nyelven a következő témáról: "${topic}".
-CSAK a Mermaid kódot add vissza, semmi más! Legyen max 12 node. Kezdd: flowchart TD`;
+  const prompt = `Készíts érvényes Mermaid.js diagramot ${lang} nyelven a következő témáról: "${topic}".
+Válaszd a legmegfelelőbb típust: flowchart TD, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, journey, gantt, pie vagy quadrantChart.
+CSAK a Mermaid kódot add vissza, semmi magyarázatot és Markdown kódblokkot ne adj.
+Legfeljebb 12 elem legyen. Flowchart esetén kizárólag ASCII azonosítókat használj (A, B, C), a magyar címkék mindig idézőjelesek legyenek, például: A["Kezdő lépés"] --> B{"Feltétel"}. Ne használj HTML-t, sortörést node-címkében vagy idézőjelet címkén belül.`;
   try {
     const code = await callGemini(prompt);
-    const clean = code.replace(/```mermaid\n?/g,'').replace(/```\n?/g,'').trim();
+    const clean = cleanMermaidCode(code);
     document.getElementById('mermaidCode').value = clean;
     await renderMermaidDirect();
   } catch(e) { setInfo(t('error') + ' ' + e.message); }
@@ -999,7 +1063,8 @@ CSAK a Mermaid kódot add vissza, semmi más! Legyen max 12 node. Kezdd: flowcha
 }
 
 async function renderMermaidDirect() {
-  const code = document.getElementById('mermaidCode').value.trim() || defaultMermaid;
+  const rawCode = document.getElementById('mermaidCode').value.trim() || defaultMermaid;
+  const code = cleanMermaidCode(rawCode);
   const display = document.getElementById('mermaidDisplay');
   display.innerHTML = '';
   try {
@@ -1009,16 +1074,29 @@ async function renderMermaidDirect() {
     display.innerHTML = svg;
     // Esetleges maradék Mermaid error element eltávolítása
     document.querySelectorAll('[id^="dmermaid"]').forEach(el => el.remove());
+    document.getElementById('mermaidCode').value = code;
     setInfo('Mermaid diagram renderelve.');
   } catch(e) {
-    // CSAK a mermaidDisplay-ben jelenik meg, nem globálisan
-    display.innerHTML = `
+    // Második kísérlet: mindig érvényes, egyszerű flowchart a témából.
+    try {
+      const fallback = fallbackMermaid(document.getElementById('mermaidCode').value);
+      const retryId = 'mm' + Date.now() + 'retry';
+      const retry = await mermaid.render(retryId, fallback);
+      display.innerHTML = retry.svg;
+      document.getElementById('mermaidCode').value = fallback;
+      setInfo('Az eredeti Mermaid-kód hibás volt; biztonságos tartalékábra készült.');
+      document.querySelectorAll('[id^="dmermaid"]').forEach(el => el.remove());
+      return;
+    } catch (fallbackError) {
+      // CSAK a mermaidDisplay-ben jelenik meg, nem globálisan
+      display.innerHTML = `
       <div class="w-full p-6 text-center">
         <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-400 mb-3"></i>
         <p class="text-red-500 text-sm font-semibold mb-1">Mermaid szintaxis hiba</p>
-        <p class="text-gray-500 text-xs">${e.message || 'Érvénytelen Mermaid kód'}</p>
+        <p class="text-gray-500 text-xs">${fallbackError.message || e.message || 'Érvénytelen Mermaid kód'}</p>
         <p class="text-gray-400 text-xs mt-2">Ellenőrizd a kódot, vagy használd az AI Generálás gombot.</p>
       </div>`;
+    }
     // Globális Mermaid error div eltávolítása (ez okozta az eredeti hibát)
     setTimeout(() => {
       document.querySelectorAll('[id^="dmermaid"]').forEach(el => el.remove());
