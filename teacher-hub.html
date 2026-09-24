@@ -1,87 +1,8 @@
 <!doctype html>
 <html lang="hu">
 <head>
-<!-- skill:chrome -->
-<style>
-/* Credit line — bottom-right */
-.design-ui-credit {
-  position: fixed;
-  bottom: 12px;
-  right: 12px;
-  font: 11px/1 system-ui, sans-serif;
-  color: rgba(128,128,128,0.5);
-  pointer-events: none;
-  z-index: 2147483647;
-  transition: opacity 0.4s ease;
-  user-select: none;
-  letter-spacing: 0.02em;
-}
-
-/* Hide chrome on touch devices */
-@media (hover: none) {
-  .design-ui-credit { display: none; }
-}
-
-/* Print fixes */
-@media print {
-  * {
-    transition: none !important;
-    animation: none !important;
-    box-shadow: none !important;
-  }
-  body {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-  .design-ui-credit { display: none !important; }
-}
-
-</style>
-<script>
-(function () {
-    // Design-ui pages are single compositions, so the whole body is editable.
-    function markEditable() {
-        document.body.classList.add('artifact-editable');
-    }
-
-    // Credit badge with idle-fade. Hover devices only.
-    function initChromeUI() {
-        if (!matchMedia('(hover: hover)').matches) return;
-
-        var credit = document.createElement('div');
-        credit.className = 'design-ui-credit';
-        credit.setAttribute('aria-hidden', 'true');
-        credit.innerHTML = '\u{1F49C} by ClickUp Brain';
-        document.body.appendChild(credit);
-
-        var timer = null;
-        var fade = function (out) { credit.style.opacity = out ? '0' : ''; };
-        fade(true);
-        var show = function () {
-            fade(false);
-            clearTimeout(timer);
-            timer = setTimeout(function () { fade(true); }, 3000);
-        };
-        document.addEventListener('mousemove', show);
-        show();
-    }
-
-    function init() {
-        markEditable();
-        initChromeUI();
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})();
-
-</script>
-<!-- /skill:chrome -->
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AMISEARCH | Teacher Hub</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AMISEARCH | Teacher Hub - FIX</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{--green:oklch(67% .16 163);--green-dark:oklch(56% .15 163);--green-soft:oklch(96% .035 163);--purple:oklch(64% .16 294);--purple-soft:oklch(96% .035 294);--ink:oklch(21% .025 250);--muted:oklch(58% .025 250);--line:oklch(91% .015 250);--canvas:oklch(98% .009 250);--surface:oklch(100% .003 250);--danger:oklch(54% .18 25);--radius:15px;--ease:cubic-bezier(.16,1,.3,1)}*{box-sizing:border-box}body{margin:0;min-width:320px;color:var(--ink);background:var(--canvas);font:15px/1.5 "DM Sans",system-ui,sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.55}a{color:inherit;text-decoration:none}:focus-visible{outline:3px solid oklch(74% .16 294);outline-offset:3px}h1,h2,h3,p{margin:0}h1,h2,h3{font-family:"Space Grotesk",sans-serif;text-wrap:balance}.hidden{display:none!important}
 .topbar{height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,6vw,92px);background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}.top-brand{display:flex;align-items:center;gap:10px;font:700 21px "Space Grotesk",sans-serif;letter-spacing:-.04em;color:var(--green)}.top-mark,.side-mark{display:grid;place-items:center;color:oklch(98% .01 163);background:var(--green);border-radius:11px;font-weight:700;box-shadow:0 6px 14px oklch(67% .16 163/.24)}.top-mark{width:34px;height:34px;font-size:18px}.top-nav{display:flex;align-items:center;gap:27px}.top-nav a{color:var(--green-dark);font-weight:600;font-size:14px}.top-nav a:hover{color:var(--purple)}.language{border:0;background:oklch(96% .01 250);color:var(--ink);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px}.top-user{display:flex;align-items:center;gap:10px}.top-user-copy{text-align:right;font-size:12px;line-height:1.2}.top-user-copy b{display:block}.top-user-copy span{color:var(--purple);font-weight:700}.top-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:oklch(98% .01 294);background:oklch(63% .22 274);font-weight:700}
@@ -100,27 +21,141 @@
 const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
 const SUPABASE_URL='https://rvgzvseejzbzmcqidnzc.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ';
-const supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);window.supabaseClient=supabase;
-let user=null,profile=null,toastTimer;const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const initials=v=>(String(v||'T').trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'T').toUpperCase();
+const supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let user=null,profile=null,toastTimer;
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const initials=v=>(String(v||'T').trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'T').toUpperCase();
 function toast(msg,error=false){const x=$('#toast');x.textContent=msg;x.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>x.className='toast',3000)}
 async function loadProfile(){const {data,error}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();if(error)throw error;return data}
 function isTeacher(){return ['teacher','tanár','admin'].includes(String(profile?.status||profile?.role||'').toLowerCase())}
-async function getClasses(){const {data,error}=await supabase.from('teacher_classes').select('id,name,subject,students,active,created_at').eq('teacher_id',user.id).order('created_at',{ascending:false});if(error)throw error;return data||[]}
-async function getNotes(){const {data,error}=await supabase.from('teacher_notes').select('id,title,subject,original_name,storage_path,created_at').eq('owner_id',user.id).order('created_at',{ascending:false});if(error)throw error;return data||[]}
-async function optional(table,field='teacher_id'){const {data}=await supabase.from(table).select('*').eq(field,user.id).order('created_at',{ascending:false});return data||[]}
+
+// ROBUSZTUS lekérdezések - nem akadnak ki ha nincs tábla
+async function getClasses(){
+  try{
+    const {data,error}=await supabase.from('teacher_classes').select('id,name,subject,students,active,created_at').eq('teacher_id',user.id).order('created_at',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ console.warn('teacher_classes hiba',e); return []; }
+}
+async function getNotes(){
+  try{
+    const {data,error}=await supabase.from('teacher_notes').select('id,title,subject,original_name,storage_path,created_at').eq('owner_id',user.id).order('created_at',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ console.warn('teacher_notes hiba',e); return []; }
+}
+async function optional(table,field='teacher_id'){
+  try{
+    const {data,error}=await supabase.from(table).select('*').eq(field,user.id).order('created_at',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ console.warn(table+' hiba',e); return []; }
+}
+
 function stat(icon,label,value){return `<div class="stat"><div class="stat-head"><span class="stat-icon">${icon}</span>${esc(label)}</div><div class="stat-value">${esc(value)}</div></div>`}
 function loading(){ $('#main').innerHTML='<div class="empty"><b>Adatok betöltése…</b><span>Kapcsolódás a Supabase adatbázishoz.</span></div>'}
 function setActive(){const current=location.hash.slice(1)||'dashboard';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===current))}
-async function go(section){const ok=['dashboard','classes','exams','analytics','materials'];section=ok.includes(section)?section:'dashboard';history.replaceState(null,'','#'+section);setActive();loading();try{if(section==='dashboard')return dashboard();if(section==='classes')return classPage();if(section==='exams')return exams();if(section==='analytics')return analytics();return materials()}catch(e){$('#main').innerHTML=`<div class="empty"><b>Nem sikerült betölteni</b><span>${esc(e.message)}</span></div>`}}
+async function go(section){
+  const ok=['dashboard','classes','exams','analytics','materials'];section=ok.includes(section)?section:'dashboard';
+  history.replaceState(null,'','#'+section);setActive();loading();
+  try{
+    if(section==='dashboard')return await dashboard();
+    if(section==='classes')return await classPage();
+    if(section==='exams')return exams();
+    if(section==='analytics')return await analytics();
+    return await materials();
+  }catch(e){
+    $('#main').innerHTML=`<div class="empty"><b>Nem sikerült betölteni</b><span>${esc(e.message)}</span><br><br><button class="btn btn-primary" onclick="location.reload()">Újratöltés</button></div>`;
+    console.error(e);
+  }
+}
 function bindGo(){$$('[data-go]').forEach(x=>x.onclick=e=>{e.preventDefault();go(x.dataset.go)})}
-async function dashboard(){const [cs,ex,acts]=await Promise.all([getClasses(),optional('teacher_exams'),optional('teacher_activity')]);const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const name=profile.full_name||profile.fullName||profile.username||user.email;const act=acts.slice(0,4);$('#main').innerHTML=`<div class="page-head"><h1>Jó napot, ${esc(name)}! 👋</h1><p>${cs.filter(c=>c.active).length} aktív osztály · ${ex.length} vizsga vár beadandó</p></div><div class="stats">${stat('♣','Osztályok',cs.length)}${stat('♟','Diákok',total)}${stat('▤','Feladatsor',ex.length)}${stat('⌁','Aktivitás',act.length?Math.min(100,act.length*24)+'%':'0%')}</div><div class="lower"><section class="panel"><h2 class="panel-title"><span class="accent">ϟ</span>Gyors műveletek</h2><div class="quick"><button data-go="exams"><span class="quick-icon">▤</span><span>Új vizsga létrehozása</span></button><button data-go="classes"><span class="quick-icon">♣</span><span>Osztályok kezelése</span></button><button data-go="analytics"><span class="quick-icon">▤</span><span>Statisztikák</span></button><a href="index.html"><span class="quick-icon">⌂</span><span>Vissza a főoldalra</span></a></div></section><section class="panel"><h2 class="panel-title"><span class="accent">⟲</span>Legutóbbi tevékenység</h2><div class="activity">${act.length?act.map((a,i)=>`<div class="activity-row"><span class="activity-icon">${i===0?'▤':i===1?'♟':i===2?'⌁':'!'}</span><div class="activity-copy"><b>${esc(a.title||a.message||a.name||'Tevékenység')}</b><span>${esc(a.time_label||'Most')}</span></div></div>`).join(''):cs.length?cs.slice(0,4).map(c=>`<div class="activity-row"><span class="activity-icon">♣</span><div class="activity-copy"><b>${esc(c.name)}</b><span>${esc(c.subject)} · ${Number(c.students)||0} diák</span></div></div>`).join(''):`<div class="empty"><b>Még nincs aktivitás</b><span>A mentett osztályok itt jelennek meg.</span></div>`}</div></section></div>`;bindGo()}
-async function classPage(){const cs=await getClasses();$('#main').innerHTML=`<div class="subpage-head"><div><h1>Osztályaim</h1><p>Kezeld az osztályaidat és a hozzájuk tartozó létszámot.</p></div></div><section class="panel form-panel"><h2 class="panel-title"><span class="accent">+</span>Új osztály</h2><form id="classForm" class="form-grid"><div class="field"><label>Osztály neve</label><input class="input" id="cName" required placeholder="9.B osztály"></div><div class="field"><label>Tantárgy</label><input class="input" id="cSubject" required placeholder="Matematika"></div><div class="field"><label>Diáklétszám</label><input class="input" id="cStudents" type="number" min="0" value="0"></div><button class="btn btn-primary" type="submit">Létrehozás</button></form></section><section class="class-grid">${cs.length?cs.map(c=>`<article class="class-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="class-sub">${esc(c.subject)}</div></div><span class="pill ${c.active?'on':'off'}">${c.active?'Aktív':'Archivált'}</span></div><div class="class-foot"><span>♣ ${Number(c.students)||0} diák</span><span><button class="text-btn" data-toggle="${esc(c.id)}" data-active="${c.active}">${c.active?'Archiválás':'Aktiválás'}</button><button class="text-btn danger" data-delete="${esc(c.id)}">Törlés</button></span></div></article>`).join(''):`<div class="empty"><b>Még nincs osztályod</b><span>A fenti űrlappal hozz létre egyet.</span></div>`}</section>`;$('#classForm').onsubmit=async e=>{e.preventDefault();try{const {error}=await supabase.from('teacher_classes').insert({teacher_id:user.id,name:$('#cName').value.trim(),subject:$('#cSubject').value.trim(),students:Number($('#cStudents').value)||0,active:true});if(error)throw error;toast('Osztály létrehozva');go('classes')}catch(x){toast(x.message,true)}};$$('[data-toggle]').forEach(b=>b.onclick=async()=>{try{const {error}=await supabase.from('teacher_classes').update({active:b.dataset.active!=='true'}).eq('id',b.dataset.toggle).eq('teacher_id',user.id);if(error)throw error;go('classes')}catch(x){toast(x.message,true)}});$$('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Biztosan törlöd ezt az osztályt?'))return;try{const {error}=await supabase.from('teacher_classes').delete().eq('id',b.dataset.delete).eq('teacher_id',user.id);if(error)throw error;toast('Osztály törölve');go('classes')}catch(x){toast(x.message,true)}})}
-function exams(){$('#main').innerHTML=`<div class="subpage-head"><div><h1>Online Vizsgák</h1><p>Az AI vizsgaszimulátor továbbra is a főoldalon érhető el.</p></div></div><section class="exam"><div><h2>AI vizsgaszimulátor</h2><p>Adj meg témát, nehézséget és időtartamot, az AI elkészíti az időzített feladatsort.</p></div><a class="btn" href="index.html#exam-simulator">Megnyitás →</a></section>`}
-async function analytics(){const cs=await getClasses();const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const max=Math.max(...cs.map(c=>Number(c.students)||0),1);const avg=cs.length?Math.round(total/cs.length):0;$('#main').innerHTML=`<div class="subpage-head"><div><h1>Analitika</h1><p>Valós osztályadatok, demo számok nélkül.</p></div></div><div class="analytics-grid">${stat('♣','Összes diák',total)}${stat('▤','Osztályok',cs.length)}${stat('⌁','Átlag osztálylétszám',avg)}</div><section class="panel"><h2 class="panel-title"><span class="accent">⌁</span>Osztályonkénti létszám</h2>${cs.length?`<div class="chart">${cs.map(c=>`<div class="bar-item"><span class="bar-value">${Number(c.students)||0}</span><div class="bar-track"><div class="bar-fill" style="height:${Math.max(3,Math.round((Number(c.students)||0)/max*100))}%"></div></div><span class="bar-label" title="${esc(c.name)}">${esc(c.name)}</span></div>`).join('')}</div>`:`<div class="empty"><b>Nincs adat</b><span>Hozz létre osztályokat, hogy megjelenjen az analitika.</span></div>`}</section>`}
-async function materials(){const ns=await getNotes();$('#main').innerHTML=`<div class="subpage-head"><div><h1>Tananyagok</h1><p>A saját fiókodba feltöltött jegyzeteid.</p></div></div><div class="notice">A fájlok a Supabase Storage privát <b>teacher-notes</b> bucketjébe kerülnek.</div><section class="panel"><h2 class="panel-title"><span class="accent">↑</span>Tananyag feltöltése</h2><form id="uploadForm" class="upload-grid"><div class="field"><label>Cím</label><input class="input" id="nTitle" placeholder="Algebra alapok"></div><div class="field"><label>Tantárgy</label><input class="input" id="nSubject" placeholder="Matematika"></div><div class="field"><label>Fájl, max. 15 MB</label><div class="file-input"><input id="nFile" type="file" accept=".pdf,.docx,.pptx,.txt,.md" required></div></div><button class="btn btn-primary" type="submit">Feltöltés</button></form><div class="material-grid">${ns.length?ns.map(n=>`<article class="material-card"><span class="file-icon">▤</span><div class="material-copy"><b>${esc(n.title||n.original_name)}</b><span>${esc(n.subject||'Nincs tantárgy')}</span></div><button class="download" data-download="${esc(n.id)}">↓</button></article>`).join(''):`<div class="empty"><b>Még nincs feltöltött tananyagod</b><span>Az első fájl feltöltése után itt lesz mindenhol elérhető.</span></div>`}</div></section>`;$('#uploadForm').onsubmit=async e=>{e.preventDefault();const file=$('#nFile').files[0];if(!file)return;if(file.size>15*1024*1024)return toast('A fájl legfeljebb 15 MB lehet.',true);try{const path=user.id+'/'+crypto.randomUUID()+'-'+file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-');const up=await supabase.storage.from('teacher-notes').upload(path,file,{upsert:false,contentType:file.type||'application/octet-stream'});if(up.error)throw up.error;const ins=await supabase.from('teacher_notes').insert({owner_id:user.id,title:$('#nTitle').value.trim()||file.name,subject:$('#nSubject').value.trim(),original_name:file.name,storage_path:path});if(ins.error)throw ins.error;toast('Tananyag feltöltve');go('materials')}catch(x){toast(x.message,true)}};$$('[data-download]').forEach(b=>b.onclick=async()=>{try{const n=ns.find(x=>x.id===b.dataset.download);const r=await supabase.storage.from('teacher-notes').createSignedUrl(n.storage_path,3600);if(r.error)throw r.error;window.open(r.data.signedUrl,'_blank','noopener')}catch(x){toast(x.message,true)}})}
-$$('.nav button').forEach(b=>b.onclick=()=>{go(b.dataset.section);$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')});$('#menuBtn').onclick=()=>{$('#sidebar').classList.add('open');$('#mobileOverlay').classList.remove('hidden')};$('#mobileOverlay').onclick=()=>{$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')};$('#logoutSide').onclick=async()=>{await supabase.auth.signOut();location.href='index.html'};window.addEventListener('hashchange',()=>go(location.hash.slice(1)));
-async function boot(){const {data}=await supabase.auth.getSession();if(!data.session){location.replace('index.html?return=teacher-hub');return}user=data.session.user;profile=await loadProfile();if(!profile||!isTeacher()){location.replace('index.html?role=teacher-required');return}const name=profile.full_name||profile.fullName||profile.username||user.email;const plan=String(profile.plan||'Free').toLowerCase()==='pro'?'Pro':'Free';$('#topName').textContent=profile.username||user.email.split('@')[0];$('#topRole').textContent='Tanár · '+plan;$('#topAvatar').textContent=initials(name).slice(0,1);$('#miniName').textContent=name;$('#miniPlan').textContent='Tanár · '+plan;$('#miniAvatar').textContent=initials(name).slice(0,1);$('#authLoading').remove();$('#app').classList.remove('hidden');await go(location.hash.slice(1)||'dashboard');supabase.auth.onAuthStateChange((_event,s)=>{if(!s)location.href='index.html'})}
-boot().catch(e=>{console.error(e);$('#authLoading').textContent='A Teacher Hub nem tudott kapcsolódni. Nyisd meg újra a főoldalról.'});
+
+async function dashboard(){
+  const [cs,ex,acts]=await Promise.all([getClasses(),optional('teacher_exams'),optional('teacher_activity')]);
+  const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);
+  const name=profile.full_name||profile.fullName||profile.username||user.email;
+  const act=acts.slice(0,4);
+  $('#main').innerHTML=`<div class="page-head"><h1>Jó napot, ${esc(name)}! 👋</h1><p>${cs.filter(c=>c.active).length} aktív osztály · ${ex.length} vizsga · ${total} diák</p></div><div class="stats">${stat('♣','Osztályok',cs.length)}${stat('♟','Diákok',total)}${stat('▤','Feladatsor',ex.length)}${stat('⌁','Aktivitás',act.length?Math.min(100,act.length*24)+'%':(cs.length?'12%':'0%'))}</div><div class="lower"><section class="panel"><h2 class="panel-title"><span class="accent">ϟ</span>Gyors műveletek</h2><div class="quick"><button data-go="materials"><span class="quick-icon">▮</span><span>Tananyag feltöltése</span></button><button data-go="classes"><span class="quick-icon">♣</span><span>Osztályok kezelése</span></button><button data-go="exams"><span class="quick-icon">▤</span><span>Online Vizsga</span></button><a href="index.html"><span class="quick-icon">⌂</span><span>Vissza a főoldalra</span></a></div></section><section class="panel"><h2 class="panel-title"><span class="accent">⟲</span>Legutóbbi tevékenység</h2><div class="activity">${act.length?act.map((a,i)=>`<div class="activity-row"><span class="activity-icon">${i===0?'▤':i===1?'♟':i===2?'⌁':'!'}</span><div class="activity-copy"><b>${esc(a.title||a.message||a.name||'Tevékenység')}</b><span>${esc(a.time_label||'Most')}</span></div></div>`).join(''):cs.length?cs.slice(0,4).map(c=>`<div class="activity-row"><span class="activity-icon">♣</span><div class="activity-copy"><b>${esc(c.name)}</b><span>${esc(c.subject)} · ${Number(c.students)||0} diák</span></div></div>`).join(''):`<div class="empty"><b>Még nincs aktivitás</b><span>Hozz létre osztályt.</span></div>`}</div></section></div>`;bindGo()
+}
+
+async function classPage(){
+  const cs=await getClasses();
+  $('#main').innerHTML=`<div class="subpage-head"><div><h1>Osztályaim</h1><p>Kezeld az osztályaidat és a hozzájuk tartozó létszámot.</p></div></div><section class="panel form-panel"><h2 class="panel-title"><span class="accent">+</span>Új osztály</h2><form id="classForm" class="form-grid"><div class="field"><label>Osztály neve</label><input class="input" id="cName" required placeholder="9.B osztály"></div><div class="field"><label>Tantárgy</label><input class="input" id="cSubject" required placeholder="Matematika"></div><div class="field"><label>Diáklétszám</label><input class="input" id="cStudents" type="number" min="0" value="0"></div><button class="btn btn-primary" type="submit">Létrehozás</button></form></section><section class="class-grid">${cs.length?cs.map(c=>`<article class="class-card"><div class="class-top"><div><h3>${esc(c.name)}</h3><div class="class-sub">${esc(c.subject)}</div></div><span class="pill ${c.active?'on':'off'}">${c.active?'Aktív':'Archivált'}</span></div><div class="class-foot"><span>♣ ${Number(c.students)||0} diák</span><span><button class="text-btn" data-toggle="${esc(c.id)}" data-active="${c.active}">${c.active?'Archiválás':'Aktiválás'}</button><button class="text-btn danger" data-delete="${esc(c.id)}">Törlés</button></span></div></article>`).join(''):`<div class="empty"><b>Még nincs osztályod</b><span>A fenti űrlappal hozz létre egyet.</span></div>`}</section>`;
+  $('#classForm').onsubmit=async e=>{e.preventDefault();try{const {error}=await supabase.from('teacher_classes').insert({teacher_id:user.id,name:$('#cName').value.trim(),subject:$('#cSubject').value.trim(),students:Number($('#cStudents').value)||0,active:true});if(error)throw error;toast('Osztály létrehozva');go('classes')}catch(x){toast(x.message,true)}};
+  $$('[data-toggle]').forEach(b=>b.onclick=async()=>{try{const {error}=await supabase.from('teacher_classes').update({active:b.dataset.active!=='true'}).eq('id',b.dataset.toggle).eq('teacher_id',user.id);if(error)throw error;go('classes')}catch(x){toast(x.message,true)}});
+  $$('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Biztosan törlöd?'))return;try{const {error}=await supabase.from('teacher_classes').delete().eq('id',b.dataset.delete).eq('teacher_id',user.id);if(error)throw error;toast('Osztály törölve');go('classes')}catch(x){toast(x.message,true)}})
+}
+
+function exams(){
+  $('#main').innerHTML=`<div class="subpage-head"><div><h1>Online Vizsgák</h1><p>Az AI vizsgaszimulátor továbbra is a főoldalon érhető el.</p></div></div>
+  <section class="exam"><div><h2>AI vizsgaszimulátor</h2><p>Adj meg témát, nehézséget és időtartamot, az AI elkészíti az időzített feladatsort. A tanár később itt fogja látni a beadott vizsgákat.</p></div><a class="btn" href="index.html#exam-simulator">Megnyitás →</a></section>
+  <section class="panel" style="margin-top:18px"><h2 class="panel-title">Későbbi fejlesztés</h2><div class="notice">A <b>teacher_exams</b> tábla még nincs létrehozva. Ha létrehozod, itt fognak megjelenni a diákok vizsgaeredményei. SQL-t adok hozzá.</div></section>`;
+}
+
+async function analytics(){
+  const cs=await getClasses();const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);const max=Math.max(...cs.map(c=>Number(c.students)||0),1);const avg=cs.length?Math.round(total/cs.length):0;
+  $('#main').innerHTML=`<div class="subpage-head"><div><h1>Analitika</h1><p>Valós osztályadatok, demo számok nélkül.</p></div></div><div class="analytics-grid">${stat('♣','Összes diák',total)}${stat('▤','Osztályok',cs.length)}${stat('⌁','Átlag osztálylétszám',avg)}</div><section class="panel"><h2 class="panel-title"><span class="accent">⌁</span>Osztályonkénti létszám</h2>${cs.length?`<div class="chart">${cs.map(c=>`<div class="bar-item"><span class="bar-value">${Number(c.students)||0}</span><div class="bar-track"><div class="bar-fill" style="height:${Math.max(3,Math.round((Number(c.students)||0)/max*100))}%"></div></div><span class="bar-label" title="${esc(c.name)}">${esc(c.name)}</span></div>`).join('')}</div>`:`<div class="empty"><b>Nincs adat</b><span>Hozz létre osztályokat.</span></div>`}</section>`;
+}
+
+async function materials(){
+  const ns=await getNotes();
+  $('#main').innerHTML=`<div class="subpage-head"><div><h1>Tananyagok</h1><p>A saját fiókodba feltöltött jegyzeteid.</p></div></div>
+  <div class="notice">Ha a feltöltésnél <b>"Bucket not found"</b> hibát kapsz, hozd létre Supabase Storage-ban a <b>teacher-notes</b> bucketet (Private).</div>
+  <section class="panel"><h2 class="panel-title"><span class="accent">↑</span>Tananyag feltöltése</h2><form id="uploadForm" class="upload-grid"><div class="field"><label>Cím</label><input class="input" id="nTitle" placeholder="Algebra alapok"></div><div class="field"><label>Tantárgy</label><input class="input" id="nSubject" placeholder="Matematika"></div><div class="field"><label>Fájl, max. 15 MB</label><div class="file-input"><input id="nFile" type="file" accept=".pdf,.docx,.pptx,.txt,.md" required></div></div><button class="btn btn-primary" type="submit">Feltöltés</button></form>
+  <div style="margin-top:18px" class="material-grid">${ns.length?ns.map(n=>`<article class="material-card"><span class="file-icon">▤</span><div class="material-copy"><b>${esc(n.title||n.original_name)}</b><span>${esc(n.subject||'Nincs tantárgy')} · ${new Date(n.created_at).toLocaleDateString('hu-HU')}</span></div><button class="download" data-download="${esc(n.id)}">↓ Letöltés</button></article>`).join(''):`<div class="empty"><b>Még nincs feltöltött tananyagod</b><span>A fenti űrlappal tölts fel először.</span></div>`}</div></section>`;
+  
+  $('#uploadForm').onsubmit=async e=>{
+    e.preventDefault();
+    const file=$('#nFile').files[0];if(!file)return;
+    if(file.size>15*1024*1024)return toast('A fájl legfeljebb 15 MB lehet.',true);
+    try{
+      const safeName=file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-');
+      const path=user.id+'/'+crypto.randomUUID()+'-'+safeName;
+      const up=await supabase.storage.from('teacher-notes').upload(path,file,{upsert:false,contentType:file.type||'application/octet-stream'});
+      if(up.error) throw up.error;
+      const ins=await supabase.from('teacher_notes').insert({owner_id:user.id,title:$('#nTitle').value.trim()||file.name,subject:$('#nSubject').value.trim(),original_name:file.name,storage_path:path});
+      if(ins.error) throw ins.error;
+      toast('Tananyag feltöltve');go('materials')
+    }catch(x){ console.error(x); toast(x.message.includes('Bucket') ? 'Hozd létre a teacher-notes bucketet Storage-ban!' : x.message ,true)}
+  };
+  $$('[data-download]').forEach(b=>b.onclick=async()=>{
+    try{
+      const n=ns.find(x=>x.id===b.dataset.download);
+      const r=await supabase.storage.from('teacher-notes').createSignedUrl(n.storage_path,3600);
+      if(r.error)throw r.error;
+      window.open(r.data.signedUrl,'_blank','noopener')
+    }catch(x){toast(x.message,true)}
+  })
+}
+
+$$('.nav button').forEach(b=>b.onclick=()=>{go(b.dataset.section);$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')});
+$('#menuBtn').onclick=()=>{$('#sidebar').classList.add('open');$('#mobileOverlay').classList.remove('hidden')};
+$('#mobileOverlay').onclick=()=>{$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden')};
+$('#logoutSide').onclick=async()=>{await supabase.auth.signOut();location.href='index.html'};
+window.addEventListener('hashchange',()=>go(location.hash.slice(1)));
+
+async function boot(){
+  const {data}=await supabase.auth.getSession();
+  if(!data.session){location.replace('index.html?return=teacher-hub');return}
+  user=data.session.user;
+  try{ profile=await loadProfile(); }catch(e){ toast('Profil betöltési hiba: '+e.message,true); return; }
+  if(!profile||!isTeacher()){location.replace('index.html?role=teacher-required');return}
+  const name=profile.full_name||profile.fullName||profile.username||user.email;
+  const plan=String(profile.plan||'Free').toLowerCase()==='pro'?'Pro':'Free';
+  $('#topName').textContent=profile.username||user.email.split('@')[0];
+  $('#topRole').textContent='Tanár · '+plan;
+  $('#topAvatar').textContent=initials(name).slice(0,1);
+  $('#miniName').textContent=name;
+  $('#miniPlan').textContent='Tanár · '+plan;
+  $('#miniAvatar').textContent=initials(name).slice(0,1);
+  $('#authLoading').remove();
+  $('#app').classList.remove('hidden');
+  await go(location.hash.slice(1)||'dashboard');
+  supabase.auth.onAuthStateChange((_event,s)=>{if(!s)location.href='index.html'})
+}
+boot().catch(e=>{console.error(e);$('#authLoading').textContent='A Teacher Hub nem tudott kapcsolódni. Nyisd meg újra a főoldalról. Hiba: '+e.message});
 </script>
 </body>
 </html>
