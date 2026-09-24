@@ -1027,12 +1027,25 @@ function cleanMermaidCode(raw) {
 }
 
 function fallbackMermaid(topic) {
-  const words = String(topic || 'Téma')
+  const source = String(topic || 'Téma');
+  const looksLikeMermaid = /^\s*(?:```\s*)?(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|quadrantChart|xychart-beta|mindmap)\b/i.test(source);
+  const quoted = [...source.matchAll(/\[\s*["']([^\]"']+)["']\s*\]|\{\s*["']([^}]+)["']\s*\}/g)]
+    .map(m => (m[1] || m[2] || '').trim())
+    .map(label => label.replace(/^[A-Z]{1,3}(?=[A-ZÁÉÍÓÖŐÚÜŰ][a-záéíóöőúüű])/u, '').trim())
+    .filter(label => label && !/(?:flowchart|graph|\bTD\b|-->|\s--\s*[A-Z])/i.test(label))
+    .slice(0, 5);
+  const words = (quoted.length ? quoted : (looksLikeMermaid ? [] : source
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|quadrantChart|xychart-beta|mindmap)\b/gi, ' ')
+    .replace(/[A-Za-z][A-Za-z0-9_-]*\s*[-=]+>\s*/g, ' ')
+    .replace(/[\[\]{}]/g, ' ')
     .replace(/^(készíts|rajzolj|mutasd|ábra|folyamatábra)\s+/i, '')
     .split(/[,;\n]+/)
     .map(s => s.trim())
     .filter(Boolean)
-    .slice(0, 5);
+    .map(s => s.replace(/^(?:[A-Z]\s*)+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 5)));
   const labels = words.length ? words : ['Kezdet', 'Feldolgozás', 'Eredmény'];
   const lines = ['flowchart TD'];
   labels.forEach((label, i) => {
