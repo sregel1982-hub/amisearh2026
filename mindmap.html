@@ -961,15 +961,52 @@ Csak a tiszta SVG kódot add vissza, DOCTYPE és html tag nélkül. Fehér/vilá
     if (svgMatch) {
       document.getElementById('graphContainer').classList.remove('hidden');
       const container = document.getElementById('graphContainer');
-      container.innerHTML = svgMatch[0];
+      container.innerHTML = svgMatch[0].replace(/<script[\s\S]*?<\/script>/gi, '');
       const newSvg = container.querySelector('svg');
-      if (newSvg) { newSvg.setAttribute('width','100%'); newSvg.setAttribute('id','graphSvg'); }
+      if (newSvg) {
+        newSvg.setAttribute('width', '100%');
+        newSvg.setAttribute('height', 'auto');
+        newSvg.setAttribute('id', 'graphSvg');
+        newSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        if (!newSvg.getAttribute('viewBox')) newSvg.setAttribute('viewBox', '0 0 500 400');
+        newSvg.style.display = 'block';
+        newSvg.style.maxWidth = '100%';
+        newSvg.style.margin = '0 auto';
+      }
       setInfo('AI által generált ábra: ' + txt);
     } else {
-      setInfo('Az AI nem tudott ábrát generálni ehhez: ' + txt);
+      drawGenericGraph(txt);
     }
-  } catch(e) { setInfo(t('error') + ' ' + e.message); }
+  } catch(e) {
+    console.warn('AI SVG generation failed:', e);
+    drawGenericGraph(txt);
+  }
   finally { hideLoading(); }
+}
+
+function drawGenericGraph(topic) {
+  document.getElementById('graphContainer').classList.remove('hidden');
+  const parts = String(topic || 'Téma')
+    .replace(/[.!?]+/g, ' ')
+    .split(/[,;\n]|\s+és\s+|\s+majd\s+/i)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  const labels = parts.length ? parts : ['Kezdet', 'Folyamat', 'Eredmény'];
+  const svg = getSvg();
+  svg.setAttribute('viewBox', '0 0 800 420');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.appendChild(svgEl('rect', { x: 0, y: 0, width: 800, height: 420, fill: '#f8fafc', rx: 16 }));
+  const gap = 700 / Math.max(labels.length, 2);
+  labels.forEach((label, i) => {
+    const x = 50 + i * gap;
+    if (i > 0) svgLine(svg, x - gap + 48, 210, x - 48, 210, '#a5b4fc', 3);
+    svgCircle(svg, x, 210, 42, '#6C5CE7', 'white', 3);
+    svgText(svg, String(i + 1), x, 210, { fill: 'white', size: '18', weight: '800' });
+    svgText(svg, label.slice(0, 26), x, 285, { fill: '#1e3a5f', size: '13', weight: '600' });
+  });
+  svgText(svg, 'Ábra: ' + labels.join(' → ').slice(0, 90), 400, 55, { fill: '#1e3a5f', size: '18', weight: '700' });
+  setInfo('Biztonságos alapábra készült: ' + topic);
 }
 
 // ===================== MERMAID (tisztítás + több diagramtípus) =====================
