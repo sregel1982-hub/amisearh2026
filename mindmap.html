@@ -1040,7 +1040,8 @@ function cleanMermaidCode(raw) {
   for (const original of lines.slice(lines.indexOf(header) + 1)) {
     let line = original.trim();
     if (!line || line.startsWith('%%')) continue;
-    line = line.replace(/[<>]/g, '').replace(/\u0000/g, '');
+    // A Mermaid nyilai tartalmazzák a > karaktert (-->); csak valódi HTML-tagot törlünk.
+    line = line.replace(/<\/?[A-Za-z][^>]*>/g, '').replace(/\u0000/g, '');
 
     // Az AI gyakran visszaad magyarázó Markdown-sort is; azt nem engedjük a kódba.
     if (/^(Here is|Íme|Mermaid|diagram:|```)/i.test(line)) continue;
