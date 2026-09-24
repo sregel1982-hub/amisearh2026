@@ -3,320 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AMISEARCH | Teacher Hub - MŰKÖDŐ VÁLTOZAT</title>
+<title>AMISEARCH | Teacher Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 
 <style>
-:root{
-  --green:oklch(67% .16 163);
-  --green-dark:oklch(56% .15 163);
-  --green-soft:oklch(96% .035 163);
-  --purple:oklch(64% .16 294);
-  --purple-soft:oklch(96% .035 294);
-  --ink:oklch(21% .025 250);
-  --muted:oklch(58% .025 250);
-  --line:oklch(91% .015 250);
-  --canvas:oklch(98% .009 250);
-  --surface:oklch(100% .003 250);
-  --danger:oklch(54% .18 25);
-  --radius:15px;
-  --ease:cubic-bezier(.16,1,.3,1)
-}
+:root{--green:oklch(67% .16 163);--green-dark:oklch(56% .15 163);--green-soft:oklch(96% .035 163);--purple:oklch(64% .16 294);--purple-soft:oklch(96% .035 294);--ink:oklch(21% .025 250);--muted:oklch(58% .025 250);--line:oklch(91% .015 250);--canvas:oklch(98% .009 250);--surface:oklch(100% .003 250);--danger:oklch(54% .18 25);--radius:15px;--ease:cubic-bezier(.16,1,.3,1)}
 *{box-sizing:border-box}
-body{
-  margin:0;
-  min-width:320px;
-  color:var(--ink);
-  background:var(--canvas);
-  font:15px/1.5 "DM Sans",system-ui,sans-serif
-}
+body{margin:0;min-width:320px;color:var(--ink);background:var(--canvas);font:15px/1.5 "DM Sans",system-ui,sans-serif}
 button,input{font:inherit}
-button{cursor:pointer}
 button:disabled{cursor:wait;opacity:.55}
 a{color:inherit;text-decoration:none}
 :focus-visible{outline:3px solid oklch(74% .16 294);outline-offset:3px}
 h1,h2,h3,p{margin:0}
 h1,h2,h3{font-family:"Space Grotesk",sans-serif;text-wrap:balance}
 .hidden{display:none!important}
-
-.topbar{
-  height:74px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 clamp(18px,6vw,92px);
-  background:var(--surface);
-  border-bottom:1px solid var(--line);
-  position:sticky;
-  top:0;
-  z-index:20
-}
-.top-brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font:700 21px "Space Grotesk",sans-serif;
-  letter-spacing:-.04em;
-  color:var(--green)
-}
-.top-mark,.side-mark{
-  display:grid;
-  place-items:center;
-  color:oklch(98% .01 163);
-  background:var(--green);
-  border-radius:11px;
-  font-weight:700;
-  box-shadow:0 6px 14px oklch(67% .16 163/.24)
-}
+.topbar{height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,6vw,92px);background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.top-brand{display:flex;align-items:center;gap:10px;font:700 21px "Space Grotesk",sans-serif;letter-spacing:-.04em;color:var(--green)}
+.top-mark,.side-mark{display:grid;place-items:center;color:oklch(98% .01 163);background:var(--green);border-radius:11px;font-weight:700;box-shadow:0 6px 14px oklch(67% .16 163/.24)}
 .top-mark{width:34px;height:34px;font-size:18px}
 .top-nav{display:flex;align-items:center;gap:27px}
 .top-nav a{color:var(--green-dark);font-weight:600;font-size:14px}
 .top-nav a:hover{color:var(--purple)}
-.language{
-  border:0;
-  background:oklch(96% .01 250);
-  color:var(--ink);
-  border-radius:8px;
-  padding:8px 13px;
-  font-weight:600;
-  font-size:13px
-}
+.language{border:0;background:oklch(96% .01 250);color:var(--ink);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px}
 .top-user{display:flex;align-items:center;gap:10px}
 .top-user-copy{text-align:right;font-size:12px;line-height:1.2}
 .top-user-copy b{display:block}
 .top-user-copy span{color:var(--purple);font-weight:700}
-.top-avatar{
-  width:34px;height:34px;
-  border-radius:50%;
-  display:grid;
-  place-items:center;
-  color:oklch(98% .01 294);
-  background:oklch(63% .22 274);
-  font-weight:700
-}
+.top-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:oklch(98% .01 294);background:oklch(63% .22 274);font-weight:700}
 .app{display:grid;grid-template-columns:218px minmax(0,1fr);min-height:calc(100vh - 74px)}
-.sidebar{
-  background:var(--surface);
-  border-right:1px solid var(--line);
-  display:flex;
-  flex-direction:column;
-  min-height:calc(100vh - 74px);
-  position:sticky;
-  top:74px;
-  height:calc(100vh - 74px)
-}
-.side-brand{
-  padding:23px 20px 18px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  border-bottom:1px solid var(--line)
-}
+.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:calc(100vh - 74px);position:sticky;top:74px;height:calc(100vh - 74px)}
+.side-brand{padding:23px 20px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
 .side-mark{width:37px;height:37px;font-size:18px}
 .side-brand-name{font:700 19px/1 "Space Grotesk",sans-serif;letter-spacing:-.04em;color:var(--green-dark)}
 .side-brand-sub{display:block;color:var(--green-dark);font-size:11px;font-weight:700;margin-top:5px}
-.nav-label{
-  color:oklch(70% .02 250);
-  font-size:11px;
-  text-transform:uppercase;
-  font-weight:700;
-  padding:18px 22px 8px;
-  letter-spacing:.08em
-}
+.nav-label{color:oklch(70% .02 250);font-size:11px;text-transform:uppercase;font-weight:700;padding:18px 22px 8px;letter-spacing:.08em}
 .nav{display:grid;gap:3px;padding:0 10px}
-.nav button{
-  border:0;
-  background:transparent;
-  color:var(--ink);
-  text-align:left;
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:11px 13px;
-  border-radius:10px;
-  font-weight:500;
-  transition:transform .2s var(--ease),background .2s var(--ease),color .2s var(--ease)
-}
+.nav button{border:0;background:transparent;color:var(--ink);text-align:left;display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;font-weight:500;transition:transform .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}
 .nav button:hover{background:var(--purple-soft);color:var(--purple);transform:translateX(2px)}
 .nav button.active{background:var(--purple-soft);color:var(--purple);font-weight:700}
 .nav-icon{width:18px;text-align:center;font-size:16px}
 .side-footer{margin-top:auto;padding:16px 10px 17px;border-top:1px solid var(--line)}
-.role-switch{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:4px;
-  padding:3px;
-  border-radius:11px;
-  background:var(--purple-soft);
-  margin-bottom:12px
-}
-.role-switch button{
-  border:0;
-  border-radius:8px;
-  padding:8px 4px;
-  background:transparent;
-  color:var(--muted);
-  font-weight:700;
-  font-size:12px
-}
-.role-switch button.active{
-  background:var(--surface);
-  color:var(--green-dark);
-  box-shadow:0 2px 7px oklch(25% .03 250/.08)
-}
-.back{
-  display:block;
-  color:var(--green-dark);
-  background:oklch(98% .012 163);
-  padding:10px 12px;
-  border-radius:10px;
-  font-size:13px;
-  font-weight:600;
-  margin-bottom:12px
-}
+.role-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border-radius:11px;background:var(--purple-soft);margin-bottom:12px}
+.role-switch button{border:0;border-radius:8px;padding:8px 4px;background:transparent;color:var(--muted);font-weight:700;font-size:12px}
+.role-switch button.active{background:var(--surface);color:var(--green-dark);box-shadow:0 2px 7px oklch(25% .03 250/.08)}
+.back{display:block;color:var(--green-dark);background:oklch(98% .012 163);padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:12px}
 .back:hover{background:var(--green-soft)}
-.mini-profile{
-  display:flex;
-  align-items:center;
-  gap:9px;
-  border:1px solid var(--line);
-  border-radius:11px;
-  padding:9px
-}
-.mini-avatar{
-  width:29px;height:29px;
-  border-radius:9px;
-  display:grid;
-  place-items:center;
-  color:oklch(98% .01 163);
-  background:var(--green);
-  font-size:12px;
-  font-weight:700
-}
+.mini-profile{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:11px;padding:9px}
+.mini-avatar{width:29px;height:29px;border-radius:9px;display:grid;place-items:center;color:oklch(98% .01 163);background:var(--green);font-size:12px;font-weight:700}
 .mini-copy{min-width:0;flex:1}
 .mini-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .mini-copy span{color:var(--purple);font-size:11px}
-.logout{
-  width:27px;height:27px;
-  border:0;
-  background:transparent;
-  color:var(--muted);
-  border-radius:7px
-}
+.logout{width:27px;height:27px;border:0;background:transparent;color:var(--muted);border-radius:7px}
 .logout:hover{background:oklch(96% .025 25);color:var(--danger)}
-
 .main{min-width:0;max-width:1325px;width:100%;margin:0 auto;padding:34px clamp(24px,8vw,120px) 60px}
 .page-head{margin-bottom:27px}
 .page-head h1{font-size:clamp(28px,3.1vw,39px);letter-spacing:-.06em;line-height:1.1}
 .page-head p{color:var(--muted);margin-top:3px}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:32px}
-.stat{
-  background:var(--surface);
-  border:1px solid var(--line);
-  border-radius:15px;
-  padding:20px 21px 19px;
-  box-shadow:0 1px 2px oklch(25% .03 250/.02)
-}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px 21px 19px;box-shadow:0 1px 2px oklch(25% .03 250/.02)}
 .stat-head{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
-.stat-icon{
-  width:33px;height:33px;
-  border-radius:10px;
-  display:grid;
-  place-items:center;
-  background:var(--purple-soft);
-  color:var(--purple);
-  font-weight:700
-}
+.stat-icon{width:33px;height:33px;border-radius:10px;display:grid;place-items:center;background:var(--purple-soft);color:var(--purple);font-weight:700}
 .stat:nth-child(2) .stat-icon,.stat:nth-child(3) .stat-icon{background:var(--green-soft);color:var(--green-dark)}
 .stat-value{font:700 30px/1 "Space Grotesk",sans-serif;letter-spacing:-.06em;margin-top:15px;font-variant-numeric:tabular-nums}
 .stat:nth-child(4) .stat-value{color:var(--green-dark)}
 .lower{display:grid;grid-template-columns:335px minmax(0,1fr);gap:18px}
-.panel{
-  background:var(--surface);
-  border:1px solid var(--line);
-  border-radius:15px;
-  padding:20px 20px 18px;
-  min-width:0
-}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px 20px 18px;min-width:0}
 .panel-title{display:flex;align-items:center;gap:7px;font-size:15px;letter-spacing:-.03em;margin-bottom:15px}
 .panel-title .accent{color:var(--green-dark)}
 .quick{display:grid;gap:8px}
-.quick button,.quick a{
-  border:0;
-  background:oklch(98% .006 250);
-  border-radius:10px;
-  padding:10px;
-  display:flex;
-  align-items:center;
-  gap:11px;
-  text-align:left;
-  color:var(--ink);
-  transition:transform .2s var(--ease),background .2s var(--ease)
-}
+.quick button,.quick a{border:0;background:oklch(98% .006 250);border-radius:10px;padding:10px;display:flex;align-items:center;gap:11px;text-align:left;color:var(--ink);transition:transform .2s var(--ease),background .2s var(--ease)}
 .quick button:hover,.quick a:hover{transform:translateX(2px);background:var(--green-soft)}
-.quick-icon{
-  width:31px;height:31px;
-  border-radius:9px;
-  background:var(--green);
-  color:oklch(98% .01 163);
-  display:grid;
-  place-items:center;
-  font-weight:700;
-  flex:none
-}
+.quick-icon{width:31px;height:31px;border-radius:9px;background:var(--green);color:oklch(98% .01 163);display:grid;place-items:center;font-weight:700;flex:none}
 .quick a .quick-icon{background:oklch(93% .015 250);color:var(--muted)}
 .quick span{font-size:13px;font-weight:500}
-.activity{display:grid}
-.activity-row{display:flex;align-items:center;gap:12px;padding:8px;min-height:54px}
-.activity-icon{
-  width:33px;height:33px;
-  border-radius:10px;
-  display:grid;
-  place-items:center;
-  flex:none;
-  background:var(--green-soft);
-  color:var(--green-dark);
-  font-weight:700
-}
-.activity-row:nth-child(2) .activity-icon{background:oklch(96% .025 230);color:oklch(55% .18 250)}
-.activity-row:nth-child(3) .activity-icon{background:var(--purple-soft);color:var(--purple)}
-.activity-row:nth-child(4) .activity-icon{background:oklch(97% .035 75);color:oklch(63% .15 75)}
-.activity-copy{min-width:0}
-.activity-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-.activity-copy span{display:block;color:oklch(72% .02 250);font-size:11px}
-
 .subpage-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:25px}
 .subpage-head h1{font-size:34px;letter-spacing:-.06em}
 .subpage-head p{color:var(--muted);margin-top:5px}
-.btn{
-  min-height:41px;
-  border:0;
-  border-radius:10px;
-  padding:0 15px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:7px;
-  font-weight:700;
-  font-size:13px;
-  transition:transform .2s var(--ease),background .2s var(--ease)
-}
+.btn{min-height:41px;border:0;border-radius:10px;padding:0 15px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:13px;transition:transform .2s var(--ease),background .2s var(--ease)}
 .btn:hover{transform:translateY(-1px)}
 .btn-primary{color:oklch(98% .01 163);background:var(--green-dark)}
 .btn-primary:hover{background:oklch(50% .15 163)}
 .form-panel{margin-bottom:18px}
 .form-grid,.upload-grid{display:grid;grid-template-columns:1fr 1fr 125px auto;gap:9px;align-items:end}
 .field label{display:block;color:var(--muted);font-size:11px;font-weight:700;margin-bottom:5px}
-.input{
-  width:100%;height:41px;
-  border:1px solid var(--line);
-  border-radius:9px;
-  padding:0 11px;
-  color:var(--ink);
-  background:var(--surface)
-}
+.input{width:100%;height:41px;border:1px solid var(--line);border-radius:9px;padding:0 11px;color:var(--ink);background:var(--surface)}
 .input:focus{border-color:var(--green)}
 .class-grid,.material-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:13px}
 .class-card,.material-card{border:1px solid var(--line);border-radius:13px;padding:17px;background:var(--surface)}
@@ -326,163 +98,47 @@ h1,h2,h3{font-family:"Space Grotesk",sans-serif;text-wrap:balance}
 .pill{padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;height:max-content}
 .pill.on{background:var(--green-soft);color:var(--green-dark)}
 .pill.off{background:oklch(96% .01 250);color:var(--muted)}
-.class-foot{
-  border-top:1px solid var(--line);
-  margin-top:17px;
-  padding-top:12px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  color:var(--muted);
-  font-size:12px
-}
+.class-foot{border-top:1px solid var(--line);margin-top:17px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
 .text-btn{border:0;background:transparent;color:var(--green-dark);font-weight:700;font-size:11px;padding:4px}
 .text-btn:hover{text-decoration:underline}
 .danger{color:var(--danger)}
-.exam{
-  background:var(--green);
-  color:oklch(98% .01 163);
-  border-radius:15px;
-  padding:27px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:20px;
-  flex-wrap:wrap
-}
+.exam{background:var(--green);color:oklch(98% .01 163);border-radius:15px;padding:27px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
 .exam h2{font-size:24px;margin-bottom:6px}
 .exam p{max-width:64ch;color:oklch(94% .035 163);font-size:13px}
 .exam .btn{background:var(--surface);color:var(--green-dark)}
-.analytics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
-.chart{height:260px;display:flex;gap:14px;align-items:end;padding:18px 0 0}
-.bar-item{flex:1;height:225px;display:grid;grid-template-rows:20px 1fr 20px;justify-items:center;min-width:35px}
-.bar-track{
-  width:min(46px,100%);
-  height:185px;
-  background:var(--green-soft);
-  border-radius:9px 9px 4px 4px;
-  align-self:end;
-  display:flex;
-  align-items:end;
-  overflow:hidden
-}
-.bar-fill{
-  width:100%;
-  background:var(--green);
-  min-height:4px;
-  border-radius:9px 9px 4px 4px;
-  transform-origin:bottom;
-  animation:rise .55s var(--ease) both
-}
-@keyframes rise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-.bar-value{font-weight:700;color:var(--green-dark);font-size:12px}
-.bar-label{color:var(--muted);font-size:10px;max-width:80px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.notice{
-  color:var(--green-dark);
-  background:var(--green-soft);
-  padding:11px 13px;
-  border-radius:10px;
-  font-size:12px;
-  margin-bottom:17px;
-  border-left:3px solid var(--green)
-}
-.file-input{
-  height:41px;
-  border:1px dashed oklch(76% .1 163);
-  border-radius:9px;
-  padding:0 8px;
-  display:flex;
-  align-items:center;
-  overflow:hidden;
-  color:var(--muted)
-}
+.notice{color:var(--green-dark);background:var(--green-soft);padding:11px 13px;border-radius:10px;font-size:12px;margin-bottom:17px;border-left:3px solid var(--green)}
+.file-input{height:41px;border:1px dashed oklch(76% .1 163);border-radius:9px;padding:0 8px;display:flex;align-items:center;overflow:hidden;color:var(--muted)}
 .file-input input{width:100%;font-size:11px}
 .material-card{display:flex;align-items:center;gap:11px}
-.file-icon{
-  width:35px;height:35px;
-  border-radius:9px;
-  display:grid;
-  place-items:center;
-  background:var(--green-soft);
-  color:var(--green-dark);
-  font-weight:700;
-  flex:none
-}
+.file-icon{width:35px;height:35px;border-radius:9px;display:grid;place-items:center;background:var(--green-soft);color:var(--green-dark);font-weight:700;flex:none}
 .material-copy{min-width:0;flex:1}
 .material-copy b,.material-copy span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .material-copy b{font-size:12px}
 .material-copy span{color:var(--muted);font-size:11px;margin-top:2px}
 .download{border:0;background:transparent;color:var(--green-dark);font-weight:700}
-.empty{
-  border:1px dashed var(--line);
-  border-radius:11px;
-  padding:28px 16px;
-  text-align:center;
-  color:var(--muted);
-  font-size:13px;
-  grid-column:1/-1
-}
+.empty{border:1px dashed var(--line);border-radius:11px;padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;grid-column:1/-1}
 .empty b{color:var(--ink);display:block;margin-bottom:3px}
-.toast{
-  position:fixed;
-  right:20px;
-  bottom:20px;
-  background:var(--ink);
-  color:oklch(98% .01 250);
-  padding:11px 14px;
-  border-radius:9px;
-  font-size:12px;
-  transform:translateY(15px);
-  opacity:0;
-  pointer-events:none;
-  transition:transform .25s var(--ease),opacity .25s var(--ease);
-  z-index:40
-}
+.toast{position:fixed;right:20px;bottom:20px;background:var(--ink);color:oklch(98% .01 250);padding:11px 14px;border-radius:9px;font-size:12px;transform:translateY(15px);opacity:0;pointer-events:none;transition:transform .25s var(--ease),opacity .25s var(--ease);z-index:40}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.error{background:var(--danger)}
 .mobile-menu{display:none}
-@media(max-width:1050px){
-  .top-nav{gap:13px}
-  .top-nav a:nth-child(-n+3){display:none}
-  .main{padding-inline:32px}
-  .lower{grid-template-columns:1fr}
-}
 @media(max-width:760px){
   .topbar{height:62px;padding:0 15px}
   .top-nav,.top-user-copy,.language{display:none}
   .top-user{margin-left:auto}
   .mobile-menu{display:inline-flex}
   .app{grid-template-columns:1fr}
-  .sidebar{
-    position:fixed;
-    top:62px;
-    left:0;
-    z-index:18;
-    width:230px;
-    height:calc(100vh - 62px);
-    transform:translateX(-105%);
-    transition:transform .3s var(--ease);
-    box-shadow:15px 0 35px oklch(25% .03 250/.14)
-  }
+  .sidebar{position:fixed;top:62px;left:0;z-index:18;width:230px;height:calc(100vh - 62px);transform:translateX(-105%);transition:transform .3s var(--ease);box-shadow:15px 0 35px oklch(25% .03 250/.14)}
   .sidebar.open{transform:translateX(0)}
-  .mobile-overlay{
-    position:fixed;
-    inset:62px 0 0;
-    background:oklch(20% .025 250/.34);
-    z-index:17
-  }
+  .mobile-overlay{position:fixed;inset:62px 0 0;background:oklch(20% .025 250/.34);z-index:17}
   .main{padding:27px 16px 44px}
   .stats{grid-template-columns:repeat(2,1fr);gap:9px}
   .stat{padding:15px}
   .stat-value{font-size:26px}
-  .subpage-head{display:block}
   .form-grid,.upload-grid{grid-template-columns:1fr}
   .form-grid .btn,.upload-grid .btn{width:100%}
-  .analytics-grid{grid-template-columns:1fr}
   .exam{display:block;padding:21px}
   .exam .btn{width:100%;margin-top:17px}
-  .chart{gap:7px}
-  .bar-label{max-width:53px}
 }
 </style>
 </head>
@@ -566,617 +222,214 @@ h1,h2,h3{font-family:"Space Grotesk",sans-serif;text-wrap:balance}
   <main id="main" class="main"></main>
 </div>
 </div>
-
 <div id="toast" class="toast" role="status"></div>
 
-<script type="module">
-// ===== KONFIGURÁCIÓ – ELLENŐRIZD EZEKET! =====
+  <script type="module">
+// === KONFIGURÁCIÓ ===
 const SUPABASE_URL = 'https://rvgzvseejzbzmcqidnzc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2Z3p2c2Vlanpiem1jcWlkbnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODE3NjQsImV4cCI6MjA5NDE1Nzc2NH0.4pSZIbNVMmqF63xMBcZolm0wzgdZvMp9_5jLqOjQzDQ';
 
-// Segédfüggvények
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const initials = (v) => (String(v||'T').trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'T').toUpperCase();
+// === Segédfüggvények ===
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = (v) => String(v??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const initials = (v) => ((v||'T').trim().split(/\s+/).map(x=>x[0]).join('').slice(0,2)||'T').toUpperCase();
 
-// Értesítések
-let toastTimer;
-function toast(msg, error = false) {
-  const x = $('#toast');
-  x.textContent = msg;
-  x.className = 'toast show' + (error ? ' error' : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => x.className = 'toast', 4000);
+let toastTimer, supabase, user=null, profile=null;
+function toast(msg, err=false) {
+  const x=$('#toast'); x.textContent=msg;
+  x.className='toast show'+(err?' error':'');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>x.className='toast',4000);
 }
 
-// Supabase betöltése
-let supabase, user = null, profile = null;
+// === Supabase kapcsolat ===
 try {
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  console.log('✅ Supabase csatlakozás inicializálva');
-} catch (e) {
-  console.error('❌ Supabase betöltési hiba:', e);
-  $('#authLoading').innerHTML = `
-    <div style="color:var(--danger);padding:2rem;text-align:center">
-      <div style="font-size:2rem">❌</div>
-      <h3 style="margin:1rem 0">Nem sikerült betölteni az adatbázis-kapcsolatot</h3>
-      <p>Ellenőrizd a hálózatot és próbáld újra.</p>
-      <button class="btn btn-primary" onclick="location.reload()" style="margin-top:1rem">Újratöltés</button>
-    </div>`;
+  const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+} catch(e) {
+  $('#authLoading').innerHTML='<div style="color:var(--danger);padding:2rem;text-align:center"><h3>Adatbázis hiba</h3><p>Próbáld újra!</p><button class="btn btn-primary" onclick="location.reload()">Újratöltés</button></div>';
   throw e;
 }
 
-// Adatlekérdezések – robusztus hibakezeléssel
+// === Adatbetöltő függvények ===
 async function loadProfile() {
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-    
-    if (error) {
-      console.warn('Profil lekérdezés hiba (tábla létezik?):', error);
-      return { role: 'teacher', status: 'teacher', plan: 'Pro' };
-    }
-    return data || { role: 'teacher', status: 'teacher', plan: 'Free' };
-  } catch (e) {
-    console.warn('Profil betöltés sikertelen:', e);
-    return { role: 'teacher', status: 'teacher', plan: 'Free' };
-  }
+    const {data}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    return data||{role:'teacher',plan:'Free'};
+  } catch { return {role:'teacher',plan:'Free'}; }
 }
-
 function isTeacher() {
-  const role = String(profile?.status || profile?.role || '').toLowerCase();
-  return ['teacher', 'tanár', 'admin'].includes(role);
+  return ['teacher','tanár','admin'].includes(String(profile?.role||profile?.status||'').toLowerCase());
 }
-
 async function getClasses() {
   try {
-    const { data, error } = await supabase
-      .from('teacher_classes')
-      .select('id,name,subject,students,active,created_at')
-      .eq('teacher_id', user.id)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
-  } catch (e) {
-    console.warn('teacher_classes tábla nem elérhető:', e.message);
-    return [];
-  }
+    const {data}=await supabase.from('teacher_classes').select('*').eq('teacher_id',user.id).order('created_at',{ascending:false});
+    return data||[];
+  } catch { return []; }
 }
-
 async function getNotes() {
   try {
-    const { data, error } = await supabase
-      .from('teacher_notes')
-      .select('id,title,subject,original_name,storage_path,created_at')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
-  } catch (e) {
-    console.warn('teacher_notes tábla nem elérhető:', e.message);
-    return [];
-  }
+    const {data}=await supabase.from('teacher_notes').select('*').eq('owner_id',user.id).order('created_at',{ascending:false});
+    return data||[];
+  } catch { return []; }
 }
 
-async function optional(table, field = 'teacher_id') {
-  try {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq(field, user.id)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
-  } catch (e) {
-    console.warn(`${table} tábla nem elérhető:`, e.message);
-    return [];
-  }
-}
-
-// Segéd sablon függvények
-function stat(icon, label, value) {
-  return `<div class="stat">
-    <div class="stat-head"><span class="stat-icon">${icon}</span>${esc(label)}</div>
-    <div class="stat-value">${esc(value)}</div>
-  </div>`;
-}
-
-function loading() {
-  $('#main').innerHTML = `
-    <div class="empty">
-      <b>Adatok betöltése…</b>
-      <span>Kapcsolódás a Supabase adatbázishoz.</span>
-    </div>`;
-}
-
+// === Oldalváltás ===
 function setActive() {
-  const current = location.hash.slice(1) || 'dashboard';
-  $$('.nav button').forEach(b => 
-    b.classList.toggle('active', b.dataset.section === current)
-  );
+  const curr=location.hash.slice(1)||'dashboard';
+  $$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.section===curr));
 }
-
 async function go(section) {
-  const ok = ['dashboard','classes','exams','analytics','materials'];
-  section = ok.includes(section) ? section : 'dashboard';
+  const ok=['dashboard','classes','exams','analytics','materials'];
+  section=ok.includes(section)?section:'dashboard';
   history.replaceState(null,'','#'+section);
   setActive();
-  loading();
+  $('#main').innerHTML='<div class="empty"><b>Betöltés…</b><span>Kapcsolódás az adatbázishoz</span></div>';
+  
   try {
-    if(section==='dashboard') return await dashboard();
-    if(section==='classes') return await classPage();
-    if(section==='exams') return exams();
-    if(section==='analytics') return await analytics();
-    return await materials();
+    if(section==='dashboard') return showDashboard();
+    if(section==='classes') return showClasses();
+    if(section==='exams') return showExams();
+    if(section==='analytics') return showAnalytics();
+    return showMaterials();
   } catch(e) {
-    $('#main').innerHTML = `<div class="empty"><b>Nem sikerült betölteni</b><span>${esc(e.message)}</span><br><br><button class="btn btn-primary" onclick="location.reload()">Újratöltés</button></div>`;
-    console.error(e);
+    $('#main').innerHTML='<div class="empty"><b>Hiba</b><span>'+esc(e.message)+'</span><br><button class="btn btn-primary" onclick="location.reload()">Újratöltés</button></div>';
   }
 }
 
-function bindGo() {
-  $$('[data-go]').forEach(x => x.onclick = e => {
-    e.preventDefault();
-    go(x.dataset.go);
-  });
-}
-
-// Oldal tartalmak
-async function dashboard() {
-  const [cs, ex, acts] = await Promise.all([
-    getClasses(),
-    optional('teacher_exams'),
-    optional('teacher_activity')
-  ]);
+// === Oldalak ===
+async function showDashboard() {
+  const cs=await getClasses();
+  const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);
+  const name=profile.full_name||profile.username||user.email?.split('@')[0]||'Tanár';
   
-  const total = cs.reduce((a, c) => a + (Number(c.students) || 0), 0);
-  const name = profile.full_name || profile.fullName || profile.username || user.email?.split('@')[0] || 'Tanár';
-  const act = acts.slice(0, 4);
-  
-  $('#main').innerHTML = `
-    <div class="page-head">
-      <h1>Jó napot, ${esc(name)}! 👋</h1>
-      <p>${cs.filter(c => c.active).length} aktív osztály · ${ex.length} vizsga · ${total} diák</p>
-    </div>
-    
+  $('#main').innerHTML=`
+    <div class="page-head"><h1>Jó napot, ${esc(name)}! 👋</h1><p>${cs.length} osztály · ${total} diák</p></div>
     <div class="stats">
-      ${stat('♣', 'Osztályok', cs.length)}
-      ${stat('♟', 'Diákok', total)}
-      ${stat('▤', 'Feladatsor', ex.length)}
-      ${stat('⌁', 'Aktivitás', act.length ? Math.min(100, act.length * 24) + '%' : (cs.length ? '12%' : '0%'))}
+      <div class="stat"><div class="stat-head"><span class="stat-icon">♣</span>Osztályok</div><div class="stat-value">${cs.length}</div></div>
+      <div class="stat"><div class="stat-head"><span class="stat-icon">♟</span>Diákok</div><div class="stat-value">${total}</div></div>
+      <div class="stat"><div class="stat-head"><span class="stat-icon">▤</span>Vizsgák</div><div class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-head"><span class="stat-icon">⌁</span>Átlag</div><div class="stat-value">${cs.length?Math.round(total/cs.length):0}</div></div>
     </div>
-    
     <div class="lower">
-      <section class="panel">
-        <h2 class="panel-title"><span class="accent">ϟ</span>Gyors műveletek</h2>
+      <section class="panel"><h2 class="panel-title"><span class="accent">ϟ</span>Gyors műveletek</h2>
         <div class="quick">
-          <button data-go="materials"><span class="quick-icon">▮</span><span>Tananyag feltöltése</span></button>
-          <button data-go="classes"><span class="quick-icon">♣</span><span>Osztályok kezelése</span></button>
-          <button data-go="exams"><span class="quick-icon">▤</span><span>Online Vizsga</span></button>
-          <a href="index.html"><span class="quick-icon">⌂</span><span>Vissza a főoldalra</span></a>
-        </div>
-      </section>
-      
-      <section class="panel">
-        <h2 class="panel-title"><span class="accent">⟲</span>Legutóbbi tevékenység</h2>
-        <div class="activity">
-          ${act.length ? 
-            act.map((a, i) => `
-              <div class="activity-row">
-                <span class="activity-icon">${i===0?'▤':i===1?'♟':i===2?'⌁':'!'}</span>
-                <div class="activity-copy">
-                  <b>${esc(a.title || a.message || a.name || 'Tevékenység')}</b>
-                  <span>${esc(a.time_label || 'Nemrég')}</span>
-                </div>
-              </div>`).join('') :
-            cs.length ?
-              cs.slice(0,4).map(c => `
-                <div class="activity-row">
-                  <span class="activity-icon">♣</span>
-                  <div class="activity-copy">
-                    <b>${esc(c.name)}</b>
-                    <span>${esc(c.subject)} · ${Number(c.students) || 0} diák</span>
-                  </div>
-                </div>`).join('') :
-              `<div class="empty" style="border:none;padding:0">
-                <b>Még nincs aktivitás</b>
-                <span>Hozz létre osztályt a kezdéshez.</span>
-              </div>`
-          }
+          <button data-go="materials"><span class="quick-icon">▮</span><span>Tananyagok</span></button>
+          <button data-go="classes"><span class="quick-icon">♣</span><span>Osztályok</span></button>
+          <button data-go="exams"><span class="quick-icon">▤</span><span>Vizsgák</span></button>
         </div>
       </section>
     </div>
   `;
-  bindGo();
+  $$('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
 }
 
-async function classPage() {
-  const cs = await getClasses();
-  
-  $('#main').innerHTML = `
-    <div class="subpage-head">
-      <div>
-        <h1>Osztályaim</h1>
-        <p>Kezeld az osztályaidat és a hozzájuk tartozó létszámot.</p>
-      </div>
-    </div>
-    
-    <section class="panel form-panel">
-      <h2 class="panel-title"><span class="accent">+</span>Új osztály</h2>
+async function showClasses() {
+  const cs=await getClasses();
+  $('#main').innerHTML=`
+    <div class="subpage-head"><div><h1>Osztályaim</h1><p>Új osztály létrehozása és kezelése</p></div></div>
+    <section class="panel form-panel"><h2 class="panel-title"><span class="accent">+</span>Új osztály</h2>
       <form id="classForm" class="form-grid">
-        <div class="field">
-          <label>Osztály neve</label>
-          <input class="input" id="cName" required placeholder="pl. 9.B osztály">
-        </div>
-        <div class="field">
-          <label>Tantárgy</label>
-          <input class="input" id="cSubject" required placeholder="pl. Matematika">
-        </div>
-        <div class="field">
-          <label>Diáklétszám</label>
-          <input class="input" id="cStudents" type="number" min="0" value="0">
-        </div>
-        <button class="btn btn-primary" type="submit">Létrehozás</button>
+        <div class="field"><label>Név</label><input class="input" id="cName" required></div>
+        <div class="field"><label>Tantárgy</label><input class="input" id="cSubject" required></div>
+        <div class="field"><label>Létszám</label><input class="input" id="cStudents" type="number" value="0"></div>
+        <button class="btn btn-primary">Létrehozás</button>
       </form>
     </section>
-    
     <section class="class-grid">
-      ${cs.length ? cs.map(c => `
-        <article class="class-card">
-          <div class="class-top">
-            <div>
-              <h3>${esc(c.name)}</h3>
-              <div class="class-sub">${esc(c.subject)}</div>
-            </div>
-            <span class="pill ${c.active ? 'on' : 'off'}">${c.active ? 'Aktív' : 'Archivált'}</span>
-          </div>
-          <div class="class-foot">
-            <span>♣ ${Number(c.students) || 0} diák</span>
-            <span>
-              <button class="text-btn" data-toggle="${esc(c.id)}" data-active="${c.active}">
-                ${c.active ? 'Archiválás' : 'Aktiválás'}
-              </button>
-              <button class="text-btn danger" data-delete="${esc(c.id)}">Törlés</button>
-            </span>
-          </div>
-        </article>`).join('') :
-        `<div class="empty">
-          <b>Még nincs osztályod</b>
-          <span>A fenti űrlappal hozz létre egyet elsőként.</span>
-        </div>`
-      }
+      ${cs.length?cs.map(c=>`<article class="class-card"><h3>${esc(c.name)}</h3><p>${esc(c.subject)} · ${Number(c.students)||0} diák</p></article>`).join(''):
+      '<div class="empty"><b>Még nincs osztályod</b><span>Hozd létre a fenti űrlappal</span></div>'}
     </section>
   `;
-  
-  $('#classForm').onsubmit = async e => {
+  $('#classForm').onsubmit=async e=>{
     e.preventDefault();
     try {
-      const { error } = await supabase.from('teacher_classes').insert({
-        teacher_id: user.id,
-        name: $('#cName').value.trim(),
-        subject: $('#cSubject').value.trim(),
-        students: Number($('#cStudents').value) || 0,
-        active: true
+      await supabase.from('teacher_classes').insert({
+        teacher_id:user.id,name:$('#cName').value,subject:$('#cSubject').value,students:Number($('#cStudents').value)
       });
-      
-      if (error) throw error;
-      toast('✅ Osztály létrehozva!');
-      go('classes');
-    } catch (x) {
-      toast('Hiba: ' + x.message, true);
-    }
+      toast('✅ Létrehozva!'); go('classes');
+    } catch(x) { toast(x.message,true); }
   };
-  
-  $$('[data-toggle]').forEach(b => b.onclick = async () => {
-    try {
-      const { error } = await supabase
-        .from('teacher_classes')
-        .update({ active: b.dataset.active !== 'true' })
-        .eq('id', b.dataset.toggle)
-        .eq('teacher_id', user.id);
-      
-      if (error) throw error;
-      go('classes');
-    } catch (x) {
-      toast(x.message, true);
-    }
-  });
-  
-  $$('[data-delete]').forEach(b => b.onclick = async () => {
-    if (!confirm('Biztosan törlöd ezt az osztályt? Ez nem visszavonható!')) return;
-    try {
-      const { error } = await supabase
-        .from('teacher_classes')
-        .delete()
-        .eq('id', b.dataset.delete)
-        .eq('teacher_id', user.id);
-      
-      if (error) throw error;
-      toast('Osztály törölve');
-      go('classes');
-    } catch (x) {
-      toast(x.message, true);
-    }
-  });
 }
 
-function exams() {
-  $('#main').innerHTML = `
-    <div class="subpage-head">
-      <div>
-        <h1>Online Vizsgák</h1>
-        <p>Az AI vizsgaszimulátor és eredmények kezelése.</p>
-      </div>
-    </div>
-    
-    <section class="exam">
-      <div>
-        <h2>🤖 AI vizsgaszimulátor</h2>
-        <p>Adj meg témát, nehézséget és időtartamot — az AI azonnal összeállítja az időzített feladatsort. A diákok által beadott dolgozatok itt fognak megjelenni amint a funkció elkészül.</p>
-      </div>
-      <a class="btn" href="index.html#exam-simulator">Megnyitás →</a>
-    </section>
-    
-    <section class="panel" style="margin-top:18px">
-      <h2 class="panel-title"><span class="accent">ℹ</span>Fejlesztési állapot</h2>
-      <div class="notice">
-        <strong>Hiányzó adatbázis-tábla:</strong> <code>teacher_exams</code><br>
-        Hozd létre Supabase-ben ezzel az SQL-lel:
-      </div>
-      <pre style="background:var(--canvas);padding:12px;border-radius:8px;font-size:11px;overflow-x:auto">
-create table teacher_exams (
-  id uuid primary key default gen_random_uuid(),
-  teacher_id uuid references auth.users(id) not null,
-  title text not null,
-  subject text,
-  status text default 'active',
-  created_at timestamp default now()
-);
-
-alter table teacher_exams enable row level security;
-create policy "Tanárok saját vizsgáihoz férnek hozzá" 
-  on teacher_exams for all using (auth.uid() = teacher_id);
-      </pre>
-    </section>
+function showExams() {
+  $('#main').innerHTML=`
+    <div class="subpage-head"><div><h1>Online Vizsgák</h1><p>AI vizsgaszimulátor</p></div></div>
+    <section class="exam"><div><h2>🤖 Fejlesztés alatt</h2><p>A funkció hamarosan elérhető!</p></div></section>
   `;
 }
 
-async function analytics() {
-  const cs = await getClasses();
-  const total = cs.reduce((a, c) => a + (Number(c.students) || 0), 0);
-  const max = Math.max(...cs.map(c => Number(c.students) || 0), 1);
-  const avg = cs.length ? Math.round(total / cs.length) : 0;
-  
-  $('#main').innerHTML = `
-    <div class="subpage-head">
-      <div>
-        <h1>Analitika</h1>
-        <p>Valós idejű statisztikák az osztályokról és a tanulói aktivitásról.</p>
-      </div>
-    </div>
-    
+async function showAnalytics() {
+  const cs=await getClasses();
+  const total=cs.reduce((a,c)=>a+(Number(c.students)||0),0);
+  $('#main').innerHTML=`
+    <div class="subpage-head"><div><h1>Analitika</h1><p>Statisztikák</p></div></div>
     <div class="analytics-grid">
-      ${stat('♣', 'Összes diák', total)}
-      ${stat('▤', 'Osztályok száma', cs.length)}
-      ${stat('⌁', 'Átlag létszám', avg + ' fő')}
+      <div class="stat"><div class="stat-head">Összes diák</div><div class="stat-value">${total}</div></div>
+      <div class="stat"><div class="stat-head">Osztályok</div><div class="stat-value">${cs.length}</div></div>
+      <div class="stat"><div class="stat-head">Átlag létszám</div><div class="stat-value">${cs.length?Math.round(total/cs.length):0}</div></div>
     </div>
-    
-    <section class="panel">
-      <h2 class="panel-title"><span class="accent">⌁</span>Osztályonkénti létszám</h2>
-      ${cs.length ? `
-        <div class="chart">
-          ${cs.map(c => {
-            const pct = Math.max(5, Math.round((Number(c.students) || 0) / max * 100));
-            return `
-              <div class="bar-item">
-                <span class="bar-value">${Number(c.students) || 0}</span>
-                <div class="bar-track">
-                  <div class="bar-fill" style="height:${pct}%"></div>
-                </div>
-                <span class="bar-label" title="${esc(c.name)}">${esc(c.name)}</span>
-              </div>`;
-          }).join('')}
-        </div>` : `
-        <div class="empty">
-          <b>Nincs megjeleníthető adat</b>
-          <span>Hozz létre osztályokat az Osztályaim menüpontban.</span>
-        </div>`
-      }
-    </section>
   `;
 }
 
-async function materials() {
-  const ns = await getNotes();
-  
-  $('#main').innerHTML = `
-    <div class="subpage-head">
-      <div>
-        <h1>Tananyagok</h1>
-        <p>Feltöltött jegyzetek, dokumentumok és segédanyagok kezelése.</p>
-      </div>
-    </div>
-    
-    <div class="notice">
-      ⚠️ <strong>Első lépés:</strong> Hozd létre a <code>teacher-notes</code> nevű tárolót a Supabase → Storage felületen (Private beállítással)!
-    </div>
-    
-    <section class="panel">
-      <h2 class="panel-title"><span class="accent">↑</span>Tananyag feltöltése</h2>
+async function showMaterials() {
+  const ns=await getNotes();
+  $('#main').innerHTML=`
+    <div class="subpage-head"><div><h1>Tananyagok</h1><p>Feltöltött dokumentumok</p></div></div>
+    <section class="panel form-panel"><h2 class="panel-title"><span class="accent">↑</span>Feltöltés</h2>
       <form id="uploadForm" class="upload-grid">
-        <div class="field">
-          <label>Cím</label>
-          <input class="input" id="nTitle" placeholder="pl. Algebra alapok – 9. osztály">
-        </div>
-        <div class="field">
-          <label>Tantárgy</label>
-          <input class="input" id="nSubject" placeholder="pl. Matematika">
-        </div>
-        <div class="field">
-          <label>Fájl (max. 15 MB)</label>
-          <div class="file-input">
-            <input id="nFile" type="file" accept=".pdf,.docx,.pptx,.txt,.md" required>
-          </div>
-        </div>
-        <button class="btn btn-primary" type="submit">Feltöltés</button>
+        <div class="field"><label>Cím</label><input class="input" id="nTitle"></div>
+        <div class="field"><label>Tantárgy</label><input class="input" id="nSubject"></div>
+        <div class="field"><label>Fájl</label><div class="file-input"><input id="nFile" type="file" required></div></div>
+        <button class="btn btn-primary">Feltöltés</button>
       </form>
-      
-      <div style="margin-top:24px">
-        <h3 style="font-size:14px;color:var(--muted);margin-bottom:12px">Feltöltött anyagok</h3>
-        <div class="material-grid">
-          ${ns.length ? ns.map(n => `
-            <article class="material-card">
-              <span class="file-icon">📄</span>
-              <div class="material-copy">
-                <b>${esc(n.title || n.original_name)}</b>
-                <span>${esc(n.subject || 'Nincs megadva tantárgy')}</span>
-              </div>
-              ${n.storage_path ? `
-                <button class="download" data-path="${esc(n.storage_path)}">Letöltés</button>
-              ` : ''}
-            </article>`).join('') :
-            `<div class="empty">
-              <b>Még nincs feltöltött tananyagod</b>
-              <span>Tölts fel jegyzetet vagy dokumentumot a fenti űrlappal.</span>
-            </div>`
-          }
-        </div>
-      </div>
+    </section>
+    <section class="material-grid">
+      ${ns.length?ns.map(n=>`<article class="material-card"><span class="file-icon">📄</span><div><b>${esc(n.title)}</b><span>${esc(n.subject)}</span></div></article>`).join(''):
+      '<div class="empty"><b>Még nincs feltöltött anyag</b><span>Tölts fel egy fájlt!</span></div>'}
     </section>
   `;
-
-  $('#uploadForm').onsubmit = async e => {
+  $('#uploadForm').onsubmit=async e=>{
     e.preventDefault();
-    const title = $('#nTitle').value.trim() || $('#nFile').value.replace(/.*[\\/]/, '');
-    const subject = $('#nSubject').value.trim() || 'Egyéb';
-    const file = $('#nFile').files[0];
-
-    if (!file) return toast('Válassz ki egy fájlt!', true);
-    if (file.size > 15 * 1024 * 1024) return toast('A fájl maximum 15 MB lehet!', true);
-
+    const file=$('#nFile').files[0];
+    if(file.size>15*1024*1024) return toast('Max 15 MB!',true);
     try {
-      toast('Feltöltés folyik…');
-      const ext = file.name.split('.').pop();
-      const fname = `${Date.now()}-${Math.random().toString(36).slice(2,9)}.${ext}`;
-      const path = `${user.id}/${fname}`;
-
-      const { error: upErr } = await supabase.storage
-        .from('teacher-notes')
-        .upload(path, file, { cacheControl: '3600' });
-
-      if (upErr) {
-        if (upErr.message.includes('does not exist')) {
-          return toast('Hiba: a "teacher-notes" tároló nem létezik! Hozd létre a Supabase Storage felületén!', true);
-        }
-        throw upErr;
-      }
-
-      const { error: dbErr } = await supabase.from('teacher_notes').insert({
-        owner_id: user.id,
-        title,
-        subject,
-        original_name: file.name,
-        storage_path: path
+      toast('Feltöltés…');
+      const fname=`${Date.now()}.${file.name.split('.').pop()}`;
+      await supabase.storage.from('teacher-notes').upload(`${user.id}/${fname}`,file);
+      await supabase.from('teacher_notes').insert({
+        owner_id:user.id,title:$('#nTitle').value||file.name,
+        subject:$('#nSubject').value||'Egyéb',storage_path:`${user.id}/${fname}`
       });
-
-      if (dbErr) throw dbErr;
-
-      toast('✅ Feltöltve!');
-      $('#uploadForm').reset();
-      go('materials');
-    } catch (x) {
-      toast('Hiba: ' + x.message, true);
-    }
+      toast('✅ Feltöltve!'); go('materials');
+    } catch(x) { toast(x.message,true); }
   };
-
-  $$('.download').forEach(btn => btn.onclick = async () => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('teacher-notes')
-        .createSignedUrl(btn.dataset.path, 60);
-
-      if (error) throw error;
-      window.open(data.signedUrl, '_blank');
-    } catch (x) {
-      toast('Nem sikerült megnyitni: ' + x.message, true);
-    }
-  });
 }
 
-// ===== Hitelesítés és indítás =====
-window.addEventListener('hashchange', () => go(location.hash.slice(1)));
+// === Indítás ===
+$('#menuBtn').onclick=()=>{$('#sidebar').classList.toggle('open');$('#mobileOverlay').classList.toggle('hidden');};
+$('#mobileOverlay').onclick=()=>{$('#sidebar').classList.remove('open');$('#mobileOverlay').classList.add('hidden');};
+$('#logoutSide').onclick=async ()=>{await supabase.auth.signOut();location.href='/';};
+window.addEventListener('hashchange',()=>go(location.hash.slice(1)));
 
 async function init() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      window.location.href = '/login.html';
-      return;
-    }
-    
-    user = session.user;
-    profile = await loadProfile();
-    
-    if (!isTeacher()) {
-      $('#authLoading').innerHTML = `
-        <div style="color:var(--danger);padding:2rem;text-align:center">
-          <div style="font-size:2rem">🔒</div>
-          <h3 style="margin:1rem 0">Nincs tanári jogosultságod</h3>
-          <p>Ez a felület kizárólag tanárok számára elérhető.</p>
-          <a href="index.html" class="btn btn-primary" style="margin-top:1rem">Vissza a főoldalra</a>
-        </div>`;
-      return;
-    }
-
-    // Nézet frissítése
-    const name = profile.full_name || profile.fullName || profile.username || user.email?.split('@')[0] || 'Tanár';
-    const plan = profile.plan || 'Ingyenes';
-    const initial = initials(name);
-    
-    $('#topName').textContent = $('#miniName').textContent = name;
-    $('#topRole').textContent = $('#miniPlan').textContent = plan;
-    $('#topAvatar').textContent = $('#miniAvatar').textContent = initial;
-
-    // Menü és kijelentkezés
-    $('#menuBtn').onclick = () => {
-      $('#sidebar').classList.toggle('open');
-      $('#mobileOverlay').classList.toggle('hidden');
-    };
-    $('#mobileOverlay').onclick = () => {
-      $('#sidebar').classList.remove('open');
-      $('#mobileOverlay').classList.add('hidden');
-    };
-    $('#logoutSide').onclick = async () => {
-      await supabase.auth.signOut();
-      window.location.href = '/';
-    };
-    $$('.nav button').forEach(b => b.onclick = () => go(b.dataset.section));
-
-    // Készen állunk
-    $('#authLoading').classList.add('hidden');
-    $('#app').classList.remove('hidden');
-    setActive();
-    await go(location.hash.slice(1) || 'dashboard');
-
-  } catch (e) {
-    console.error('Betöltési hiba:', e);
-    $('#authLoading').innerHTML = `
-      <div style="color:var(--danger);padding:2rem;text-align:center">
-        <div style="font-size:2rem">⚠️</div>
-        <h3 style="margin:1rem 0">Kapcsolódási hiba</h3>
-        <p>${esc(e.message)}</p>
-        <button class="btn btn-primary" onclick="location.reload()" style="margin-top:1rem">Újratöltés</button>
-      </div>`;
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session) { location.href='/login.html'; return; }
+  user=session.user; profile=await loadProfile();
+  
+  if(!isTeacher()) {
+    $('#authLoading').innerHTML='<div style="color:var(--danger);padding:2rem;text-align:center"><h3>Nincs jogosultság</h3><p>Csak tanárok számára elérhető</p><a href="index.html" class="btn btn-primary">Vissza</a></div>';
+    return;
   }
+  
+  const name=profile.full_name||profile.username||user.email?.split('@')[0]||'Tanár';
+  $('#topName').textContent=$('#miniName').textContent=name;
+  $('#topRole').textContent=$('#miniPlan').textContent=profile.plan||'Free';
+  $('#topAvatar').textContent=$('#miniAvatar').textContent=initials(name);
+  
+  $('#authLoading').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  await go(location.hash.slice(1)||'dashboard');
 }
 
 await init();
