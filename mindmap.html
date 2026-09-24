@@ -297,7 +297,7 @@
 
         <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
           <i class="fa-solid fa-circle-info mr-1"></i>
-          <span data-i18n="anatomy_hint">Az AI SVG ábrát generál feliratozva. Magyar keresés → magyar feliratok, angol keresés → angol feliratok.</span>
+          <span data-i18n="anatomy_hint">Gyakori fogalmakra (csontváz, szív, tüdő…) 3D modell, egyébként AI SVG. Magyar → magyar feliratok.</span>
         </div>
 
         <button onclick="generateAnatomy()" class="w-full py-3 btn-primary text-white font-bold rounded-xl shadow-lg text-sm flex items-center justify-center gap-2">
@@ -502,12 +502,12 @@ const translations = {
     anatomy_settings:"Anatómia Ábragenerátor",
     anatomy_topic:"Anatómiai fogalom / testrész:",
     anatomy_examples:"Gyors példák:",
-    anatomy_hint:"Az AI SVG ábrát generál feliratozva. Magyar keresés → magyar feliratok, angol keresés → angol feliratok.",
+    anatomy_hint:"Gyakori fogalmakra (csontváz, szív, tüdő…) 3D modell, egyébként AI SVG. Magyar → magyar feliratok.",
     generate_anatomy:"Ábra generálása",
     anatomy_placeholder:"Írj be egy anatómiai fogalmat és kattints a generálásra!",
     anatomy_generating:"Anatómiai ábra generálása...",
-    anatomy_info:"AI által generált anatómiai ábra",
-    anatomy_error:"Nem sikerült ábrát generálni. Próbálj pontosabb fogalmat!",
+    anatomy_info:"Anatómiai ábra",
+    anatomy_error:"Nem sikerült ábrát generálni. Próbáld: csontváz, szív, tüdő, agy, gerinc…",
     quiz_settings:"AI Kvíz Beállítások",
     level:"Szint", difficulty:"Nehézség", highschool:"Középiskola", university:"Egyetem",
     easy:"Könnyű", medium:"Közepes", hard:"Nehéz", subject:"Tantárgy",
@@ -541,12 +541,12 @@ const translations = {
     anatomy_settings:"Anatomy Diagram Generator",
     anatomy_topic:"Anatomical term / body part:",
     anatomy_examples:"Quick examples:",
-    anatomy_hint:"AI generates a labeled SVG diagram. English search → English labels, Hungarian search → Hungarian labels.",
+    anatomy_hint:"Common terms (skeleton, heart, lungs…) get 3D models, others use AI SVG. English → English labels.",
     generate_anatomy:"Generate Diagram",
     anatomy_placeholder:"Type an anatomical term and click generate!",
     anatomy_generating:"Generating anatomy diagram...",
-    anatomy_info:"AI-generated anatomy diagram",
-    anatomy_error:"Could not generate diagram. Try a more specific term!",
+    anatomy_info:"Anatomy diagram",
+    anatomy_error:"Could not generate diagram. Try: skeleton, heart, lungs, brain, spine…",
     quiz_settings:"AI Quiz Settings",
     level:"Level", difficulty:"Difficulty", highschool:"High School", university:"University",
     easy:"Easy", medium:"Medium", hard:"Hard", subject:"Subject",
@@ -1270,7 +1270,58 @@ function drawStatsChart() {
   setInfo(`${type} diagram | ${labels.length} kategória | Összeg: ${values.reduce((a,b)=>a+b,0)}`);
 }
 
-// ===================== ANATÓMIA (ÚJ) =====================
+// ===================== ANATÓMIA (Hibrid: Sketchfab 3D + AI SVG) =====================
+// Ismert, magas minőségű szabad Sketchfab modellek (CC Attribution / Free)
+const ANATOMY_3D_MAP = [
+  // Csontváz / skeleton (legfontosabb)
+  { keys: ['csontváz','csontvaz','skeleton','csont','bones','bony','koponya','skull','váz'], 
+    id: '950d0a46531f492ab8715777e312a5bf', title: {hu:'Emberi csontváz (3D)', en:'Human Skeleton (3D)'} },
+  // Szív / heart
+  { keys: ['szív','sziv','heart','cor','cardiac','pitvar','kamra'], 
+    id: '5da08bb137014f0392c69f9997f777cd', title: {hu:'Emberi szív (3D)', en:'Human Heart (3D)'} },
+  // Tüdő / lungs
+  { keys: ['tüdő','tudo','lung','lungs','pulmon','légző'], 
+    id: '369719b8999b41ebb7adb0f4c55cef48', title: {hu:'Tüdő felépítése (3D)', en:'Human Lungs (3D)'} },
+  // Teljesebb csontváz / forensic layout (gerinc is)
+  { keys: ['gerinc','gerincoszlop','spine','spinal','vertebra','csigolya'], 
+    id: '911b9df7e7834175b69b4840ea15e054', title: {hu:'Emberi csontváz / gerinc (3D)', en:'Human Skeleton / Spine (3D)'} },
+  // Általános anatómiai modell (fallback sok szervre)
+  { keys: ['anatómia','anatomy','test','body','szerv'], 
+    id: 'a0640615afa84f74864f5a5c8678c6f5', title: {hu:'Anatómiai modell (3D)', en:'Anatomical Model (3D)'} },
+];
+
+function findAnatomy3D(topic) {
+  const lo = topic.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  for (const item of ANATOMY_3D_MAP) {
+    if (item.keys.some(k => lo.includes(k))) return item;
+  }
+  return null;
+}
+
+function renderSketchfabEmbed(modelId, title) {
+  const svgContainer = document.getElementById('anatomySvgContainer');
+  const placeholder = document.getElementById('anatomyPlaceholder');
+  placeholder.classList.add('hidden');
+  svgContainer.innerHTML = `
+    <div class="w-full flex flex-col items-center gap-3">
+      <div class="text-sm font-semibold text-gray-700">${title}</div>
+      <div class="w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm" style="aspect-ratio:16/10; max-height:480px;">
+        <iframe 
+          title="${title}"
+          src="https://sketchfab.com/models/${modelId}/embed?autostart=1&ui_theme=light&ui_infos=0&ui_controls=1&ui_stop=0"
+          width="100%" height="100%" 
+          frameborder="0" 
+          allow="autoplay; fullscreen; xr-spatial-tracking"
+          allowfullscreen
+          mozallowfullscreen="true"
+          webkitallowfullscreen="true"
+          style="border:none;">
+        </iframe>
+      </div>
+      <p class="text-xs text-gray-400">3D modell · Forgás / zoom egérrel · Sketchfab (CC)</p>
+    </div>`;
+}
+
 async function generateAnatomy() {
   const topic = document.getElementById('anatomyTopic').value.trim();
   if (!topic) {
@@ -1280,12 +1331,22 @@ async function generateAnatomy() {
 
   showLoading(t('anatomy_generating'));
 
-  // Svg konténer előkészítése
   const svgContainer = document.getElementById('anatomySvgContainer');
   const placeholder = document.getElementById('anatomyPlaceholder');
   svgContainer.innerHTML = '';
   placeholder.classList.add('hidden');
 
+  // 1) Először próbálunk magas minőségű 3D modellt
+  const match3d = findAnatomy3D(topic);
+  if (match3d) {
+    const title = match3d.title[currentLang] || match3d.title.en;
+    renderSketchfabEmbed(match3d.id, title);
+    setInfo(`${title} · ${topic}`);
+    hideLoading();
+    return;
+  }
+
+  // 2) Ha nincs 3D egyezés → AI SVG generálás
   try {
     const res = await fetch('/.netlify/functions/generate-anatomy', {
       method: 'POST',
@@ -1297,7 +1358,6 @@ async function generateAnatomy() {
 
     if (data.svg) {
       svgContainer.innerHTML = data.svg;
-      // SVG responsive beállítás
       const svgEl = svgContainer.querySelector('svg');
       if (svgEl) {
         svgEl.setAttribute('width', '100%');
@@ -1306,10 +1366,12 @@ async function generateAnatomy() {
       }
       setInfo(`${t('anatomy_info')}: ${topic}`);
     } else {
+      // 3) AI sem sikerült → fallback üzenet + javaslat
       placeholder.classList.remove('hidden');
       placeholder.innerHTML = `
         <i class="fa-solid fa-triangle-exclamation text-4xl text-amber-400 mb-3"></i>
-        <p class="text-gray-500 text-sm">${data.error || t('anatomy_error')}</p>`;
+        <p class="text-gray-500 text-sm mb-2">${data.error || t('anatomy_error')}</p>
+        <p class="text-xs text-gray-400">Próbáld: csontváz, szív, tüdő, agy, gerinc, vese, neuron, sejt...</p>`;
       setInfo(t('anatomy_error'));
     }
   } catch(e) {
@@ -1482,7 +1544,13 @@ function downloadAsPNG() {
   if (activeTab==='graph') { const s=document.querySelector('#graphContainer svg'); if(s) dlSvg(s); return; }
   if (activeTab==='mermaid') { const s=document.querySelector('#mermaidDisplay svg'); if(s) dlSvg(s); return; }
   if (activeTab==='mindmap') { dlSvg(document.getElementById('markmapSvg')); return; }
-  if (activeTab==='anatomy') { const s=document.querySelector('#anatomySvgContainer svg'); if(s) dlSvg(s); return; }
+  if (activeTab==='anatomy') { 
+    const s = document.querySelector('#anatomySvgContainer svg'); 
+    if (s) { dlSvg(s); return; }
+    // 3D iframe esetén nincs PNG letöltés
+    setInfo(currentLang === 'hu' ? '3D modell esetén a letöltés a Sketchfab oldalon lehetséges.' : 'For 3D models download is available on Sketchfab.');
+    return; 
+  }
 }
 function dlCanvas(id) { const a=document.createElement('a'); a.download='amisearch.png'; a.href=document.getElementById(id).toDataURL(); a.click(); }
 function dlSvg(svg) { const b=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}); const a=document.createElement('a'); a.download='amisearch.svg'; a.href=URL.createObjectURL(b); a.click(); }
