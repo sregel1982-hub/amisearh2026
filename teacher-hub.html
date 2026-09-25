@@ -257,24 +257,30 @@ try {
 // === Adatbetöltő függvények ===
 async function loadProfile() {
   try {
-    const {data}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();
-    return data||{role:'teacher',plan:'Free'};
-  } catch { return {role:'teacher',plan:'Free'}; }
+    const {data,error}=await supabase.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    if(error) throw error;
+    return data ? {...data, role:data.role||data.status} : {role:'teacher',plan:'Free'};
+  } catch(error) {
+    console.error('Profil betöltési hiba:',error);
+    return {role:'teacher',plan:'Free'};
+  }
 }
 function isTeacher() {
-  return ['teacher','tanár','admin'].includes(String(profile?.role||'').toLowerCase());
+  return ['teacher','tanár','admin'].includes(String(profile?.role||profile?.status||'').toLowerCase());
 }
 async function getClasses() {
   try {
-    const {data}=await supabase.from('teacher_classes').select('*').eq('teacher_id',user.id).order('created_at',{ascending:false});
+    const {data,error}=await supabase.from('teacher_classes').select('*').eq('teacher_id',user.id).order('created_at',{ascending:false});
+    if(error) throw error;
     return data||[];
-  } catch { return []; }
+  } catch(error) { console.error('Osztályok betöltési hiba:',error); toast(error.message||'Az osztályok nem tölthetők be.',true); return []; }
 }
 async function getNotes() {
   try {
-    const {data}=await supabase.from('teacher_notes').select('*').eq('owner_id',user.id).order('created_at',{ascending:false});
+    const {data,error}=await supabase.from('teacher_notes').select('*').eq('owner_id',user.id).order('created_at',{ascending:false});
+    if(error) throw error;
     return data||[];
-  } catch { return []; }
+  } catch(error) { console.error('Jegyzetek betöltési hiba:',error); toast(error.message||'A tananyagok nem tölthetők be.',true); return []; }
 }
 
 // === Oldalváltás ===
@@ -354,9 +360,10 @@ async function showClasses() {
   if(form) form.onsubmit=async e=>{
     e.preventDefault();
     try {
-      await supabase.from('teacher_classes').insert({
+      const {error}=await supabase.from('teacher_classes').insert({
         teacher_id:user.id,name:$('#cName').value,subject:$('#cSubject').value,students:Number($('#cStudents').value)
       });
+      if(error) throw error;
       toast('✅ Létrehozva!');
       go('classes');
     } catch(x) { toast(x.message,true); }
@@ -426,11 +433,13 @@ async function showMaterials() {
     try {
       toast('Feltöltés…');
       const fname=`${Date.now()}.${file.name.split('.').pop()}`;
-      await supabase.storage.from('teacher-notes').upload(`${user.id}/${fname}`,file);
-      await supabase.from('teacher_notes').insert({
+      const {error:uploadError}=await supabase.storage.from('teacher-notes').upload(`${user.id}/${fname}`,file);
+      if(uploadError) throw uploadError;
+      const {error:noteError}=await supabase.from('teacher_notes').insert({
         owner_id:user.id,title:$('#nTitle').value||file.name,
-        subject:$('#nSubject').value||'Egyéb',storage_path:`${user.id}/${fname}`
+        subject:$('#nSubject').value||'Egyéb',original_name:file.name,storage_path:`${user.id}/${fname}`
       });
+      if(noteError) throw noteError;
       toast('✅ Feltöltve!');
       go('materials');
     } catch(x) { toast(x.message,true); }
@@ -455,7 +464,7 @@ window.addEventListener('hashchange',()=>go(location.hash.slice(1)));
 // === Indítás ===
 async function init() {
   const {data:{session}}=await supabase.auth.getSession();
-  if(!session) { location.href='/login.html'; return; }
+  if(!session) { location.href='/index.html#login'; return; }
   user=session.user;
   profile=await loadProfile();
 
