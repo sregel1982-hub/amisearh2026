@@ -6,6 +6,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+        teacherHub: resolve(__dirname, 'teacher-hub.html'),
         mindmap: resolve(__dirname, 'mindmap.html'),
         adatvedelem: resolve(__dirname, 'adatvedelem.html'),
         aszf: resolve(__dirname, 'aszf.html'),
