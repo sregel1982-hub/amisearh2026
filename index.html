@@ -1760,6 +1760,7 @@
   // Initialize UI language on load
   window.addEventListener('DOMContentLoaded', () => {
     window.toggleLang(window.currentLang);
+    if (window.location.hash === '#login') window.openModal('loginModal');
   });
 
   /* Free kredit lejárt figyelmeztetés – meghívható a kvótakezelő logikából */
